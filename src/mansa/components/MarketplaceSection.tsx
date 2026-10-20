@@ -1,8 +1,10 @@
 // @ts-nocheck
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import { Search, Star, ArrowRight, Sparkles } from "lucide-react";
 import { MarketplaceItem } from "../types";
 import { MarketplaceCardSkeleton } from "./common/Skeleton";
+import { AdaptiveDensityGrid } from "./common/AdaptiveDensityGrid";
 import { CURATED_MARKETPLACE_PRODUCTS } from "../data/marketplaceData";
 import { CountryFlag } from "./common/CountryFlag";
 
@@ -25,8 +27,7 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
 
   const filteredProducts = CURATED_MARKETPLACE_PRODUCTS.filter((prod) => {
     const matchesCat =
-      selectedCategory === "all" ||
-      prod.category.toLowerCase() === selectedCategory.toLowerCase();
+      selectedCategory === "all" || prod.category.toLowerCase() === selectedCategory.toLowerCase();
     const matchesQuery =
       prod.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       prod.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -36,7 +37,10 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
   });
 
   return (
-    <section id="marketplace" className="w-full bg-[#090a0f] py-16 border-t border-white/[0.04] relative">
+    <section
+      id="marketplace"
+      className="w-full bg-[#090a0f] py-16 border-t border-white/[0.04] relative"
+    >
       <div className="mx-auto max-w-[1140px] px-6 sm:px-10">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
@@ -45,7 +49,8 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
               Offres de la communauté
             </h2>
             <p className="text-sm text-zinc-400 mt-1">
-              Découvrez des canaux privés sur Telegram, des formations et des logiciels proposés par la communauté.
+              Découvrez des canaux privés sur Telegram, des formations et des logiciels proposés par
+              la communauté.
             </p>
           </div>
 
@@ -102,9 +107,7 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
           </div>
         ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16 rounded-2xl border border-white/10 bg-[#12141a] p-8 space-y-3">
-            <p className="text-base font-bold text-white">
-              Aucune offre trouvée
-            </p>
+            <p className="text-base font-bold text-white">Aucune offre trouvée</p>
             <p className="text-xs text-zinc-400">
               Essayez de modifier votre recherche ou sélectionnez une autre catégorie.
             </p>
@@ -120,13 +123,23 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
           </div>
         ) : (
           /* Product Cards Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((prod) => {
+          <AdaptiveDensityGrid count={filteredProducts.length} lang={lang}>
+            {filteredProducts.map((prod, index) => {
               return (
-                <div
+                <motion.div
                   key={prod.id}
+                  layout
+                  transition={{
+                    layout: {
+                      type: "spring",
+                      stiffness: 320,
+                      damping: 32,
+                      mass: 0.85,
+                      delay: Math.min(index * 0.018, 0.18),
+                    },
+                  }}
                   onClick={() => onSelectProduct(prod)}
-                  className="group relative flex flex-col justify-between rounded-2xl border border-white/[0.06] bg-[#12141a]/90 p-5 transition-colors duration-150 hover:border-white/20 hover:bg-[#161822] cursor-pointer"
+                  className="group relative flex h-full flex-col justify-between rounded-2xl border border-white/[0.06] bg-[#12141a]/90 p-5 transition-colors duration-150 hover:border-white/20 hover:bg-[#161822] cursor-pointer"
                 >
                   <div>
                     <div className="flex items-start justify-between mb-3 gap-3">
@@ -139,7 +152,10 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
                           />
                           {prod.countryCode && (
                             <div className="absolute -bottom-1 -right-1 rounded-[2px] overflow-hidden shadow-xs border border-[#12141a]">
-                              <CountryFlag countryCode={prod.countryCode} className="w-4 h-3 object-cover block" />
+                              <CountryFlag
+                                countryCode={prod.countryCode}
+                                className="w-4 h-3 object-cover block"
+                              />
                             </div>
                           )}
                         </div>
@@ -153,7 +169,10 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
                             <span>par {prod.creator}</span>
                             {prod.countryCode && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-300 bg-white/5 px-1.5 py-0.2 rounded border border-white/5">
-                                <CountryFlag countryCode={prod.countryCode} className="w-3 h-2 rounded-[1px] object-cover" />
+                                <CountryFlag
+                                  countryCode={prod.countryCode}
+                                  className="w-3 h-2 rounded-[1px] object-cover"
+                                />
                                 {prod.countryCode}
                               </span>
                             )}
@@ -169,9 +188,7 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
                       <div className="flex items-center gap-1 text-xs font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-lg">
                         <Star className="size-3 fill-amber-400 text-amber-400" />
                         <span>{prod.rating}</span>
-                        <span className="text-zinc-500 font-normal">
-                          ({prod.reviewsCount})
-                        </span>
+                        <span className="text-zinc-500 font-normal">({prod.reviewsCount})</span>
                       </div>
                     </div>
 
@@ -193,7 +210,9 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
 
                   <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between gap-2">
                     <div>
-                      <span className="text-[10px] uppercase font-semibold text-zinc-500 block">Tarif</span>
+                      <span className="text-[10px] uppercase font-semibold text-zinc-500 block">
+                        Tarif
+                      </span>
                       <span className="text-sm font-extrabold text-white truncate max-w-[130px] block">
                         {prod.priceMonthly}
                       </span>
@@ -222,10 +241,10 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
                       </button>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </AdaptiveDensityGrid>
         )}
       </div>
     </section>
