@@ -1097,14 +1097,17 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
                       <span>Fichiers & Documents à Télécharger</span>
                     </h3>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
-                      {productType === "ebook"
-                        ? "Uploadez votre e-book ou guide (PDF, ePub) téléchargeable après achat ou en accès gratuit."
-                        : "Uploadez les fichiers numériques, guides ou documents inclus dans cette offre."}
+                      {selectedApps.some((app) => ["Fichiers", "Fichiers & Documents", "Téléchargement instantané"].includes(app))
+                        ? "Gérez les fichiers depuis l’application Fichiers de cette entreprise."
+                        : productType === "ebook"
+                          ? "Ajoutez votre e-book ou guide (PDF, ePub) téléchargeable après achat ou en accès gratuit."
+                          : "Ajoutez les fichiers numériques, guides ou documents inclus dans cette offre."}
                     </p>
                   </div>
                 </div>
 
                 {/* Upload Zone */}
+                {!selectedApps.some((app) => ["Fichiers", "Fichiers & Documents", "Téléchargement instantané"].includes(app)) && (
                 <div className="rounded-2xl border-2 border-dashed border-white/15 bg-[#14161f] p-4 text-center hover:border-[#00D26A]/50 transition-colors space-y-3">
                   <input
                     type="file"
@@ -1123,7 +1126,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
                     </div>
                     <div className="space-y-0.5">
                       <span className="text-xs font-bold text-white block">
-                        Cliquez pour uploader ou glissez vos fichiers
+                        Cliquez pour sélectionner vos fichiers
                       </span>
                       <span className="text-[10px] text-zinc-400 block font-mono">
                         Musique (MP3, WAV avec écoute 30s), PDF, ePub, ZIP, Vidéo (jusqu'à 2 Go)
@@ -1145,6 +1148,8 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
                     </button>
                   </div>
                 </div>
+
+                )}
 
                 {/* E-book specific metadata */}
                 {productType === "ebook" && (

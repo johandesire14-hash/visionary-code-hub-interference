@@ -28,6 +28,8 @@ import {
 
 interface WorkforceViewProps {
   lang?: "fr" | "en";
+  activeCompanyId?: string;
+  activeCompanyName?: string;
   user?: {
     uid?: string;
     name?: string;
@@ -37,9 +39,11 @@ interface WorkforceViewProps {
 
 export const WorkforceView: React.FC<WorkforceViewProps> = ({
   lang = "fr",
+  activeCompanyId,
+  activeCompanyName,
   user,
 }) => {
-  const creatorId = user?.uid || "creator_default";
+  const creatorId = user?.uid || user?.email || "creator_default";
   const [team, setTeam] = useState<FirestoreWorkforceMember[]>([]);
   const [isLoadingTeam, setIsLoadingTeam] = useState(true);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -55,10 +59,17 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
   // Load team on mount or user change
   useEffect(() => {
     let isMounted = true;
+    if (!activeCompanyId) {
+      setTeam([]);
+      setIsLoadingTeam(false);
+      return () => {
+        isMounted = false;
+      };
+    }
     const fetchTeam = async () => {
       setIsLoadingTeam(true);
       try {
-        const data = await getCreatorWorkforce(creatorId);
+        const data = await getCreatorWorkforce(creatorId, activeCompanyId);
         if (isMounted) {
           setTeam(data);
         }
@@ -73,7 +84,7 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [creatorId]);
+  }, [creatorId, activeCompanyId]);
 
   const totalPayroll = team.reduce((acc, w) => {
     const num = parseFloat(w.rate.replace(/[^0-9.]/g, "") || "0");
@@ -86,6 +97,10 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeCompanyId) {
+      setErrorMessage("Sélectionnez une entreprise avant d’ajouter un membre.");
+      return;
+    }
     if (!inviteEmail.trim()) return;
 
     setIsSubmitting(true);
@@ -95,7 +110,7 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
     const workerAvatar = inviteEmail.slice(0, 2).toUpperCase();
 
     try {
-      const savedId = await saveWorkforceMemberToFirestore(creatorId, {
+      const savedId = await saveWorkforceMemberToFirestore(creatorId, activeCompanyId, {
         name: workerName,
         role: inviteRole,
         rate: `$${inviteRate}.00 / mois`,
@@ -108,6 +123,7 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
       const newMember: FirestoreWorkforceMember = {
         id: savedId,
         creatorId,
+        companyId: activeCompanyId,
         name: workerName,
         role: inviteRole,
         rate: `$${inviteRate}.00 / mois`,
@@ -132,10 +148,11 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
   };
 
   const handleDeleteMember = async (memberId: string, memberName: string) => {
+    if (!activeCompanyId) return;
     if (!confirm(`Voulez-vous vraiment retirer ${memberName} de votre équipe ?`)) return;
 
     try {
-      await deleteWorkforceMemberFromFirestore(memberId);
+      await deleteWorkforceMemberFromFirestore(memberId, activeCompanyId);
       setTeam((prev) => prev.filter((m) => m.id !== memberId));
       setSuccessToast(`${memberName} a été retiré de votre équipe.`);
       setTimeout(() => setSuccessToast(null), 3000);
@@ -155,6 +172,7 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               {lang === "fr" ? "Main-d'œuvre & Équipe" : "Workforce & Team"}
             </h1>
+            {activeCompanyName && <span className="text-xs text-zinc-400">· {activeCompanyName}</span>}
           </div>
           <p className="text-xs text-zinc-400 mt-1">
             {lang === "fr"
@@ -165,11 +183,12 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
 
         <div className="flex items-center gap-2.5">
           <button
+            disabled={!activeCompanyId}
             onClick={() => {
               setErrorMessage(null);
               setIsInviteOpen(true);
             }}
-            className="flex items-center gap-2 rounded-xl bg-[#0055ff] hover:bg-[#0047d6] text-white px-4 py-2 text-xs font-bold transition-all shadow-md cursor-pointer"
+            className="flex items-center gap-2 rounded-xl bg-[#0055ff] hover:bg-[#0047d6] text-white px-4 py-2 text-xs font-bold transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <Plus className="size-4" />
             <span>{lang === "fr" ? "Recruter / Inviter un membre" : "Invite Team Member"}</span>

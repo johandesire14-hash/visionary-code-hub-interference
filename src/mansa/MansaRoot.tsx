@@ -1,8 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode, StrictMode } from "react";
-import { Moon, Sun } from "lucide-react";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
-import { safeStorage } from "./utils/storage";
+import { getAppTheme, setAppTheme, THEME_CHANGE_EVENT } from "./utils/theme";
 
 interface Props {
   children: React.ReactNode;
@@ -80,38 +79,23 @@ function ViewportMetrics() {
   return null;
 }
 
-function ThemeToggle({ isDark, onToggle }: { isDark: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-label={isDark ? "Activer le mode clair" : "Activer le mode sombre"}
-      title={isDark ? "Mode clair" : "Mode sombre"}
-      className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] right-4 z-[100] flex size-11 items-center justify-center rounded-full bg-store-primary text-store-primary-foreground shadow-lg transition-transform hover:scale-105 lg:bottom-4"
-    >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-    </button>
-  );
-}
-
 export default function MansaRoot() {
-  const [isDark, setIsDark] = React.useState(false);
+  const [isDark, setIsDark] = React.useState(true);
 
   React.useEffect(() => {
-    const storedTheme = safeStorage.getItem("afhub-theme");
-    const nextIsDark = storedTheme === "dark";
-    setIsDark(nextIsDark);
-    document.documentElement.classList.toggle("dark", nextIsDark);
-    document.documentElement.style.colorScheme = nextIsDark ? "dark" : "light";
+    const applyTheme = (theme: "dark" | "light") => {
+      setIsDark(theme === "dark");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+      document.documentElement.style.colorScheme = theme;
+    };
+    applyTheme(getAppTheme());
+    const handleThemeChange = (event: Event) => {
+      const theme = (event as CustomEvent<"dark" | "light">).detail;
+      applyTheme(theme === "light" ? "light" : "dark");
+    };
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
   }, []);
-
-  const toggleTheme = () => {
-    const nextIsDark = !isDark;
-    setIsDark(nextIsDark);
-    safeStorage.setItem("afhub-theme", nextIsDark ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", nextIsDark);
-    document.documentElement.style.colorScheme = nextIsDark ? "dark" : "light";
-  };
 
   return (
     <RootErrorBoundary>
@@ -119,7 +103,6 @@ export default function MansaRoot() {
         <AuthProvider>
           <ViewportMetrics />
           <App />
-          <ThemeToggle isDark={isDark} onToggle={toggleTheme} />
         </AuthProvider>
       </div>
     </RootErrorBoundary>

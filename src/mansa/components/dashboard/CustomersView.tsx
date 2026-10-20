@@ -47,9 +47,15 @@ interface CustomerMember {
 
 interface CustomersViewProps {
   lang?: "fr" | "en";
+  activeCompanyId?: string;
+  activeCompanyName?: string;
 }
 
-export const CustomersView: React.FC<CustomersViewProps> = ({ lang = "fr" }) => {
+export const CustomersView: React.FC<CustomersViewProps> = ({
+  lang = "fr",
+  activeCompanyId,
+  activeCompanyName,
+}) => {
   const { user, profile } = useAuth();
   const [customers, setCustomers] = useState<CustomerMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,6 +68,10 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ lang = "fr" }) => 
   const [newMemberProduct, setNewMemberProduct] = useState("Pass VIP Mansa");
 
   useEffect(() => {
+    if (!activeCompanyId) {
+      setCustomers([]);
+      return;
+    }
     const creatorKey = profile?.uid || user?.email || "creator-default";
     const unsub = subscribeToCreatorCustomers(creatorKey, (dbCusts) => {
       const mapped: CustomerMember[] = dbCusts.map((c) => {
@@ -88,10 +98,10 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ lang = "fr" }) => 
         };
       });
       setCustomers(mapped);
-    });
+    }, activeCompanyId);
 
     return () => unsub();
-  }, [profile?.uid, user?.email]);
+  }, [profile?.uid, user?.email, activeCompanyId]);
 
   const filtered = customers.filter((c) => {
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
@@ -104,11 +114,14 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ lang = "fr" }) => 
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeCompanyId) return;
     const creatorKey = profile?.uid || user?.email || "creator-default";
     await createRealCustomer(creatorKey, {
       name: newMemberName,
       email: newMemberEmail,
       productName: newMemberProduct,
+      companyId: activeCompanyId,
+      companyName: activeCompanyName,
       totalSpent: 0,
       totalSpentFormatted: "0 FCFA",
       countryFlag: "🇨🇮",
@@ -155,6 +168,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({ lang = "fr" }) => 
 
           <button
             onClick={() => setIsAddMemberOpen(true)}
+            disabled={!activeCompanyId}
             className="flex items-center gap-2 rounded-xl bg-[#0055ff] hover:bg-[#0047d6] text-white px-4 py-2 text-xs font-bold transition-all shadow-md cursor-pointer"
           >
             <Plus className="size-4" />

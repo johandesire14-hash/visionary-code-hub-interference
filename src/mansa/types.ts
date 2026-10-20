@@ -64,6 +64,9 @@ export interface BusinessProject {
   bannerUrl?: string;
   companyId?: string;
   companyName?: string;
+  productType?: string;
+  digitalFiles?: unknown[];
+  courseModules?: unknown[];
 }
 
 export interface LiveEvent {

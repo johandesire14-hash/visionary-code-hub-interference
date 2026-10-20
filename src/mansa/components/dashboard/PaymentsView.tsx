@@ -43,6 +43,7 @@ import {
 } from "../../services/dbService";
 import { CurrencyCode, formatCurrency } from "../../utils/currency";
 import { DIAL_CODE_CONFIGS } from "../../utils/phoneValidationRules";
+import { filterByCompanyId, filterPersonalTransactions } from "../../utils/companyScope";
 import { isCreatorPayoutConfigured, setCreatorPayoutConfigured } from "../../utils/payoutConfig";
 import { ContextualLocationPrompt } from "../common/ContextualLocationPrompt";
 import {
@@ -110,6 +111,9 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
   const creatorKey = profile?.uid || user?.email || "creator-default";
 
   const isCompanyContext = Boolean(activeWorkspaceId && activeWorkspaceId !== "personnel");
+  const financialScopeKey = isCompanyContext
+    ? `${creatorKey}:company:${activeWorkspaceId}`
+    : creatorKey;
   const contextName = isCompanyContext ? activeCompanyName || "Entreprise" : "Personnel";
 
   // Navigation tab
@@ -178,11 +182,11 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
 
   // Load Payout Methods & Withdrawals
   const reloadFinancialData = () => {
-    const methods = getSavedPayoutMethods(creatorKey);
+    const methods = getSavedPayoutMethods(financialScopeKey);
     setPayoutMethods(methods);
-    const wdrs = getWithdrawalHistory(creatorKey);
+    const wdrs = getWithdrawalHistory(financialScopeKey);
     setWithdrawals(wdrs);
-    const kyc = getCreatorKycStatus(creatorKey);
+    const kyc = getCreatorKycStatus(financialScopeKey);
     setKycInfo(kyc);
   };
 
@@ -204,7 +208,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
       window.removeEventListener(FINANCIAL_EVENTS.BALANCE_CHANGED, handleDataChange);
       window.removeEventListener(FINANCIAL_EVENTS.KYC_CHANGED, handleDataChange);
     };
-  }, [creatorKey]);
+  }, [financialScopeKey]);
 
   // Subscribe to real transactions
   useEffect(() => {
@@ -257,50 +261,31 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
         };
       });
       setTransactions(mapped);
-    });
+    }, isCompanyContext ? activeWorkspaceId : "personal");
 
     return () => unsub();
-  }, [creatorKey]);
+  }, [creatorKey, activeWorkspaceId, isCompanyContext]);
 
   // Filter transactions strictly according to context:
   // - Mode Entreprise : uniquement les revenus et transactions générés par cette entreprise spécifique
-  // - Mode Personnel : solde global sur toute la plateforme (toutes entreprises, revenus d'affiliation, autres revenus)
-  // Règle formelle : Il ne faut JAMAIS mélanger le solde d'une entreprise avec le solde personnel global.
+  // - Mode Personnel : seuls les revenus sans entreprise rattachée
+  // Règle formelle : aucun flux d'une entreprise n'est inclus dans Personnel.
   const contextRawTransactions = useMemo(() => {
     if (!isCompanyContext) {
-      // En mode Personnel : tous les flux qui m'appartiennent sur la plateforme
-      return rawTransactions;
+      return filterPersonalTransactions(rawTransactions);
     }
-    // En mode Entreprise : exclusion absolue des affiliations et revenus personnels
-    return rawTransactions.filter((t) => {
-      if (t.type === "affiliate" || t.type === "other") {
-        return false;
-      }
-      const matchCompId = t.companyId === activeWorkspaceId;
-      const matchCompName =
-        activeCompanyName &&
-        ((t.companyName && t.companyName.toLowerCase() === activeCompanyName.toLowerCase()) ||
-          (t.storeName && t.storeName.toLowerCase() === activeCompanyName.toLowerCase()));
-      return matchCompId || matchCompName;
-    });
+    return filterByCompanyId(rawTransactions, activeWorkspaceId);
   }, [rawTransactions, isCompanyContext, activeWorkspaceId, activeCompanyName]);
 
   const contextTransactions = useMemo(() => {
     if (!isCompanyContext) {
-      return transactions;
+      return transactions.filter(
+        (transaction) =>
+          !transaction.rawTx.companyId &&
+          (transaction.rawTx.type === "affiliate" || transaction.rawTx.type === "other"),
+      );
     }
-    return transactions.filter((tx) => {
-      const t = tx.rawTx;
-      if (t.type === "affiliate" || t.type === "other") {
-        return false;
-      }
-      const matchCompId = t.companyId === activeWorkspaceId;
-      const matchCompName =
-        activeCompanyName &&
-        ((t.companyName && t.companyName.toLowerCase() === activeCompanyName.toLowerCase()) ||
-          (t.storeName && t.storeName.toLowerCase() === activeCompanyName.toLowerCase()));
-      return matchCompId || matchCompName;
-    });
+    return transactions.filter((transaction) => transaction.rawTx.companyId === activeWorkspaceId);
   }, [transactions, isCompanyContext, activeWorkspaceId, activeCompanyName]);
 
   // Breakdown consolidé pour le Mode Personnel (Entreprises, Affiliation, Autres)
@@ -309,7 +294,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
     let affiliateRevenue = 0;
     let otherRevenue = 0;
 
-    rawTransactions.forEach((t) => {
+    filterPersonalTransactions(rawTransactions).forEach((t) => {
       const net = (t.amountNumber || 0) * 0.96;
       if (t.type === "affiliate") {
         affiliateRevenue += net;
@@ -330,8 +315,8 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
 
   // Compute Balances strictly isolated for this context
   const balance = useMemo(() => {
-    return calculateCreatorFinancialBalance(creatorKey, contextRawTransactions, activeCurrency);
-  }, [creatorKey, contextRawTransactions, withdrawals, activeCurrency]);
+    return calculateCreatorFinancialBalance(financialScopeKey, contextRawTransactions, activeCurrency);
+  }, [financialScopeKey, contextRawTransactions, withdrawals, activeCurrency]);
 
   const hasWithdrawalConfigured = payoutMethods.length > 0;
 
@@ -395,6 +380,10 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
   // Handle Manual Sale Creation
   const handleCreateSale = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isCompanyContext) {
+      showFeedback("error", "Sélectionnez une entreprise avant d’enregistrer une vente.");
+      return;
+    }
     const amtNum = parseFloat(saleAmount) || 25000;
     await createRealTransaction(creatorKey, {
       productName: saleProductName,
@@ -406,6 +395,8 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
       buyerEmail: saleCustomerEmail || "client@afhub.app",
       buyerLocation: saleLocation,
       paymentMethod: salePaymentMethod,
+      companyId: activeWorkspaceId,
+      companyName: activeCompanyName,
     });
     setIsNewSaleModalOpen(false);
     setSaleCustomerName("");
@@ -429,7 +420,7 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
       createdAt: new Date().toISOString(),
     };
 
-    savePayoutMethod(creatorKey, newConfig);
+    savePayoutMethod(financialScopeKey, newConfig);
     setPreferredWithdrawalMethodId(newConfig.id);
     setPayoutMethods((current) => [
       ...current.filter((method) => method.type !== newConfig.type),
@@ -447,7 +438,7 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
   // Fast forward clearance (testing / demonstration)
   const handleClearAllPending = () => {
     const pendingIds = transactions.map((t) => t.id);
-    forceClearAllPendingFunds(creatorKey, pendingIds);
+    forceClearAllPendingFunds(financialScopeKey, pendingIds);
     showFeedback(
       "info",
       "Période de compensation terminée : l'ensemble des fonds en attente est désormais disponible pour retrait !",
@@ -1195,7 +1186,7 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
                   ) : (
                     <button
                       onClick={() => {
-                        setDefaultPayoutMethod(creatorKey, method.id);
+                        setDefaultPayoutMethod(financialScopeKey, method.id);
                         showFeedback("info", `${method.label} défini comme compte par défaut.`);
                       }}
                       className="text-[10px] text-zinc-400 hover:text-white underline cursor-pointer"
@@ -1232,7 +1223,7 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
                   {payoutMethods.length > 1 && (
                     <button
                       onClick={() => {
-                        removePayoutMethod(creatorKey, method.id);
+                        removePayoutMethod(financialScopeKey, method.id);
                         showFeedback("info", "Compte de retrait supprimé.");
                       }}
                       className="p-1 rounded-lg text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
@@ -1308,7 +1299,7 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
       <WithdrawalRequestModal
         isOpen={isPayoutModalOpen}
         onClose={() => setIsPayoutModalOpen(false)}
-        creatorId={creatorKey}
+        creatorId={financialScopeKey}
         accountHolder={profile?.momoName || user?.displayName || ""}
         currency={activeCurrency}
         balance={balance}

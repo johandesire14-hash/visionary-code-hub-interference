@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Bot, Building2, CheckCircle2, Loader2, MessageSquare, Send, UserRound } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { Company } from "../../types";
@@ -31,12 +31,8 @@ const DEFAULT_MESSAGE = "Bonjour ! Merci d'avoir contacté notre équipe. Nous a
 
 export const AssistanceView: React.FC<AssistanceViewProps> = ({ lang = "fr", activeCompany, companies = [], isPersonalWorkspace = false }) => {
   const { user } = useAuth();
-  const userKey = user?.email || "default";
-  const availableCompanies = useMemo(() => {
-    const stored = getSavedCompanies(userKey);
-    return stored.length ? stored : companies;
-  }, [userKey, companies]);
-  const [companyId, setCompanyId] = useState(activeCompany?.id || availableCompanies[0]?.id || "");
+  const userKey = user?.uid || user?.email || "default";
+  const companyId = isPersonalWorkspace ? "" : activeCompany?.id || "";
   const [enabled, setEnabled] = useState(true);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [isSaving, setIsSaving] = useState(false);
@@ -45,26 +41,40 @@ export const AssistanceView: React.FC<AssistanceViewProps> = ({ lang = "fr", act
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
-  const selectedCompany = availableCompanies.find((company) => company.id === companyId) || activeCompany || null;
-  const selectedConversation = conversations.find((conversation) => conversation.id === selectedConversationId) || null;
+  const selectedCompany = isPersonalWorkspace ? null : activeCompany || null;
+  const visibleConversations = conversations.filter(
+    (conversation) =>
+      !isPersonalWorkspace &&
+      Boolean(activeCompany?.id) &&
+      conversation.companyId === activeCompany?.id,
+  );
+  const selectedConversation = visibleConversations.find((conversation) => conversation.id === selectedConversationId) || null;
 
   useEffect(() => {
-    const targetId = isPersonalWorkspace ? "" : activeCompany?.id || "";
-    setCompanyId(targetId);
+    setSelectedConversationId(null);
+    setReply("");
   }, [activeCompany?.id, isPersonalWorkspace]);
 
   useEffect(() => {
-    if (!companyId) return;
-    const current = getSavedCompanies(userKey).find((company) => company.id === companyId) || companies.find((company) => company.id === companyId);
+    if (!companyId) {
+      setEnabled(true);
+      setMessage(DEFAULT_MESSAGE);
+      setFeedback(null);
+      return;
+    }
+    const current =
+      getSavedCompanies(userKey).find((company) => company.id === companyId) ||
+      companies.find((company) => company.id === companyId) ||
+      activeCompany;
     setEnabled(current?.supportAutoReplyEnabled ?? true);
     setMessage(current?.supportAutoReplyMessage || DEFAULT_MESSAGE);
     setFeedback(null);
-  }, [companyId, userKey, companies]);
+  }, [companyId, userKey, companies, activeCompany]);
 
   useEffect(() => {
     const handleMemberMessage = (event: Event) => {
       const detail = (event as CustomEvent<{ companyId?: string; memberName?: string; memberEmail?: string; message?: string }>).detail;
-      if (!detail?.companyId || !detail.message || isPersonalWorkspace || (activeCompany?.id && detail.companyId !== activeCompany.id)) return;
+      if (!detail?.companyId || !detail.message || isPersonalWorkspace || !activeCompany?.id || detail.companyId !== activeCompany.id) return;
       const memberEmail = detail.memberEmail || "membre@mansa.app";
       const conversationId = `${detail.companyId}:${memberEmail}`;
       const nextMessage: SupportMessage = {
@@ -96,7 +106,7 @@ export const AssistanceView: React.FC<AssistanceViewProps> = ({ lang = "fr", act
 
   const save = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!companyId || !message.trim()) {
+    if (!companyId || !activeCompany?.id || companyId !== activeCompany.id || !message.trim()) {
       setFeedback("Sélectionnez une entreprise et renseignez un message.");
       return;
     }
@@ -157,7 +167,7 @@ export const AssistanceView: React.FC<AssistanceViewProps> = ({ lang = "fr", act
         <div className="border-b border-white/10 lg:border-b-0 lg:border-r">
           <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold text-zinc-300">Demandes reçues</div>
           <div className="max-h-[410px] overflow-y-auto">
-            {conversations.length === 0 ? <div className="p-5 text-xs leading-relaxed text-zinc-500">Les demandes des membres apparaîtront ici.</div> : conversations.map((conversation) => {
+            {visibleConversations.length === 0 ? <div className="p-5 text-xs leading-relaxed text-zinc-500">Les demandes des membres apparaîtront ici.</div> : visibleConversations.map((conversation) => {
               const lastMessage = conversation.messages[conversation.messages.length - 1];
               return <button type="button" key={conversation.id} onClick={() => setSelectedConversationId(conversation.id)} className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left transition-colors ${selectedConversationId === conversation.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}>
                 <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white"><UserRound className="size-4" /></div>

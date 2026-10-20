@@ -317,8 +317,8 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
       setIsCompleted(true);
 
       // Enregistrement systématique de la vente rattachée au compte financier du créateur
-      if (!isCompanyOwner && offer.pricingType !== "free" && currentPlan.price > 0) {
-        const creatorKey = offer.companyId || user?.uid || user?.email || "creator-default";
+      if (!isCompanyOwner && offer.creatorId && offer.pricingType !== "free" && currentPlan.price > 0) {
+        const creatorKey = offer.creatorId;
         createRealTransaction(creatorKey, {
           buyerName: customerName,
           buyerEmail: customerEmail,
@@ -327,7 +327,9 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
           productId: offer.id,
           amount: `${currentPlan.price.toLocaleString("fr-FR")} ${offer.currency || "XAF"}`,
           amountNumber: currentPlan.price,
-          currency: offer.currency || "XAF",
+          currency: offer.currency || "XOF",
+          companyId: offer.companyId,
+          companyName: offer.companyName,
           paymentMethod:
             paymentMethod === "mobile_money"
               ? `${mobileMoneyValidation?.operatorName || "Mobile Money"} (${mobileMoneyValidation?.dialCode || ""})`

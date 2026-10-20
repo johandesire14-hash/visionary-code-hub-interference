@@ -48,6 +48,13 @@ service cloud.firestore {
           == get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.get('name', '');
     }
 
+    function canReadPrivateProductContent(productId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/products/$(productId))
+        && get(/databases/$(database)/documents/products/$(productId)).data.get('creatorId', '') == request.auth.uid
+        && ownsCompany(get(/databases/$(database)/documents/products/$(productId)).data.get('companyId', ''));
+    }
+
     function validStatusUpdate(allowedStatuses) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
@@ -133,12 +140,14 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.get('creatorId', '') == request.auth.uid
         && request.resource.data.keys().hasAll(['creatorId', 'companyId', 'companyName', 'name', 'status'])
+        && !request.resource.data.keys().hasAny(['digitalFiles', 'courseModules'])
         && productHasOwnedCompany()
         && request.resource.data.get('status', '') in ['active', 'draft', 'paused'];
       allow update: if signedIn()
         && resource.data.get('creatorId', '') == request.auth.uid
         && request.resource.data.get('creatorId', '') == request.auth.uid
         && request.resource.data.keys().hasAll(['companyId', 'companyName'])
+        && !request.resource.data.keys().hasAny(['digitalFiles', 'courseModules'])
         && productHasOwnedCompany()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'tagline', 'description', 'category', 'productType',
@@ -146,10 +155,43 @@ service cloud.firestore {
           'status', 'features', 'techStack', 'estimatedMonthlyRevenue',
           'affiliateCommissionRate', 'membersCount', 'conversionRate', 'apps',
           'storeUrl', 'ctaText', 'coverImage', 'bannerUrl', 'companyId',
-          'companyName', 'updatedAt'
+          'companyName', 'digitalFiles', 'courseModules', 'updatedAt'
         ])
         && request.resource.data.get('status', '') in ['active', 'draft', 'paused'];
       allow delete: if signedIn() && resource.data.get('creatorId', '') == request.auth.uid;
+    }
+
+    // Le programme de cours et les ressources ne sont jamais inclus dans la fiche publique.
+    // Même leur lecture par ID exige que l’utilisateur possède encore le produit et l’entreprise.
+    match /productPrivateContent/{productId} {
+      allow get: if canReadPrivateProductContent(productId);
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'creatorId', 'companyId', 'digitalFiles', 'courseModules', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'creatorId', 'companyId', 'digitalFiles', 'courseModules', 'updatedAt'
+        ])
+        && request.resource.data.creatorId == request.auth.uid
+        && ownsCompany(request.resource.data.companyId)
+        && getAfter(/databases/$(database)/documents/products/$(productId)).data.get('creatorId', '') == request.auth.uid
+        && getAfter(/databases/$(database)/documents/products/$(productId)).data.get('companyId', '') == request.resource.data.companyId;
+      allow update: if signedIn()
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && request.resource.data.get('creatorId', '') == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'creatorId', 'companyId', 'digitalFiles', 'courseModules', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'creatorId', 'companyId', 'digitalFiles', 'courseModules', 'updatedAt'
+        ])
+        && ownsCompany(request.resource.data.companyId)
+        && getAfter(/databases/$(database)/documents/products/$(productId)).data.get('creatorId', '') == request.auth.uid
+        && getAfter(/databases/$(database)/documents/products/$(productId)).data.get('companyId', '') == request.resource.data.companyId;
+      allow delete: if signedIn()
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && ownsCompany(resource.data.get('companyId', ''));
     }
 
     // Demandes d'assistance: le client crée son propre dossier et ne peut jamais
@@ -333,7 +375,11 @@ service cloud.firestore {
     // d'un backend de confiance. Les clients Firebase ne peuvent pas les forger.
     match /transactions/{transactionId} {
       allow get, list: if isSupportStaff()
-        || (signedIn() && resource.data.get('creatorId', '') == request.auth.uid);
+        || (signedIn()
+          && resource.data.get('creatorId', '') == request.auth.uid
+          && ((('companyId' in resource.data) && ownsCompany(resource.data.companyId))
+            || (resource.data.get('companyId', null) == null
+              && resource.data.get('type', '') in ['affiliate', 'other'])));
       allow create, update, delete: if false;
     }
 
@@ -450,66 +496,84 @@ service cloud.firestore {
     // CRM du créateur. Les requêtes client doivent inclure creatorId == UID.
     match /customers/{customerId} {
       allow get, list: if signedIn()
-        && resource.data.get('creatorId', '') == request.auth.uid;
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && (!('companyId' in resource.data) || ownsCompany(resource.data.companyId));
       allow create: if signedIn()
         && request.resource.data.get('creatorId', '') == request.auth.uid
-        && request.resource.data.keys().hasAll(['creatorId', 'name'])
+        && request.resource.data.keys().hasAll(['creatorId', 'companyId', 'name'])
+        && ownsCompany(request.resource.data.companyId)
         && request.resource.data.keys().hasOnly([
-          'id', 'creatorId', 'name', 'email', 'country', 'countryName',
+          'id', 'creatorId', 'companyId', 'companyName', 'name', 'email', 'country', 'countryName',
           'countryFlag', 'productName', 'productId', 'amountSpent', 'totalSpent',
           'totalSpentFormatted', 'currency', 'status', 'joinedAt', 'joinedDate'
         ]);
       allow update: if signedIn()
         && resource.data.get('creatorId', '') == request.auth.uid
         && request.resource.data.get('creatorId', '') == request.auth.uid
+        && request.resource.data.get('companyId', '') == resource.data.get('companyId', '')
+        && (!('companyId' in resource.data) || ownsCompany(resource.data.companyId))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'name', 'email', 'country', 'countryName', 'countryFlag', 'productName',
+          'companyName', 'name', 'email', 'country', 'countryName', 'countryFlag', 'productName',
           'productId', 'amountSpent', 'totalSpent', 'totalSpentFormatted',
           'currency', 'status'
         ]);
-      allow delete: if signedIn() && resource.data.get('creatorId', '') == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && (!('companyId' in resource.data) || ownsCompany(resource.data.companyId));
     }
 
     match /workforce/{memberId} {
       allow get, list: if signedIn()
-        && resource.data.get('creatorId', '') == request.auth.uid;
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && ownsCompany(resource.data.get('companyId', ''));
       allow create: if signedIn()
         && request.resource.data.get('creatorId', '') == request.auth.uid
-        && request.resource.data.keys().hasAll(['id', 'creatorId', 'name', 'role', 'createdAt'])
+        && request.resource.data.keys().hasAll(['id', 'creatorId', 'companyId', 'name', 'role', 'createdAt'])
+        && ownsCompany(request.resource.data.companyId)
         && request.resource.data.keys().hasOnly([
-          'id', 'creatorId', 'name', 'role', 'rate', 'avatar', 'status',
+          'id', 'creatorId', 'companyId', 'name', 'role', 'rate', 'avatar', 'status',
           'tasksCompleted', 'rating', 'createdAt'
         ]);
       allow update: if signedIn()
         && resource.data.get('creatorId', '') == request.auth.uid
         && request.resource.data.get('creatorId', '') == request.auth.uid
+        && resource.data.get('companyId', '') == request.resource.data.get('companyId', '')
+        && ownsCompany(resource.data.get('companyId', ''))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'name', 'role', 'rate', 'avatar', 'status', 'tasksCompleted', 'rating'
         ]);
-      allow delete: if signedIn() && resource.data.get('creatorId', '') == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && ownsCompany(resource.data.get('companyId', ''));
     }
 
     match /partners/{dealId} {
       allow get, list: if signedIn()
-        && resource.data.get('creatorId', '') == request.auth.uid;
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && ownsCompany(resource.data.get('companyId', ''));
       allow create: if signedIn()
         && request.resource.data.get('creatorId', '') == request.auth.uid
         && request.resource.data.keys().hasAll([
-          'id', 'creatorId', 'partnerName', 'type', 'description', 'createdAt'
+          'id', 'creatorId', 'companyId', 'partnerName', 'type', 'description', 'createdAt'
         ])
+        && ownsCompany(request.resource.data.companyId)
         && request.resource.data.keys().hasOnly([
-          'id', 'creatorId', 'partnerName', 'partnerLogo', 'partnerHandle',
+          'id', 'creatorId', 'companyId', 'partnerName', 'partnerLogo', 'partnerHandle',
           'type', 'typeLabel', 'description', 'contactEmail', 'status',
           'value', 'reach', 'startDate', 'createdAt'
         ]);
       allow update: if signedIn()
         && resource.data.get('creatorId', '') == request.auth.uid
         && request.resource.data.get('creatorId', '') == request.auth.uid
+        && resource.data.get('companyId', '') == request.resource.data.get('companyId', '')
+        && ownsCompany(resource.data.get('companyId', ''))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'partnerName', 'partnerLogo', 'partnerHandle', 'type', 'typeLabel',
           'description', 'contactEmail', 'status', 'value', 'reach', 'startDate'
         ]);
-      allow delete: if signedIn() && resource.data.get('creatorId', '') == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.get('creatorId', '') == request.auth.uid
+        && ownsCompany(resource.data.get('companyId', ''));
     }
 
     // Refus par défaut. Ne pas ajouter de règle globale permissive: les règles

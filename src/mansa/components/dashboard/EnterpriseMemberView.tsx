@@ -1891,11 +1891,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             <div className="relative group flex items-center justify-center w-full px-2">
               <button
                 onClick={onBackToPersonal}
+                aria-label="Passer à l’espace personnel"
                 className="size-11 rounded-2xl bg-[#16171b] hover:bg-white/10 hover:text-white text-zinc-400 border border-white/10 flex items-center justify-center transition-all cursor-pointer overflow-hidden"
                 title="Espace Personnel"
               >
                 <div className="size-full bg-gradient-to-br from-zinc-700 to-zinc-950 flex items-center justify-center text-[11px] font-black text-white font-mono">
-                  {user.avatarInitials ? <span>{user.avatarInitials}</span> : <User className="size-5" />}
+                  <User className="size-5" />
                 </div>
               </button>
               <div className="absolute left-[72px] z-50 px-2.5 py-1 rounded-lg bg-[#181a22] text-xs font-semibold text-white border border-white/10 shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">

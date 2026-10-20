@@ -29,6 +29,8 @@ import {
   Download,
   LifeBuoy,
   Loader2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import {
   getUserProfile,
@@ -52,6 +54,7 @@ import {
 import { SecuritySettingsPanel } from "./SecuritySettingsPanel";
 import { AccountVerificationPanel } from "./AccountVerificationPanel";
 import { ResolutionCenterPanel } from "./ResolutionCenterPanel";
+import { AppTheme, getAppTheme, setAppTheme, THEME_CHANGE_EVENT } from "../../utils/theme";
 
 export type AccountSettingsTab =
   | "profil"
@@ -99,6 +102,17 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const userId = user?.uid || "user_default";
   const [activeTab, setActiveTab] = useState<AccountSettingsTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
+  const [appTheme, setAppThemeState] = useState<AppTheme>(() => getAppTheme());
+
+  useEffect(() => {
+    const syncTheme = (event?: Event) => {
+      const eventTheme = (event as CustomEvent<AppTheme> | undefined)?.detail;
+      setAppThemeState(eventTheme || getAppTheme());
+    };
+    syncTheme();
+    window.addEventListener(THEME_CHANGE_EVENT, syncTheme);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, syncTheme);
+  }, []);
 
   // Profil Form State
   const [username, setUsername] = useState(
@@ -536,7 +550,29 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           {/* ================================================================= */}
           {activeTab === "profil" && (
             <div className="space-y-5">
-              
+              <section className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-[#14161b] p-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-9 items-center justify-center rounded-lg bg-[#1d2027] text-zinc-300">
+                    {appTheme === "dark" ? <Moon className="size-4" /> : <Sun className="size-4" />}
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-white">Apparence</h3>
+                    <p className="mt-0.5 text-[11px] text-zinc-400">
+                      Mode {appTheme === "dark" ? "sombre" : "clair"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-pressed={appTheme === "dark"}
+                  aria-label={appTheme === "dark" ? "Activer le mode clair" : "Activer le mode sombre"}
+                  onClick={() => setAppTheme(appTheme === "dark" ? "light" : "dark")}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors ${appTheme === "dark" ? "bg-[#0055ff]" : "bg-zinc-700"}`}
+                >
+                  <span className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md transition-transform ${appTheme === "dark" ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </section>
+
               {/* Notifications / Alerts */}
               {saveSuccess && (
                 <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs font-semibold text-emerald-400 animate-in fade-in">

@@ -35,6 +35,8 @@ import {
   limit,
   onSnapshot,
   runTransaction,
+  writeBatch,
+  deleteField,
   increment,
   serverTimestamp,
   Timestamp,
@@ -55,7 +57,7 @@ const hasFirebaseConfig = Boolean(
   firebaseConfig.apiKey &&
   firebaseConfig.authDomain &&
   firebaseConfig.projectId &&
-  firebaseConfig.appId
+  firebaseConfig.appId,
 );
 
 const app = hasFirebaseConfig
@@ -103,6 +105,8 @@ export {
   limit,
   onSnapshot,
   runTransaction,
+  writeBatch,
+  deleteField,
   increment,
   serverTimestamp,
   Timestamp,

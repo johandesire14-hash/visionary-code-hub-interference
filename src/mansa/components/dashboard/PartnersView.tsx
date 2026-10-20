@@ -32,6 +32,8 @@ import {
 
 interface PartnersViewProps {
   lang?: "fr" | "en";
+  activeCompanyId?: string;
+  activeCompanyName?: string;
   user?: {
     uid?: string;
     name?: string;
@@ -41,9 +43,11 @@ interface PartnersViewProps {
 
 export const PartnersView: React.FC<PartnersViewProps> = ({
   lang = "fr",
+  activeCompanyId,
+  activeCompanyName,
   user,
 }) => {
-  const creatorId = user?.uid || "creator_default";
+  const creatorId = user?.uid || user?.email || "creator_default";
   const [deals, setDeals] = useState<FirestorePartnerDeal[]>([]);
   const [isLoadingDeals, setIsLoadingDeals] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "active" | "opportunities">("all");
@@ -61,10 +65,17 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   // Load partner deals from Firestore on mount
   useEffect(() => {
     let isMounted = true;
+    if (!activeCompanyId) {
+      setDeals([]);
+      setIsLoadingDeals(false);
+      return () => {
+        isMounted = false;
+      };
+    }
     const fetchDeals = async () => {
       setIsLoadingDeals(true);
       try {
-        const data = await getCreatorPartners(creatorId);
+        const data = await getCreatorPartners(creatorId, activeCompanyId);
         if (isMounted) {
           setDeals(data);
         }
@@ -79,13 +90,17 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [creatorId]);
+  }, [creatorId, activeCompanyId]);
 
   const activeCount = deals.filter((d) => d.status === "active").length;
   const pendingCount = deals.filter((d) => d.status !== "active").length;
 
   const handleCreateProposal = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeCompanyId) {
+      setErrorMessage("Sélectionnez une entreprise avant d’ajouter un partenaire.");
+      return;
+    }
     if (!newPartnerName.trim() || !newDescription.trim()) return;
 
     setIsSubmitting(true);
@@ -103,7 +118,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
     const partnerHandle = `@${newPartnerName.toLowerCase().replace(/\s+/g, "_")}`;
 
     try {
-      const savedId = await savePartnerDealToFirestore(creatorId, {
+      const savedId = await savePartnerDealToFirestore(creatorId, activeCompanyId, {
         partnerName: newPartnerName.trim(),
         partnerLogo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
         partnerHandle,
@@ -120,6 +135,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
       const newDeal: FirestorePartnerDeal = {
         id: savedId,
         creatorId,
+        companyId: activeCompanyId,
         partnerName: newPartnerName.trim(),
         partnerLogo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
         partnerHandle,
@@ -150,10 +166,11 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
   };
 
   const handleDeleteDeal = async (dealId: string, partnerName: string) => {
+    if (!activeCompanyId) return;
     if (!confirm(`Supprimer le partenariat avec ${partnerName} ?`)) return;
 
     try {
-      await deletePartnerDealFromFirestore(dealId);
+      await deletePartnerDealFromFirestore(dealId, activeCompanyId);
       setDeals((prev) => prev.filter((d) => d.id !== dealId));
       setDealSuccessToast(`L'accord avec ${partnerName} a été supprimé.`);
       setTimeout(() => setDealSuccessToast(null), 3000);
@@ -180,6 +197,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
             <h1 className="text-xl font-bold tracking-tight text-white">
               {lang === "fr" ? "Partenariats & Collaborations B2B" : "Partnerships & B2B Collaborations"}
             </h1>
+            {activeCompanyName && <span className="text-xs text-zinc-400">· {activeCompanyName}</span>}
           </div>
           <p className="text-xs text-zinc-400 mt-1">
             {lang === "fr"
@@ -189,11 +207,12 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
         </div>
 
         <button
+          disabled={!activeCompanyId}
           onClick={() => {
             setErrorMessage(null);
             setIsNewDealModalOpen(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0055ff] hover:bg-[#0047d6] text-white text-xs font-bold transition-all cursor-pointer shadow-md self-start sm:self-auto"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0055ff] hover:bg-[#0047d6] text-white text-xs font-bold transition-all cursor-pointer shadow-md disabled:opacity-50 disabled:cursor-not-allowed self-start sm:self-auto"
         >
           <Plus className="size-4" />
           <span>{lang === "fr" ? "Proposer un partenariat" : "New Partnership Deal"}</span>

@@ -63,6 +63,17 @@ export async function loadCreatorCompanies(userUid: string): Promise<Company[]> 
 }
 
 export async function loadDiscoverableCompanies(): Promise<Company[]> {
+  const toPublicListing = (company: Partial<Company> & { companyId?: string }): Company => ({
+    id: company.id || company.companyId,
+    ownerUid: "",
+    name: company.name || "",
+    description: company.description || "",
+    logoInitials: company.logoInitials || "EN",
+    colorGradient: company.colorGradient || "from-emerald-600 via-teal-700 to-black",
+    companyBanner: company.companyBanner || "",
+    companyLogo: company.companyLogo || "",
+    discoverable: true,
+  } as Company);
   const readLocalDirectory = (): Company[] => {
     if (typeof window === "undefined") return [];
     const companies: Company[] = [];
@@ -70,7 +81,11 @@ export async function loadDiscoverableCompanies(): Promise<Company[]> {
       try {
         const parsed = JSON.parse(localStorage.getItem(key) || "[]");
         if (Array.isArray(parsed)) {
-          companies.push(...parsed.filter((company) => company?.id && company.discoverable !== false));
+          companies.push(
+            ...parsed
+              .filter((company) => company?.id && company.discoverable !== false)
+              .map(toPublicListing),
+          );
         }
       } catch {}
     }
@@ -79,7 +94,7 @@ export async function loadDiscoverableCompanies(): Promise<Company[]> {
   if (!db) return readLocalDirectory();
   try {
     const snapshot = await getDocs(query(collection(db, "discoverableCompanies"), where("discoverable", "==", true)));
-    return snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as Company);
+    return snapshot.docs.map((item) => toPublicListing({ ...item.data(), id: item.id }));
   } catch (error) {
     console.warn("Could not load discoverable companies:", error);
     return readLocalDirectory();

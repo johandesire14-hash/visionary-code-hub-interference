@@ -15,9 +15,10 @@ import {
   Layers,
   ShoppingBag,
 } from "lucide-react";
-import { EnterpriseSubscription, CreatorPlatformOffer } from "../../types";
+import { EnterpriseSubscription, CreatorPlatformOffer, BusinessProject } from "../../types";
 import { PLATFORM_OFFERS_CATALOG } from "../../utils/rightsAccessEngine";
 import { loadDiscoverableCompanies } from "../../utils/companyStorage";
+import { loadDiscoverableProducts } from "../../services/dbService";
 
 export const PLATFORM_CREATOR_OFFERS: CreatorPlatformOffer[] = PLATFORM_OFFERS_CATALOG;
 
@@ -186,11 +187,17 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [ownedListings, setOwnedListings] = useState<CreatorEnterpriseCard[]>([]);
+  const [publicProducts, setPublicProducts] = useState<BusinessProject[]>([]);
 
   React.useEffect(() => {
     let cancelled = false;
-    const refreshOwnedListings = () => loadDiscoverableCompanies().then((companies) => {
+    const refreshDiscoverableContent = async () => {
+      const [companies, products] = await Promise.all([
+        loadDiscoverableCompanies(),
+        loadDiscoverableProducts(),
+      ]);
       if (cancelled) return;
+      const publicCompanyIds = new Set(companies.map((company) => company.id));
       setOwnedListings(companies.map((company) => ({
         id: company.id,
         companyId: company.id,
@@ -212,12 +219,22 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
         startingPrice: "Voir les offres",
         defaultOfferTitle: "Découvrir l’entreprise",
       })));
-    });
-    refreshOwnedListings();
-    window.addEventListener("mansa_discoverable_companies_updated", refreshOwnedListings);
+      setPublicProducts(
+        products.filter(
+          (product) =>
+            product.status === "active" &&
+            Boolean(product.companyId) &&
+            publicCompanyIds.has(product.companyId as string),
+        ),
+      );
+    };
+    refreshDiscoverableContent();
+    window.addEventListener("mansa_discoverable_companies_updated", refreshDiscoverableContent);
+    window.addEventListener("mansa_discoverable_products_updated", refreshDiscoverableContent);
     return () => {
       cancelled = true;
-      window.removeEventListener("mansa_discoverable_companies_updated", refreshOwnedListings);
+      window.removeEventListener("mansa_discoverable_companies_updated", refreshDiscoverableContent);
+      window.removeEventListener("mansa_discoverable_products_updated", refreshDiscoverableContent);
     };
   }, []);
   
@@ -262,6 +279,14 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
       ent.description.toLowerCase().includes(q) ||
       ent.categoryLabel.toLowerCase().includes(q);
     return matchesCat && matchesSearch;
+  });
+
+  const filteredProducts = publicProducts.filter((product) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    return [product.name, product.tagline, product.companyName, product.category]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(query));
   });
 
   const showBanners = !isCompact;
@@ -422,6 +447,53 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
             </div>
           ))}
         </div>
+      )}
+
+      {filteredProducts.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-lg font-black text-white">Produits à découvrir</h2>
+            <p className="mt-1 text-xs text-zinc-400">Offres visibles publiées par les entreprises de la plateforme.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredProducts.map((product) => {
+              const enterprise = enterpriseCatalog.find((item) => item.companyId === product.companyId);
+              const price = product.pricingAmount > 0
+                ? `${product.pricingAmount.toLocaleString("fr-FR")} ${product.currency || "XOF"}${product.pricingModel === "subscription" ? " / mois" : ""}`
+                : "Gratuit";
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  onClick={() => enterprise && handleEnterpriseClick(enterprise)}
+                  className="group rounded-2xl border border-white/10 bg-[#12141c] p-4 text-left transition-colors hover:border-white/20"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
+                      <ShoppingBag className="size-4" />
+                    </div>
+                    <span className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-zinc-400">
+                      {product.category || "Produit digital"}
+                    </span>
+                  </div>
+                  <h3 className="mt-3 truncate text-sm font-bold text-white group-hover:text-emerald-300">
+                    {product.name}
+                  </h3>
+                  <p className="mt-1 line-clamp-2 min-h-8 text-xs leading-relaxed text-zinc-400">
+                    {product.tagline || "Découvrez cette offre de l’entreprise."}
+                  </p>
+                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-3">
+                    <span className="truncate text-[11px] text-zinc-400">{product.companyName || enterprise?.companyName}</span>
+                    <span className="shrink-0 text-xs font-bold text-white">{price}</span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1 text-xs font-bold text-zinc-300 group-hover:text-emerald-300">
+                    Visiter l’entreprise <ArrowRight className="size-3.5" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );

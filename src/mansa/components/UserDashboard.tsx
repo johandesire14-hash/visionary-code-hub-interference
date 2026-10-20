@@ -102,6 +102,7 @@ import { GuidedTour, OnboardingData } from "./dashboard/GuidedTour";
 import { BusinessProject, Company, EnterpriseSubscription } from "../types";
 import { CompanyOnboardingModal } from "./CompanyOnboardingModal";
 import { getSavedCompanies, loadCreatorCompanies, saveCompany } from "../utils/companyStorage";
+import { filterByCompanyId, filterPersonalTransactions } from "../utils/companyScope";
 import { EnterpriseMemberView } from "./dashboard/EnterpriseMemberView";
 import { ContextualLocationPrompt } from "./common/ContextualLocationPrompt";
 import { getSavedSubscriptions } from "../utils/subscriptionsStorage";
@@ -663,6 +664,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   // Firestore real-time subscriptions for products & transactions
   useEffect(() => {
     const creatorKey = user.uid || user.email || "creator-default";
+    const scopeId = activeWorkspaceId === "personnel" ? "personal" : activeWorkspaceId;
 
     // Subscribe to creator products in Firestore
     const unsubProducts = subscribeToCreatorProducts(creatorKey, (dbProjects) => {
@@ -677,13 +679,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 : "";
           const pCurrency = (p.currency as CurrencyCode) || "USD";
           const revenueNumber = (p.pricingAmount || 0) * (p.membersCount || 0);
+          const storedProductType = p.productType || (p as any).type;
 
           return {
             id: p.id,
-            productType: ((p as any).type === "course" ||
-            (p as any).type === "ebook" ||
-            (p as any).type === "membership"
-              ? (p as any).type
+            productType: (["course", "ebook", "membership"].includes(storedProductType)
+              ? storedProductType
               : "digital") as ProductTypeCategory,
             name: p.name,
             priceDisplay: `${p.pricingAmount} ${pCurrency}${billingSuffix}`,
@@ -716,7 +717,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         }),
       );
       setIsLoadingFirestore(false);
-    });
+    }, scopeId);
 
     // Subscribe to creator transactions in Firestore
     const unsubTx = subscribeToCreatorTransactions(creatorKey, (txs) => {
@@ -735,37 +736,29 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
         timeAgo: "en direct",
       }));
       setPulseEvents(events);
-    });
+    }, scopeId);
 
     return () => {
       unsubProducts();
       unsubTx();
     };
-  }, [user.uid, user.email]);
+  }, [user.uid, user.email, activeWorkspaceId]);
 
   // Context-aware transactions & balance:
   // - Lorsque l'utilisateur est dans une entreprise précise : correspond UNIQUEMENT aux revenus générés avec cette entreprise.
   // - Affichage : « Solde total — [Nom de l'entreprise] »
-  // - Lorsque l'utilisateur passe en mode Personnel : solde global sur toute la plateforme (toutes entreprises, affiliation, autres revenus).
+  // - En mode Personnel : revenus explicitement non rattachés à une entreprise.
   // - Affichage : « Solde total — Personnel »
   // - Strictement jamais de mélange entre le solde d'une entreprise et le solde personnel global.
-  const isCompanyContext = activeWorkspaceId !== "personnel" && !!activeCompany;
+  const isCompanyContext = activeWorkspaceId !== "personnel";
   const contextTransactions = useMemo(() => {
-    if (!isCompanyContext || !activeCompany) {
-      // Mode Personnel : ensemble complet des revenus de la plateforme
-      return realTransactions;
+    if (!isCompanyContext) {
+      // Mode Personnel : revenus non rattachés à une entreprise uniquement.
+      return filterPersonalTransactions(realTransactions);
     }
-    // Mode Entreprise : exclusion stricte des affiliations et des autres entreprises
-    return realTransactions.filter((t) => {
-      if (t.type === "affiliate" || t.type === "other") return false;
-      const matchCompId = t.companyId === activeWorkspaceId;
-      const matchCompName =
-        activeCompany?.name &&
-        ((t.companyName && t.companyName.toLowerCase() === activeCompany.name.toLowerCase()) ||
-          (t.storeName && t.storeName.toLowerCase() === activeCompany.name.toLowerCase()));
-      return matchCompId || matchCompName;
-    });
-  }, [realTransactions, isCompanyContext, activeWorkspaceId, activeCompany]);
+    // Mode Entreprise : tous les flux rattachés à cet identifiant exact.
+    return filterByCompanyId(realTransactions, activeWorkspaceId);
+  }, [realTransactions, isCompanyContext, activeWorkspaceId]);
 
   const activeBalance = useMemo(() => {
     return contextTransactions.reduce((acc, t) => acc + (t.amountNumber || 0), 0);
@@ -773,18 +766,45 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
   // Filtrage des produits selon le contexte actif
   const contextProducts = useMemo(() => {
-    if (!isCompanyContext || !activeCompany) {
-      return productsList;
+    if (!isCompanyContext) {
+      return [];
     }
-    return productsList.filter((p) => {
-      const matchCompId = p.companyId === activeWorkspaceId;
-      const matchCompName =
-        activeCompany?.name &&
-        ((p.companyName && p.companyName.toLowerCase() === activeCompany.name.toLowerCase()) ||
-          (p.storeName && p.storeName.toLowerCase() === activeCompany.name.toLowerCase()));
-      return matchCompId || matchCompName;
-    });
-  }, [productsList, isCompanyContext, activeWorkspaceId, activeCompany]);
+    return filterByCompanyId(productsList, activeWorkspaceId);
+  }, [productsList, isCompanyContext, activeWorkspaceId]);
+
+  const previousWorkspaceId = useRef(activeWorkspaceId);
+  useEffect(() => {
+    if (previousWorkspaceId.current !== activeWorkspaceId) {
+      previousWorkspaceId.current = activeWorkspaceId;
+      setCreatorCoursesLink(null);
+      setCreatorFilesLink(null);
+      setIsProductStudioOpen(false);
+      setEditingProduct(null);
+      setIsTelegramLinkModalOpen(false);
+      setTelegramLinkModalProduct(null);
+      setActiveActionMenuId(null);
+    }
+    const companyOnlyTabs = [
+      "produits",
+      "paiements",
+      "clients",
+      "assistance",
+      "applications",
+      "telegram_app",
+      "discord_app",
+      "workforce",
+      "main_doeuvre",
+      "equipe",
+      "partenaires",
+      "partners",
+      "parametres_boutique",
+      "parametres_entreprise",
+      "parametres",
+    ];
+    if (activeWorkspaceId === "personnel" && companyOnlyTabs.includes(activeNav)) {
+      setActiveNav("accueil");
+    }
+  }, [activeWorkspaceId, activeNav]);
 
   // Telegram et Discord sont des apps : elles ne doivent être présentes que si au moins un produit existe et leur est associé
   const companyHasTelegram = useMemo(() => {
@@ -813,7 +833,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     let affiliateRevenue = 0;
     let otherRevenue = 0;
 
-    realTransactions.forEach((t) => {
+    filterPersonalTransactions(realTransactions).forEach((t) => {
       const amount = t.amountNumber || 0;
       if (t.type === "affiliate") {
         affiliateRevenue += amount;
@@ -893,6 +913,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [isProductStudioOpen, setIsProductStudioOpen] = useState(false);
   const [isAccountSettingsModalOpen, setIsAccountSettingsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<CreatedProductData | null>(null);
+  const activeEditingProduct =
+    editingProduct?.companyId === activeWorkspaceId ? editingProduct : null;
   const [productToDelete, setProductToDelete] = useState<CreatedProductData | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<BusinessProject | null>(null);
   const [selectedProductFilter, setSelectedProductFilter] = useState<"all" | "visible" | "hidden">(
@@ -978,7 +1000,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   // Sync real-time African pulse feed strictly from real Firestore transactions
   useEffect(() => {
     const previousIds = previousPulseIdsRef.current;
-    const currentIds = realTransactions.map((tx) => tx.id);
+    const currentIds = contextTransactions.map((tx) => tx.id);
     const hasNewTransaction =
       previousIds.length > 0 && currentIds.some((id) => !previousIds.includes(id));
 
@@ -990,11 +1012,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     }
 
     previousPulseIdsRef.current = currentIds;
-  }, [realTransactions]);
+  }, [contextTransactions]);
 
   useEffect(() => {
-    if (realTransactions && realTransactions.length > 0) {
-      const mappedPulse: PulseEvent[] = realTransactions.slice(0, 8).map((tx) => ({
+    if (contextTransactions && contextTransactions.length > 0) {
+      const mappedPulse: PulseEvent[] = contextTransactions.slice(0, 8).map((tx) => ({
         id: tx.id,
         type: "sale",
         amount: tx.amount,
@@ -1008,7 +1030,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     } else {
       setPulseEvents([]);
     }
-  }, [realTransactions]);
+  }, [contextTransactions]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1030,7 +1052,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const formattedBalance = new Intl.NumberFormat("fr-FR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(balance);
+  }).format(activeBalance);
 
   // Selected Enterprise Subscription when inside an enterprise workspace
   const selectedSubscription: EnterpriseSubscription =
@@ -1276,7 +1298,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     <span>{lang === "fr" ? "Mes Produits & Boutique" : "Products & Store"}</span>
                   </div>
                   <span className="text-[10px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-white/5">
-                    {productsList.length}
+                    {contextProducts.length}
                   </span>
                 </button>
 
@@ -1346,7 +1368,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 setSelectedCommunitySubId(null);
               }
               setActiveWorkspaceId("personnel");
-              setActiveNav("communaute");
+              setActiveNav("accueil");
             }}
             allSubscriptions={memberSubscriptions}
             onSelectSubscription={(subId) => {
@@ -1397,6 +1419,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               setActiveNav("assistance");
             }}
             onCreateProduct={() => {
+              const creatorCompany = companies.find(
+                (company) =>
+                  company.id === currentCommunitySub.companyId ||
+                  company.id === currentCommunitySub.id,
+              );
+              if (!creatorCompany) return;
+              setActiveWorkspaceId(creatorCompany.id);
               setEditingProduct(null);
               setIsProductStudioOpen(true);
             }}
@@ -1644,7 +1673,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                         <span>{lang === "fr" ? "Produits" : "Products"}</span>
                       </div>
                       <span className="text-[10px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-white/5">
-                        {productsList.length}
+                        {contextProducts.length}
                       </span>
                     </button>
 
@@ -2056,7 +2085,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             <span>{lang === "fr" ? "Produits" : "Products"}</span>
                           </div>
                           <span className="text-[10px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-white/5">
-                            {productsList.length}
+                            {contextProducts.length}
                           </span>
                         </button>
 
@@ -2525,7 +2554,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
                     <button
                       onClick={() => {
-                        const jsonStr = JSON.stringify(productsList, null, 2);
+                        const jsonStr = JSON.stringify(contextProducts, null, 2);
                         const blob = new Blob([jsonStr], { type: "application/json" });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement("a");
@@ -2561,10 +2590,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           <span>Ventes & Produits actifs · Retrait non configuré</span>
                         </h4>
                         <p className="text-xs text-zinc-300 mt-1 max-w-2xl leading-relaxed">
-                          Vos {productsList.length} produit
-                          {productsList.length > 1 ? "s sont" : " est"} en vente et peu
-                          {productsList.length > 1 ? "vent" : "t"} être acheté
-                          {productsList.length > 1 ? "s" : ""} par vos clients. L'argent net de vos
+                          Vos {contextProducts.length} produit
+                          {contextProducts.length > 1 ? "s sont" : " est"} en vente et peu
+                          {contextProducts.length > 1 ? "vent" : "t"} être acheté
+                          {contextProducts.length > 1 ? "s" : ""} par vos clients. L'argent net de vos
                           ventes est crédité en toute sécurité sur votre solde créateur. Renseignez
                           votre moyen de retrait (Wave, Orange Money, MTN MoMo, RIB ou Crypto) quand
                           vous souhaitez demander vos versements.
@@ -2607,7 +2636,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
                       {/* Table Body */}
                       <tbody className="divide-y divide-white/[0.04]">
-                        {productsList.length === 0 ? (
+                        {contextProducts.length === 0 ? (
                           <tr>
                             <td colSpan={9} className="py-16 px-4 text-center">
                               <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-4">
@@ -2680,7 +2709,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             </td>
                           </tr>
                         ) : (
-                          productsList.map((product) => (
+                          contextProducts.map((product) => (
                             <tr
                               key={product.id}
                               className="hover:bg-white/[0.02] transition-colors group"
@@ -2861,7 +2890,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                                               id: "prod-" + Date.now(),
                                               name: product.name + " (Copie)",
                                             };
-                                            setProductsList([...productsList, duplicate]);
+                                            setProductsList([...contextProducts, duplicate]);
                                             setActiveActionMenuId(null);
                                           }}
                                           className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-zinc-300 hover:bg-white/5 hover:text-white cursor-pointer"
@@ -2898,7 +2927,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 border-t border-white/[0.08] text-xs text-zinc-400">
                     <div>
                       <span>
-                        1-{productsList.length} de {productsList.length} résultats
+                        1-{contextProducts.length} de {contextProducts.length} résultats
                       </span>
                     </div>
 
@@ -3009,6 +3038,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
               ) : (
                 <PaymentsView
+                  key={activeWorkspaceId}
                   lang={lang}
                   currency={currency}
                   activeWorkspaceId={activeWorkspaceId}
@@ -3023,7 +3053,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   <DashboardProductsSkeleton />
                 </div>
               ) : (
-                <CustomersView lang={lang} />
+                <CustomersView
+                  key={activeWorkspaceId}
+                  lang={lang}
+                  activeCompanyId={activeCompany?.id}
+                  activeCompanyName={activeCompany?.name}
+                />
               ))}
 
             {/* VIEW: ASSISTANCE (Chat & Support Membres) */}
@@ -3034,6 +3069,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
               ) : (
                 <AssistanceView
+                  key={activeWorkspaceId}
                   lang={lang}
                   activeCompany={activeCompany}
                   companies={companies}
@@ -3065,23 +3101,26 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 </div>
               ) : creatorCoursesLink && activeCompany ? (
                 <CreatorCoursesWorkspace
+                  key={`${activeWorkspaceId}-courses`}
                   companyId={activeCompany.id}
                   productIds={creatorCoursesLink}
-                  products={productsList}
+                  products={contextProducts}
                   onBack={() => setCreatorCoursesLink(null)}
                 />
               ) : creatorFilesLink && activeCompany ? (
                 <FilesWorkspace
+                  key={`${activeWorkspaceId}-files`}
                   companyId={activeCompany.id}
                   productIds={creatorFilesLink}
-                  products={productsList}
+                  products={contextProducts}
                   onBack={() => setCreatorFilesLink(null)}
                 />
               ) : (
                 <ConnectedAppsView
                   lang={lang}
                   initialSubView="catalog"
-                  availableProducts={productsList.map((p) => ({
+                  key={`${activeWorkspaceId}-catalog`}
+                  availableProducts={contextProducts.map((p) => ({
                     id: p.id,
                     title: p.title || p.name,
                     priceDisplay: p.priceDisplay || formatCurrency(p.priceAmount, currency),
@@ -3102,7 +3141,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <ConnectedAppsView
                   lang={lang}
                   initialSubView="telegram"
-                  availableProducts={productsList.map((p) => ({
+                  key={`${activeWorkspaceId}-telegram`}
+                  availableProducts={contextProducts.map((p) => ({
                     id: p.id,
                     title: p.title || p.name,
                     priceDisplay: p.priceDisplay || formatCurrency(p.priceAmount, currency),
@@ -3121,7 +3161,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <ConnectedAppsView
                   lang={lang}
                   initialSubView="discord"
-                  availableProducts={productsList.map((p) => ({
+                  key={`${activeWorkspaceId}-discord`}
+                  availableProducts={contextProducts.map((p) => ({
                     id: p.id,
                     title: p.title || p.name,
                     priceDisplay: p.priceDisplay || formatCurrency(p.priceAmount, currency),
@@ -3165,6 +3206,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             {(activeNav === "parametres_entreprise" ||
               activeNav === "parametres_boutique" ||
               activeNav === "parametres") &&
+              activeCompany &&
               (isTabLoading ? (
                 <div className="max-w-7xl mx-auto space-y-5">
                   <DashboardProductsSkeleton />
@@ -3175,6 +3217,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   user={user}
                   onLogout={onLogout}
                   initialTab="store"
+                  key={`${activeWorkspaceId}-company-settings`}
                   activeCompanyId={activeCompany?.id}
                   activeCompanyName={activeCompany?.name}
                 />
@@ -3189,7 +3232,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   <DashboardProductsSkeleton />
                 </div>
               ) : (
-                <WorkforceView lang={lang} user={user} />
+                <WorkforceView
+                  key={activeWorkspaceId}
+                  lang={lang}
+                  user={user}
+                  activeCompanyId={activeCompany?.id}
+                  activeCompanyName={activeCompany?.name}
+                />
               ))}
 
             {/* VIEW: PARTENAIRES & COLLABORATIONS */}
@@ -3199,7 +3248,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   <DashboardProductsSkeleton />
                 </div>
               ) : (
-                <PartnersView lang={lang} user={user} />
+                <PartnersView
+                  key={activeWorkspaceId}
+                  lang={lang}
+                  user={user}
+                  activeCompanyId={activeCompany?.id}
+                  activeCompanyName={activeCompany?.name}
+                />
               ))}
           </main>
         </div>
@@ -3343,7 +3398,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               >
                 <span>Produits & Offres numériques</span>
                 <span className="font-mono text-[10px] text-emerald-400">
-                  {productsList.length} actifs
+                  {contextProducts.length} actifs
                 </span>
               </div>
               <div
@@ -3448,12 +3503,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       )}
 
       {/* PRODUCT CREATION STUDIO MODAL */}
-      {isProductStudioOpen && (
+      {isProductStudioOpen && activeCompany && (
         <ProductCreationStudio
-          companyName={activeCompany?.name || editingProduct?.companyName || ""}
-          companies={uniqueCompanies}
-          initialCompanyId={editingProduct?.companyId || activeCompany?.id || uniqueCompanies[0]?.id}
-          initialData={editingProduct || undefined}
+          key={activeWorkspaceId}
+          companyName={activeCompany.name}
+          companies={[activeCompany]}
+          initialCompanyId={activeCompany.id}
+          initialData={activeEditingProduct || undefined}
           activeCurrency={currency}
           onCurrencyChange={(newCurr) => {
             setCurrency(newCurr);
@@ -3466,7 +3522,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           onSave={async (newProduct) => {
             const creatorKey = user.uid || user.email || "creator-default";
             await saveProductToFirestore(creatorKey, user.email, user.name, {
-              id: editingProduct ? editingProduct.id : newProduct.id,
+              id: activeEditingProduct ? activeEditingProduct.id : newProduct.id,
               name: newProduct.name,
               description: newProduct.description,
               category: "community",
@@ -3482,6 +3538,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               bannerUrl: newProduct.bannerUrl,
               companyId: newProduct.companyId,
               companyName: newProduct.companyName,
+              productType: newProduct.productType,
+              digitalFiles: newProduct.digitalFiles,
+              courseModules: newProduct.courseModules,
+              visibility: newProduct.visibility,
             });
             setIsProductStudioOpen(false);
             setEditingProduct(null);
