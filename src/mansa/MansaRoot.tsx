@@ -1,6 +1,4 @@
 import React, { Component, ErrorInfo, ReactNode, StrictMode } from "react";
-import App from "./App";
-import { AuthProvider } from "./context/AuthContext";
 import { getAppTheme, setAppTheme, THEME_CHANGE_EVENT } from "./utils/theme";
 
 interface Props {
@@ -79,7 +77,7 @@ function ViewportMetrics() {
   return null;
 }
 
-export default function MansaRoot() {
+export default function MansaRoot({ children }: { children: React.ReactNode }) {
   const [isDark, setIsDark] = React.useState(true);
 
   React.useEffect(() => {
@@ -100,10 +98,8 @@ export default function MansaRoot() {
   return (
     <RootErrorBoundary>
       <div className={`mansa-palette min-h-screen${isDark ? " mansa-dark" : ""}`}>
-        <AuthProvider>
-          <ViewportMetrics />
-          <App />
-        </AuthProvider>
+        <ViewportMetrics />
+        {children}
       </div>
     </RootErrorBoundary>
   );

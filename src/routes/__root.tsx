@@ -14,6 +14,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { hasConfiguredSiteUrl, siteUrl } from "../lib/site";
 import { CookieConsentBanner } from "../components/CookieConsentBanner";
+import { AuthProvider } from "../mansa/context/AuthContext";
+import MansaRoot from "../mansa/MansaRoot";
 
 function NotFoundComponent() {
   return (
@@ -121,8 +123,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AuthProvider>
+        <MansaRoot>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </MansaRoot>
+      </AuthProvider>
       <CookieConsentBanner />
     </QueryClientProvider>
   );

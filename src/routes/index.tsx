@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useState } from "react";
 import { hasConfiguredSiteUrl, siteUrl } from "@/lib/site";
-
-const MansaApp = lazy(() => import("@/mansa/MansaRoot"));
+import LandingPage from "@/mansa/LandingPage";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,22 +19,15 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       ...(hasConfiguredSiteUrl() ? [{ property: "og:url", content: siteUrl("/") }] : []),
-      ...(hasConfiguredSiteUrl() ? [{ property: "og:image", content: siteUrl("/social-share-placeholder.svg") }] : []),
+      ...(hasConfiguredSiteUrl()
+        ? [{ property: "og:image", content: siteUrl("/social-share-placeholder.svg") }]
+        : []),
       { name: "twitter:card", content: "summary_large_image" },
-      ...(hasConfiguredSiteUrl() ? [{ name: "twitter:image", content: siteUrl("/social-share-placeholder.svg") }] : []),
+      ...(hasConfiguredSiteUrl()
+        ? [{ name: "twitter:image", content: siteUrl("/social-share-placeholder.svg") }]
+        : []),
     ],
     links: hasConfiguredSiteUrl() ? [{ rel: "canonical", href: siteUrl("/") }] : [],
   }),
-  component: Index,
+  component: LandingPage,
 });
-
-function Index() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return <div className="min-h-screen bg-background" />;
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-background" />}>
-      <MansaApp />
-    </Suspense>
-  );
-}
