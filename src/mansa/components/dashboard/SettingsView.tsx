@@ -19,10 +19,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { AccountSettingsModal } from "../common/AccountSettingsModal";
-import {
-  DEFAULT_PAYMENT_METHODS,
-  PaymentMethodsTemplate,
-} from "../common/PaymentMethodsTemplate";
+import { DEFAULT_PAYMENT_METHODS, PaymentMethodsTemplate } from "../common/PaymentMethodsTemplate";
 import {
   getUserProfile,
   updateUserProfile,
@@ -511,7 +508,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>
                   <span className="block text-sm font-bold text-white">Général</span>
                   <span className="mt-1 block text-xs text-zinc-400">
-                    Identité, vitrine, logo, bannière et devise
+                    Identité, vitrine, logo et bannière
                   </span>
                 </span>
                 <span className="text-lg text-zinc-500 transition-transform group-hover:translate-x-1 group-hover:text-[#00D26A]">
@@ -865,49 +862,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 }}
                 onCancel={() => setCompanySettingsSection("menu")}
               />
-            </>
-          )}
-
-          {companySettingsSection === "general" && (
-            <>
-              {/* 3. African Currencies & Pricing */}
-              <div className="rounded-2xl border border-white/[0.08] bg-[#0c0d0e] p-6 space-y-4">
-                <div className="flex items-center gap-2 pb-3 border-b border-white/5">
-                  <Globe className="size-4 text-purple-400" />
-                  <h3 className="text-sm font-bold text-white">
-                    Devise Principale de l'Entreprise
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <label className="block text-zinc-300 font-semibold mb-2">
-                      Devise par défaut de vos produits
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <CurrencySelector
-                        currentCurrency={storeCurrency as CurrencyCode}
-                        onSelectCurrency={(c) => setStoreCurrency(c)}
-                        variant="pill"
-                        lang={lang}
-                      />
-                      <span className="text-[11px] text-zinc-400 font-mono">({storeCurrency})</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-zinc-300 font-semibold mb-1">
-                      Conversion automatique en direct
-                    </label>
-                    <div className="p-2.5 rounded-xl bg-[#16181f] border border-white/5 text-zinc-300 flex items-center justify-between">
-                      <span>Multi-devises Mansa</span>
-                      <span className="text-emerald-400 font-bold font-mono">
-                        Actif pour tous les pays
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </>
           )}
 

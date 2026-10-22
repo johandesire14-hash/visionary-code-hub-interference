@@ -7,6 +7,7 @@ import { MarketplaceSection } from "./components/MarketplaceSection";
 import { FaqSection } from "./components/FaqSection";
 import { Footer } from "./components/Footer";
 import { LoginPage } from "./components/LoginPage";
+import { UiArcShowcase } from "./components/UiArcShowcase";
 import type { CreatedProductData } from "./components/ProductCreationStudio";
 import {
   CurrencyCode,
@@ -239,6 +240,7 @@ export default function App() {
       />
       <main className="flex-1 flex flex-col w-full" aria-label="Accueil afhub">
         <HeroSection onOpenStudio={() => handleOpenStudio()} lang={lang} />
+        <UiArcShowcase onOpenStudio={() => handleOpenStudio()} />
         <BuildNextCarousel
           onSelectCategory={(category) => handleOpenStudio(category.categoryKey)}
           onOpenStudio={() => handleOpenStudio()}

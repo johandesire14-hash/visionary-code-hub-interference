@@ -17,7 +17,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   lang,
   initialMode = "signup",
 }) => {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, error, clearError } =
+    useAuth();
 
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [name, setName] = useState("");
@@ -64,6 +65,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setLocalError(err.message || "Erreur d'authentification.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      setLocalError("Saisissez votre adresse email pour recevoir un lien de réinitialisation.");
+      return;
+    }
+    try {
+      setLocalError(null);
+      clearError();
+      await resetPassword(email.trim());
+      setLocalError("Un lien de réinitialisation a été envoyé à votre adresse email.");
+    } catch (err: any) {
+      setLocalError(err.message || "Impossible d'envoyer le lien de réinitialisation.");
     }
   };
 
@@ -225,9 +241,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   Mot de passe
                 </label>
                 {mode === "login" && (
-                  <span className="text-[10px] text-[#B6B5B0] hover:text-[#3DDC84] cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={handleResetPassword}
+                    className="text-[10px] text-[#B6B5B0] hover:text-[#3DDC84] cursor-pointer"
+                  >
                     Mot de passe oublié ?
-                  </span>
+                  </button>
                 )}
               </div>
               <div className="relative flex items-center">

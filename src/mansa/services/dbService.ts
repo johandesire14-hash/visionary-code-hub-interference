@@ -1,6 +1,7 @@
 // @ts-nocheck
 import {
   db,
+  auth,
   collection,
   doc,
   setDoc,
@@ -300,21 +301,22 @@ export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
       coverImage?: string;
     },
     id = product.id,
-  ): BusinessProject => ({
-    id,
-    creatorId: product.creatorId,
-    name: product.name || "",
-    tagline: product.tagline || product.description || "",
-    category: product.category || "Produit digital",
-    status: product.status,
-    pricingAmount: product.pricingAmount || 0,
-    pricingModel: product.pricingModel || "one_time",
-    currency: product.currency || "XOF",
-    companyId: product.companyId,
-    companyName: product.companyName,
-    productType: product.productType,
-    coverImage: product.coverImage,
-  } as BusinessProject);
+  ): BusinessProject =>
+    ({
+      id,
+      creatorId: product.creatorId,
+      name: product.name || "",
+      tagline: product.tagline || product.description || "",
+      category: product.category || "Produit digital",
+      status: product.status,
+      pricingAmount: product.pricingAmount || 0,
+      pricingModel: product.pricingModel || "one_time",
+      currency: product.currency || "XOF",
+      companyId: product.companyId,
+      companyName: product.companyName,
+      productType: product.productType,
+      coverImage: product.coverImage,
+    }) as BusinessProject;
   const loadLocalPublicProducts = (): BusinessProject[] => {
     if (typeof window === "undefined") return [];
     const products: BusinessProject[] = [];
@@ -324,12 +326,19 @@ export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
     for (const key of keys) {
       const items = getLocalItems<BusinessProject>(key);
       products.push(
-        ...items.filter(
-          (product) => product.status === "active" && Boolean(product.companyId) && Boolean(product.creatorId),
-        ).map((product) => toPublicProduct(product)),
+        ...items
+          .filter(
+            (product) =>
+              product.status === "active" &&
+              Boolean(product.companyId) &&
+              Boolean(product.creatorId),
+          )
+          .map((product) => toPublicProduct(product)),
       );
     }
-    return products.filter((product, index) => products.findIndex((item) => item.id === product.id) === index);
+    return products.filter(
+      (product, index) => products.findIndex((item) => item.id === product.id) === index,
+    );
   };
 
   if (!db) return loadLocalPublicProducts();
@@ -561,7 +570,10 @@ export function subscribeToCreatorProducts(
             }),
           );
         } catch (privateContentError) {
-          console.warn("Private product content unavailable in this workspace:", privateContentError);
+          console.warn(
+            "Private product content unavailable in this workspace:",
+            privateContentError,
+          );
           if (active) callback(getCreatorLocalProducts(creatorId).filter(inScope));
           return;
         }
@@ -618,12 +630,51 @@ export async function saveProductToFirestore(
   },
 ): Promise<string> {
   if (!creatorId) throw new Error("Connectez-vous pour créer un produit.");
-  if (!productData.companyId?.trim()) throw new Error("Sélectionnez une entreprise pour ce produit.");
-
+  if (!productData.companyId?.trim())
+    throw new Error("Sélectionnez une entreprise pour ce produit.");
+  const effectiveCreatorId = auth?.currentUser?.uid || creatorId;
+  if (auth?.currentUser && auth.currentUser.uid !== creatorId) {
+    throw new Error("La session Firebase ne correspond pas au compte créateur actif.");
+  }
   let companyName = "";
   if (db) {
-    const companySnap = await getDoc(doc(db, "companies", productData.companyId));
-    if (!companySnap.exists() || companySnap.data().ownerUid !== creatorId) {
+    let companySnap = await getDoc(doc(db, "companies", productData.companyId));
+    if (!companySnap.exists()) {
+      const localCompany = getSavedCompanies(effectiveCreatorId).find(
+        (company) =>
+          company.id === productData.companyId && company.ownerUid === effectiveCreatorId,
+      );
+      if (localCompany) {
+        const now = new Date().toISOString();
+        const companyPayload = {
+          ...localCompany,
+          ownerUid: effectiveCreatorId,
+          discoverable: true,
+          createdAt: localCompany.createdAt || now,
+          updatedAt: now,
+        };
+        await setDoc(doc(db, "companies", localCompany.id), companyPayload, { merge: true });
+        await setDoc(
+          doc(db, "discoverableCompanies", localCompany.id),
+          {
+            companyId: localCompany.id,
+            ownerUid: effectiveCreatorId,
+            name: localCompany.name,
+            description: localCompany.description || "",
+            logoInitials: localCompany.logoInitials || "EN",
+            colorGradient: localCompany.colorGradient || "from-emerald-600 via-teal-700 to-black",
+            companyBanner: localCompany.companyBanner || "",
+            companyLogo: localCompany.companyLogo || "",
+            discoverable: true,
+            createdAt: companyPayload.createdAt,
+            updatedAt: now,
+          },
+          { merge: true },
+        );
+        companySnap = await getDoc(doc(db, "companies", productData.companyId));
+      }
+    }
+    if (!companySnap.exists() || companySnap.data().ownerUid !== effectiveCreatorId) {
       throw new Error("Cette entreprise ne vous appartient pas ou n'existe plus.");
     }
     companyName = String(companySnap.data().name || "");
@@ -709,11 +760,13 @@ export async function saveProductToFirestore(
       companyName,
       productType: productData.productType,
       // Migrate any previously public copies out of the product document.
-      digitalFiles: deleteField(),
-      courseModules: deleteField(),
       createdAt,
       updatedAt: new Date().toISOString(),
     };
+    if (existingProductSnap?.exists()) {
+      payload.digitalFiles = deleteField();
+      payload.courseModules = deleteField();
+    }
     const batch = writeBatch(db);
     batch.set(doc(db, "products", productId), payload, { merge: true });
     batch.set(
@@ -742,7 +795,10 @@ export async function saveProductToFirestore(
   return productId;
 }
 
-export async function deleteProductFromFirestore(productId: string, creatorId?: string): Promise<void> {
+export async function deleteProductFromFirestore(
+  productId: string,
+  creatorId?: string,
+): Promise<void> {
   if (creatorId) {
     saveCreatorLocalProducts(
       creatorId,
@@ -806,28 +862,30 @@ export function subscribeToCreatorTransactions(
   callback(localList);
 
   try {
-    const q = companyId === "personal"
+    const q =
+      companyId === "personal"
         ? query(
-          collection(db, "transactions"),
-          where("creatorId", "==", creatorId),
-          where("type", "in", ["affiliate", "other"]),
-          where("companyId", "==", null),
-          limit(50),
-        )
-      : companyId
-      ? query(
-          collection(db, "transactions"),
-          where("creatorId", "==", creatorId),
-          where("companyId", "==", companyId),
-          limit(50),
-        )
-      : query(collection(db, "transactions"), where("creatorId", "==", creatorId), limit(50));
+            collection(db, "transactions"),
+            where("creatorId", "==", creatorId),
+            where("type", "in", ["affiliate", "other"]),
+            where("companyId", "==", null),
+            limit(50),
+          )
+        : companyId
+          ? query(
+              collection(db, "transactions"),
+              where("creatorId", "==", creatorId),
+              where("companyId", "==", companyId),
+              limit(50),
+            )
+          : query(collection(db, "transactions"), where("creatorId", "==", creatorId), limit(50));
     return onSnapshot(
       q,
       (snap) => {
         const list: FirestoreTransaction[] = [];
         snap.forEach((d) => list.push({ id: d.id, ...(d.data() as any) }));
-        const currentLocal = getLocalItems<FirestoreTransaction>(LOCAL_TRANSACTIONS_KEY).filter(inScope);
+        const currentLocal =
+          getLocalItems<FirestoreTransaction>(LOCAL_TRANSACTIONS_KEY).filter(inScope);
         const combined = [...list];
         for (const t of currentLocal) {
           if (!combined.some((c) => c.id === t.id)) {
@@ -1139,7 +1197,8 @@ export async function saveWorkforceMemberToFirestore(
     id?: string;
   },
 ): Promise<string> {
-  if (!creatorId || !companyId) throw new Error("Sélectionnez une entreprise avant d’ajouter un membre.");
+  if (!creatorId || !companyId)
+    throw new Error("Sélectionnez une entreprise avant d’ajouter un membre.");
   const memberId =
     memberData.id || `worker-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   const now = new Date().toISOString();
@@ -1245,7 +1304,8 @@ export async function savePartnerDealToFirestore(
     id?: string;
   },
 ): Promise<string> {
-  if (!creatorId || !companyId) throw new Error("Sélectionnez une entreprise avant d’ajouter un partenaire.");
+  if (!creatorId || !companyId)
+    throw new Error("Sélectionnez une entreprise avant d’ajouter un partenaire.");
   const dealId = dealData.id || `deal-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
   const now = new Date().toISOString();
 

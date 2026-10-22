@@ -19,6 +19,7 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@spaceui": "https://www.spaceui.one/r/{name}.json"
+    "@spaceui": "https://www.spaceui.one/r/{name}.json",
+    "@uiarc": "https://uiarc.dev/r/{name}.json"
   }
 }

@@ -134,7 +134,11 @@ service cloud.firestore {
 
     // Produits publics actifs; les brouillons ne sont accessibles qu'au créateur.
     match /products/{productId} {
-      allow read: if (resource.data.get('status', '') == 'active')
+      allow get: if resource == null
+        || resource.data.get('status', '') == 'active'
+        || (signedIn() && resource.data.get('creatorId', '') == request.auth.uid)
+        || isSupportStaff();
+      allow list: if resource.data.get('status', '') == 'active'
         || (signedIn() && resource.data.get('creatorId', '') == request.auth.uid)
         || isSupportStaff();
       allow create: if signedIn()

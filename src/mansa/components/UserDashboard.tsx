@@ -98,7 +98,6 @@ import {
   setStoredCurrency,
 } from "../utils/currency";
 import { CurrencySelector } from "./dashboard/CurrencySelector";
-import { GuidedTour, OnboardingData } from "./dashboard/GuidedTour";
 import { BusinessProject, Company, EnterpriseSubscription } from "../types";
 import { CompanyOnboardingModal } from "./CompanyOnboardingModal";
 import { getSavedCompanies, loadCreatorCompanies, saveCompany } from "../utils/companyStorage";
@@ -470,7 +469,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     loadCreatorCompanies(ownerUid).then((loaded) => {
       if (!cancelled) setCompanies(loaded);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user.uid, user.email]);
 
   // Subscribed Enterprises State (Member / Fan Experience: e.g. victory_odds, BS, GS)
@@ -652,7 +653,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     switchTab("communaute");
   };
 
-  const handleCompanyCreated = async (newComp: Omit<Company, "id" | "createdAt" | "ownerUid" | "discoverable">) => {
+  const handleCompanyCreated = async (
+    newComp: Omit<Company, "id" | "createdAt" | "ownerUid" | "discoverable">,
+  ) => {
     const userKey = user.uid || user.email || "";
     if (!userKey) throw new Error("Un compte connecté est requis.");
     const { companies: updated, created, persisted } = saveCompany(userKey, newComp);
@@ -667,76 +670,84 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     const scopeId = activeWorkspaceId === "personnel" ? "personal" : activeWorkspaceId;
 
     // Subscribe to creator products in Firestore
-    const unsubProducts = subscribeToCreatorProducts(creatorKey, (dbProjects) => {
-      setProjects(dbProjects);
-      setProductsList(
-        dbProjects.map((p) => {
-          const billingSuffix =
-            p.pricingModel === "subscription"
-              ? " / mois"
-              : p.pricingModel === "annual"
-                ? " / an"
-                : "";
-          const pCurrency = (p.currency as CurrencyCode) || "USD";
-          const revenueNumber = (p.pricingAmount || 0) * (p.membersCount || 0);
-          const storedProductType = p.productType || (p as any).type;
+    const unsubProducts = subscribeToCreatorProducts(
+      creatorKey,
+      (dbProjects) => {
+        setProjects(dbProjects);
+        setProductsList(
+          dbProjects.map((p) => {
+            const billingSuffix =
+              p.pricingModel === "subscription"
+                ? " / mois"
+                : p.pricingModel === "annual"
+                  ? " / an"
+                  : "";
+            const pCurrency = (p.currency as CurrencyCode) || "USD";
+            const revenueNumber = (p.pricingAmount || 0) * (p.membersCount || 0);
+            const storedProductType = p.productType || (p as any).type;
 
-          return {
-            id: p.id,
-            productType: (["course", "ebook", "membership"].includes(storedProductType)
-              ? storedProductType
-              : "digital") as ProductTypeCategory,
-            name: p.name,
-            priceDisplay: `${p.pricingAmount} ${pCurrency}${billingSuffix}`,
-            priceAmount: p.pricingAmount,
-            currency: pCurrency,
-            pricingType: p.pricingAmount > 0 ? "paid" : "free",
-            billingCycle: p.pricingModel === "one_time" ? "one_time" : "monthly",
-            visibility:
-              p.status === "paused" ? "Caché" : p.status === "draft" ? "Caché" : "Visible",
-            discoverStatus: "Répertorié sur Mansa",
-            includedApps: p.apps && p.apps.length > 0 ? p.apps : ["Communauté VIP Mansa"],
-            conversionRate: p.conversionRate || "0%",
-            totalRevenue: `${revenueNumber} ${pCurrency}`,
-            activeUsers: p.membersCount || 0,
-            imageUrl:
-              p.coverImage ||
-              "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80",
-            bannerUrl: p.bannerUrl,
-            title: p.name,
-            description: p.tagline || "",
-            productUrl: p.storeUrl || `mansa.af/p/${p.id}`,
-            affiliateRate: p.affiliateCommissionRate || 25,
-            ctaText: p.ctaText || "Rejoindre maintenant",
-            companyId: p.companyId || "",
-            companyName: p.companyName || "",
-            pricingOptions: (p as any).pricingOptions || [],
-            digitalFiles: (p as any).digitalFiles || [],
-            courseModules: (p as any).courseModules || [],
-          };
-        }),
-      );
-      setIsLoadingFirestore(false);
-    }, scopeId);
+            return {
+              id: p.id,
+              productType: (["course", "ebook", "membership"].includes(storedProductType)
+                ? storedProductType
+                : "digital") as ProductTypeCategory,
+              name: p.name,
+              priceDisplay: `${p.pricingAmount} ${pCurrency}${billingSuffix}`,
+              priceAmount: p.pricingAmount,
+              currency: pCurrency,
+              pricingType: p.pricingAmount > 0 ? "paid" : "free",
+              billingCycle: p.pricingModel === "one_time" ? "one_time" : "monthly",
+              visibility:
+                p.status === "paused" ? "Caché" : p.status === "draft" ? "Caché" : "Visible",
+              discoverStatus: "Répertorié sur Mansa",
+              includedApps: p.apps && p.apps.length > 0 ? p.apps : ["Communauté VIP Mansa"],
+              conversionRate: p.conversionRate || "0%",
+              totalRevenue: `${revenueNumber} ${pCurrency}`,
+              activeUsers: p.membersCount || 0,
+              imageUrl:
+                p.coverImage ||
+                "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80",
+              bannerUrl: p.bannerUrl,
+              title: p.name,
+              description: p.tagline || "",
+              productUrl: p.storeUrl || `mansa.af/p/${p.id}`,
+              affiliateRate: p.affiliateCommissionRate || 25,
+              ctaText: p.ctaText || "Rejoindre maintenant",
+              companyId: p.companyId || "",
+              companyName: p.companyName || "",
+              pricingOptions: (p as any).pricingOptions || [],
+              digitalFiles: (p as any).digitalFiles || [],
+              courseModules: (p as any).courseModules || [],
+            };
+          }),
+        );
+        setIsLoadingFirestore(false);
+      },
+      scopeId,
+    );
 
     // Subscribe to creator transactions in Firestore
-    const unsubTx = subscribeToCreatorTransactions(creatorKey, (txs) => {
-      setRealTransactions(txs);
-      const sum = txs.reduce((acc, t) => acc + (t.amountNumber || 0), 0);
-      setBalance(sum);
+    const unsubTx = subscribeToCreatorTransactions(
+      creatorKey,
+      (txs) => {
+        setRealTransactions(txs);
+        const sum = txs.reduce((acc, t) => acc + (t.amountNumber || 0), 0);
+        setBalance(sum);
 
-      const events: PulseEvent[] = txs.slice(0, 10).map((t) => ({
-        id: t.id,
-        type: "sale",
-        amount: t.amount,
-        categoryName: t.productName,
-        location: t.buyerLocation || "Abidjan, Côte d'Ivoire",
-        countryFlag: getCountryFlagFromLocation(t.buyerLocation || ""),
-        source: t.paymentMethod || "Mobile Money",
-        timeAgo: "en direct",
-      }));
-      setPulseEvents(events);
-    }, scopeId);
+        const events: PulseEvent[] = txs.slice(0, 10).map((t) => ({
+          id: t.id,
+          type: "sale",
+          amount: t.amount,
+          categoryName: t.productName,
+          location: t.buyerLocation || "Abidjan, Côte d'Ivoire",
+          countryFlag: getCountryFlagFromLocation(t.buyerLocation || ""),
+          source: t.paymentMethod || "Mobile Money",
+          timeAgo: "en direct",
+        }));
+        setPulseEvents(events);
+      },
+      scopeId,
+    );
 
     return () => {
       unsubProducts();
@@ -949,21 +960,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [isTabLoading, setIsTabLoading] = useState(false);
   const [creatorCoursesLink, setCreatorCoursesLink] = useState<string[] | null>(null);
   const [creatorFilesLink, setCreatorFilesLink] = useState<string[] | null>(null);
-  const [isGuidedTourOpen, setIsGuidedTourOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMemberCheckoutOpen, setIsMemberCheckoutOpen] = useState(false);
-
-  // Auto-trigger guided tour for new creators on first connection
-  useEffect(() => {
-    const tourKey = `mansa_tour_completed_${user.uid || "guest"}`;
-    const isCompleted = safeStorage.getItem(tourKey);
-    if (!isCompleted) {
-      const timer = setTimeout(() => {
-        setIsGuidedTourOpen(true);
-      }, 600);
-      return () => clearTimeout(timer);
-    }
-  }, [user.uid]);
 
   // Tab change with skeleton loading transition
   const switchTab = (tab: typeof activeNav) => {
@@ -1199,23 +1197,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             <Search className="size-4" />
           </button>
 
-          {/* Guided Tour Trigger Button */}
-          <button
-            onClick={() => {
-              setActiveNav("accueil");
-              setIsGuidedTourOpen(true);
-            }}
-            className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-[#16171b] hover:border-[#00D26A]/50 hover:bg-[#00D26A]/10 text-zinc-300 hover:text-[#00D26A] text-xs font-semibold transition-all cursor-pointer shadow-sm min-h-[36px]"
-            title={
-              lang === "fr"
-                ? "Lancer la visite guidée du tableau de bord"
-                : "Start dashboard guided tour"
-            }
-          >
-            <Sparkles className="size-3.5 text-[#00D26A]" />
-            <span>{lang === "fr" ? "Visite" : "Tour"}</span>
-          </button>
-
           {/* Refresh Data with Skeleton simulator */}
           <button
             onClick={handleRefreshData}
@@ -1311,18 +1292,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 >
                   <Building2 className="size-3.5 text-blue-400" />
                   <span>{lang === "fr" ? "Paramètres de la boutique" : "Store Settings"}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    setActiveNav("accueil");
-                    setIsGuidedTourOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[#00D26A] hover:bg-[#00D26A]/10 rounded-lg transition-colors cursor-pointer font-medium"
-                >
-                  <Sparkles className="size-3.5 text-[#00D26A]" />
-                  <span>{lang === "fr" ? "Relancer la visite guidée" : "Restart Guided Tour"}</span>
                 </button>
 
                 <button
@@ -1566,7 +1535,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
                     {/* Communauté */}
                     <button
-                      onClick={() => uniqueCompanies.length > 0 ? handleOpenCompanyCommunity(uniqueCompanies[0]) : switchTab("communaute")}
+                      onClick={() =>
+                        uniqueCompanies.length > 0
+                          ? handleOpenCompanyCommunity(uniqueCompanies[0])
+                          : switchTab("communaute")
+                      }
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors cursor-pointer ${
                         activeNav === "communaute"
                           ? "bg-[#22252c] text-white font-semibold"
@@ -1813,7 +1786,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               {/* Paramètres Entreprise */}
               <button
                 onClick={() => switchTab("parametres_entreprise")}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                className={`${activeWorkspaceId === "personnel" ? "hidden" : ""} w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   activeNav === "parametres_entreprise" || activeNav === "parametres_boutique"
                     ? "bg-[#22252c] text-[#00D26A] font-bold"
                     : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
@@ -1980,7 +1953,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
                         {/* Communauté */}
                         <button
-                          onClick={() => uniqueCompanies.length > 0 ? handleOpenCompanyCommunity(uniqueCompanies[0]) : switchTab("communaute")}
+                          onClick={() =>
+                            uniqueCompanies.length > 0
+                              ? handleOpenCompanyCommunity(uniqueCompanies[0])
+                              : switchTab("communaute")
+                          }
                           className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer min-h-[44px] ${
                             activeNav === "communaute"
                               ? "bg-[#22252c] text-white font-semibold"
@@ -2200,22 +2177,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
                 {/* Mobile Drawer Bottom Settings & Simulation Actions */}
                 <div className="border-t border-white/[0.07] pt-3 mt-4 space-y-2 shrink-0">
-                  {/* Guided Tour in Mobile Drawer */}
-                  <button
-                    onClick={() => {
-                      setIsMobileSidebarOpen(false);
-                      setActiveNav("accueil");
-                      setIsGuidedTourOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer min-h-[40px]"
-                  >
-                    <Sparkles className="size-4 text-[#00D26A]" />
-                    <span>{lang === "fr" ? "Lancer la visite guidée" : "Start Guided Tour"}</span>
-                  </button>
-
                   <button
                     onClick={() => switchTab("parametres_entreprise")}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] ${
+                    className={`${activeWorkspaceId === "personnel" ? "hidden" : ""} w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] ${
                       activeNav === "parametres_entreprise" || activeNav === "parametres_boutique"
                         ? "bg-[#22252c] text-[#00D26A] font-bold"
                         : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
@@ -2593,10 +2557,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           Vos {contextProducts.length} produit
                           {contextProducts.length > 1 ? "s sont" : " est"} en vente et peu
                           {contextProducts.length > 1 ? "vent" : "t"} être acheté
-                          {contextProducts.length > 1 ? "s" : ""} par vos clients. L'argent net de vos
-                          ventes est crédité en toute sécurité sur votre solde créateur. Renseignez
-                          votre moyen de retrait (Wave, Orange Money, MTN MoMo, RIB ou Crypto) quand
-                          vous souhaitez demander vos versements.
+                          {contextProducts.length > 1 ? "s" : ""} par vos clients. L'argent net de
+                          vos ventes est crédité en toute sécurité sur votre solde créateur.
+                          Renseignez votre moyen de retrait (Wave, Orange Money, MTN MoMo, RIB ou
+                          Crypto) quand vous souhaitez demander vos versements.
                         </p>
                       </div>
                     </div>
@@ -3280,7 +3244,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => uniqueCompanies.length > 0 ? handleOpenCompanyCommunity(uniqueCompanies[0]) : switchTab("communaute")}
+              onClick={() =>
+                uniqueCompanies.length > 0
+                  ? handleOpenCompanyCommunity(uniqueCompanies[0])
+                  : switchTab("communaute")
+              }
               className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-colors ${activeNav === "communaute" ? "bg-white/10 text-white" : "text-zinc-500 hover:bg-white/5 hover:text-zinc-200"}`}
             >
               <UsersIcon className="size-5" />
@@ -3555,20 +3523,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           lang={lang}
         />
       )}
-
-      {/* GUIDED TOUR FOR NEW CREATORS */}
-      <GuidedTour
-        isOpen={isGuidedTourOpen}
-        onClose={() => setIsGuidedTourOpen(false)}
-        onSelectTab={(tab) => switchTab(tab as typeof activeNav)}
-        lang={lang}
-        onCompleteTour={() => {
-          safeStorage.setItem("mansa_creator_tour_completed", "true");
-        }}
-        onOnboardingComplete={(data: OnboardingData) => {
-          setCurrency(data.currency);
-        }}
-      />
 
       {/* CONFIRM PRODUCT DELETION MODAL */}
       {productToDelete && (
