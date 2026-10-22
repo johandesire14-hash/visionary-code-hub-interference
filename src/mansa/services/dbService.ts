@@ -541,11 +541,42 @@ export function subscribeToCreatorProducts(
     return () => {};
   }
   const inScope = (product: BusinessProject) => !companyId || product.companyId === companyId;
-  // Emit only this creator's local products right away
-  const initialLocal = getCreatorLocalProducts(creatorId).filter(inScope);
-  callback(initialLocal);
-
   let active = true;
+  let remoteProducts: BusinessProject[] = [];
+  const emitMergedProducts = () => {
+    if (!active) return;
+    const currentLocal = getCreatorLocalProducts(creatorId).filter(inScope);
+    const combined = [...remoteProducts];
+    for (const item of currentLocal) {
+      if (!combined.some((remoteProduct) => remoteProduct.id === item.id)) {
+        combined.unshift(item);
+      }
+    }
+    callback(combined);
+  };
+  const handleLocalProductsUpdated = () => emitMergedProducts();
+
+  // Emit the cache immediately and keep it reactive when Firebase is unavailable
+  // or when a local fallback save/delete completes.
+  emitMergedProducts();
+  if (typeof window !== "undefined") {
+    window.addEventListener("mansa_discoverable_products_updated", handleLocalProductsUpdated);
+  }
+
+  // In local-preview/fallback mode there is no Firestore listener to attach.
+  // Keep the local listener above and return a complete cleanup function.
+  if (!db) {
+    return () => {
+      active = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener(
+          "mansa_discoverable_products_updated",
+          handleLocalProductsUpdated,
+        );
+      }
+    };
+  }
+
   try {
     const q = companyId
       ? query(
@@ -557,7 +588,6 @@ export function subscribeToCreatorProducts(
     const unsubscribe = onSnapshot(
       q,
       async (querySnapshot) => {
-        let remoteProducts: BusinessProject[];
         try {
           remoteProducts = await Promise.all(
             querySnapshot.docs.map(async (docSnap) => {
@@ -574,31 +604,39 @@ export function subscribeToCreatorProducts(
             "Private product content unavailable in this workspace:",
             privateContentError,
           );
-          if (active) callback(getCreatorLocalProducts(creatorId).filter(inScope));
+          remoteProducts = [];
+          emitMergedProducts();
           return;
         }
-        if (!active) return;
-        const currentLocal = getCreatorLocalProducts(creatorId).filter(inScope);
-        const combined = [...remoteProducts];
-        for (const item of currentLocal) {
-          if (!combined.some((c) => c.id === item.id)) {
-            combined.unshift(item);
-          }
-        }
-        callback(combined);
+        emitMergedProducts();
       },
       (err) => {
         console.warn("Products snapshot error, using local items:", err);
-        if (active) callback(getCreatorLocalProducts(creatorId).filter(inScope));
+        remoteProducts = [];
+        emitMergedProducts();
       },
     );
     return () => {
       active = false;
       unsubscribe();
+      if (typeof window !== "undefined") {
+        window.removeEventListener(
+          "mansa_discoverable_products_updated",
+          handleLocalProductsUpdated,
+        );
+      }
     };
   } catch (e) {
     console.warn("Failed to attach products snapshot, relying on local cache:", e);
-    return () => {};
+    return () => {
+      active = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener(
+          "mansa_discoverable_products_updated",
+          handleLocalProductsUpdated,
+        );
+      }
+    };
   }
 }
 
