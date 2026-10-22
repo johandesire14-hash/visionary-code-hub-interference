@@ -29,7 +29,7 @@ export const ReportEnterpriseModal: React.FC<ReportEnterpriseModalProps> = ({
 }) => {
   const { overlayProps, contentProps } = useModalDismiss({ isOpen, onClose });
 
-  const [selectedReason, setSelectedReason] = useState<string>(REPORT_REASONS[0]);
+  const [selectedReason, setSelectedReason] = useState<string>(REPORT_REASONS[0] ?? "Autre motif");
   const [details, setDetails] = useState("");
   const [website, setWebsite] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);

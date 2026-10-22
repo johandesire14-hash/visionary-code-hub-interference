@@ -71,7 +71,12 @@ export function UiArcShowcase({ onOpenStudio }: UiArcShowcaseProps) {
           </div>
 
           <div className="mt-8 flex items-end gap-3">
-            <BillingPrice amount={plan.amount} was={plan.was} currency="€" period={plan.period} />
+            <BillingPrice
+              amount={plan.amount}
+              {...(plan.was === undefined ? {} : { was: plan.was })}
+              currency="€"
+              period={plan.period}
+            />
           </div>
 
           <ul className="mt-7 grid gap-3 border-t border-white/[0.08] pt-6 text-sm text-zinc-300 sm:grid-cols-2">

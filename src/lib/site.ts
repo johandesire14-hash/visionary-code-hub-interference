@@ -1,5 +1,7 @@
 export const SITE_URL = (
-  import.meta.env.VITE_SITE_URL || import.meta.env.SITE_URL || ""
+  import.meta.env["VITE_SITE_URL"] ||
+  import.meta.env["SITE_URL"] ||
+  ""
 ).replace(/\/$/, "");
 
 export function siteUrl(path = "/"): string {

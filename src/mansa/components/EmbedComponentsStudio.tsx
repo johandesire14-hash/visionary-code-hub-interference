@@ -1,15 +1,32 @@
 import { siteUrl } from "@/lib/site";
 // @ts-nocheck
 import React, { useState } from "react";
-import { CreditCard, Wallet, MessageSquare, Key, Copy, Check, Terminal, ExternalLink, ShieldCheck, Zap } from "lucide-react";
+import {
+  CreditCard,
+  Wallet,
+  MessageSquare,
+  Key,
+  Copy,
+  Check,
+  Terminal,
+  ExternalLink,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 import { EmbedComponentTab } from "../types";
+
+type EmbedTabId = "checkout" | "wallet" | "chat" | "licenses";
+
+function isEmbedTabId(id: string): id is EmbedTabId {
+  return id === "checkout" || id === "wallet" || id === "chat" || id === "licenses";
+}
 
 interface EmbedComponentsStudioProps {
   lang: "fr" | "en";
 }
 
 export const EmbedComponentsStudio: React.FC<EmbedComponentsStudioProps> = ({ lang }) => {
-  const [activeTab, setActiveTab] = useState<"checkout" | "wallet" | "chat" | "licenses">("checkout");
+  const [activeTab, setActiveTab] = useState<EmbedTabId>("checkout");
   const [copiedCode, setCopiedCode] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
@@ -81,7 +98,7 @@ export async function validateLicense(key: string) {
     },
   ];
 
-  const currentTab = TABS.find((t) => t.id === activeTab) || TABS[0];
+  const currentTab = TABS.find((t) => t.id === activeTab) || TABS[0]!;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(currentTab.codeSnippet);
@@ -102,7 +119,6 @@ export async function validateLicense(key: string) {
   return (
     <section className="w-full border-t border-white/[0.08] bg-[#07080a] py-20">
       <div className="mx-auto max-w-[1240px] px-6 sm:px-10">
-        
         {/* Section Header */}
         <div className="text-center max-w-2xl mx-auto pb-12">
           <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#FA4616] block mb-2">
@@ -112,7 +128,8 @@ export async function validateLicense(key: string) {
             Intégrez Mansa dans votre propre site
           </h2>
           <p className="mt-3 text-sm text-zinc-400 font-light">
-            Installez nos composants React ou le SDK Mansa en 2 lignes de code et commencez à encaisser.
+            Installez nos composants React ou le SDK Mansa en 2 lignes de code et commencez à
+            encaisser.
           </p>
         </div>
 
@@ -123,7 +140,9 @@ export async function validateLicense(key: string) {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => {
+                  if (isEmbedTabId(tab.id)) setActiveTab(tab.id);
+                }}
                 className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold transition-all cursor-pointer ${
                   isSelected
                     ? "bg-[#FA4616] text-white shadow-[0_4px_0_0_#C4350F]"
@@ -142,7 +161,6 @@ export async function validateLicense(key: string) {
 
         {/* Studio Workspace: Code on Left / Live Preview on Right */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          
           {/* Left: Code Box */}
           <div className="lg:col-span-6 flex flex-col justify-between rounded-2xl border border-white/10 bg-[#101114] p-6 shadow-2xl">
             <div>
@@ -155,7 +173,11 @@ export async function validateLicense(key: string) {
                   onClick={handleCopy}
                   className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-mono text-zinc-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
                 >
-                  {copiedCode ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+                  {copiedCode ? (
+                    <Check className="size-3 text-emerald-400" />
+                  ) : (
+                    <Copy className="size-3" />
+                  )}
                   <span>{copiedCode ? "Copié !" : "Copier"}</span>
                 </button>
               </div>
@@ -264,7 +286,9 @@ export async function validateLicense(key: string) {
                   </div>
                   <div className="bg-[#121316] p-2.5 rounded-lg border border-white/5">
                     <span className="font-bold text-zinc-400 mr-2">Bot_Mansa:</span>
-                    <span className="text-zinc-300">Nouveau membre @Julien a rejoint le salon VIP.</span>
+                    <span className="text-zinc-300">
+                      Nouveau membre @Julien a rejoint le salon VIP.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -284,11 +308,8 @@ export async function validateLicense(key: string) {
                 </div>
               </div>
             )}
-
           </div>
-
         </div>
-
       </div>
     </section>
   );

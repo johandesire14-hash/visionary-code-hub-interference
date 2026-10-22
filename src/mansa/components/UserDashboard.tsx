@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Search,
@@ -74,20 +73,45 @@ import {
   DashboardPulseSkeleton,
   DashboardChartSkeleton,
 } from "./common/Skeleton";
-import { PaymentsView } from "./dashboard/PaymentsView";
-import { CustomersView } from "./dashboard/CustomersView";
-import { WebsitesView } from "./dashboard/WebsitesView";
-import { AffiliatesView } from "./dashboard/AffiliatesView";
-import { DiscoverCreatorsView } from "./dashboard/DiscoverCreatorsView";
-import { AssistanceView } from "./dashboard/AssistanceView";
+const PaymentsView = React.lazy(() =>
+  import("./dashboard/PaymentsView").then((m) => ({ default: m.PaymentsView })),
+);
+const CustomersView = React.lazy(() =>
+  import("./dashboard/CustomersView").then((m) => ({ default: m.CustomersView })),
+);
+const WebsitesView = React.lazy(() =>
+  import("./dashboard/WebsitesView").then((m) => ({ default: m.WebsitesView })),
+);
+const AffiliatesView = React.lazy(() =>
+  import("./dashboard/AffiliatesView").then((m) => ({ default: m.AffiliatesView })),
+);
+const DiscoverCreatorsView = React.lazy(() =>
+  import("./dashboard/DiscoverCreatorsView").then((m) => ({ default: m.DiscoverCreatorsView })),
+);
+const AssistanceView = React.lazy(() =>
+  import("./dashboard/AssistanceView").then((m) => ({ default: m.AssistanceView })),
+);
 import { ProductTelegramLinkModal } from "./dashboard/ProductTelegramLinkModal";
-import { SettingsView } from "./dashboard/SettingsView";
-import { WorkforceView } from "./dashboard/WorkforceView";
-import { PartnersView } from "./dashboard/PartnersView";
+const SettingsView = React.lazy(() =>
+  import("./dashboard/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+const WorkforceView = React.lazy(() =>
+  import("./dashboard/WorkforceView").then((m) => ({ default: m.WorkforceView })),
+);
+const PartnersView = React.lazy(() =>
+  import("./dashboard/PartnersView").then((m) => ({ default: m.PartnersView })),
+);
 import { AccountSettingsModal } from "./common/AccountSettingsModal";
-import { ConnectedAppsView, TelegramIcon, DiscordIcon } from "./dashboard/ConnectedAppsView";
-import { FilesWorkspace } from "./dashboard/FilesWorkspace";
-import { RevenueAnalyticsChart } from "./dashboard/RevenueAnalyticsChart";
+import { TelegramIcon, DiscordIcon } from "./dashboard/ConnectedAppsView";
+const ConnectedAppsView = React.lazy(() =>
+  import("./dashboard/ConnectedAppsView").then((m) => ({ default: m.ConnectedAppsView })),
+);
+const FilesWorkspace = React.lazy(() =>
+  import("./dashboard/FilesWorkspace").then((m) => ({ default: m.FilesWorkspace })),
+);
+const RevenueAnalyticsChart = React.lazy(() =>
+  import("./dashboard/RevenueAnalyticsChart").then((m) => ({ default: m.RevenueAnalyticsChart })),
+);
 import {
   CurrencyCode,
   SUPPORTED_CURRENCIES,
@@ -102,7 +126,9 @@ import { BusinessProject, Company, EnterpriseSubscription } from "../types";
 import { CompanyOnboardingModal } from "./CompanyOnboardingModal";
 import { getSavedCompanies, loadCreatorCompanies, saveCompany } from "../utils/companyStorage";
 import { filterByCompanyId, filterPersonalTransactions } from "../utils/companyScope";
-import { EnterpriseMemberView } from "./dashboard/EnterpriseMemberView";
+const EnterpriseMemberView = React.lazy(() =>
+  import("./dashboard/EnterpriseMemberView").then((m) => ({ default: m.EnterpriseMemberView })),
+);
 import { ContextualLocationPrompt } from "./common/ContextualLocationPrompt";
 import { getSavedSubscriptions } from "../utils/subscriptionsStorage";
 import {
@@ -116,6 +142,7 @@ import {
   FirestoreCustomer,
 } from "../services/dbService";
 import { isCreatorPayoutConfigured } from "../utils/payoutConfig";
+import type { CreatorEnterpriseCard } from "./dashboard/DiscoverCreatorsView";
 
 interface UserDashboardProps {
   user: {
@@ -405,9 +432,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
   // Listen to external currency change events across the application
   useEffect(() => {
-    const handleStorageCurrencyChange = (e: any) => {
-      const newCurr = e.detail?.currency || getStoredCurrency();
-      if (newCurr && SUPPORTED_CURRENCIES[newCurr as CurrencyCode]) {
+    const handleStorageCurrencyChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ currency?: string }>).detail;
+      const newCurr = detail?.currency || getStoredCurrency();
+      if (newCurr && newCurr in SUPPORTED_CURRENCIES) {
         setCurrency(newCurr as CurrencyCode);
       }
     };
@@ -503,9 +531,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       const userKey = user.uid || user.email || "default";
       setMemberSubscriptions(getSavedSubscriptions(userKey));
     };
-    const handleCommunityLeft = (e: any) => {
-      const leftSubId = e.detail?.subId;
-      const leftCompanyId = e.detail?.companyId;
+    const handleCommunityLeft = (event: Event) => {
+      const detail = (event as CustomEvent<{ subId?: string; companyId?: string }>).detail;
+      const leftSubId = detail?.subId;
+      const leftCompanyId = detail?.companyId;
       const userKey = user.uid || user.email || "default";
       const updated = getSavedSubscriptions(userKey);
       setMemberSubscriptions(updated);
@@ -526,8 +555,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   }, [user, selectedCommunitySubId, activeWorkspaceId]);
 
   useEffect(() => {
-    const handleCommunityJoined = (e: any) => {
-      const joinedId = e.detail?.subId;
+    const handleCommunityJoined = (event: Event) => {
+      const joinedId = (event as CustomEvent<{ subId?: string }>).detail?.subId;
       if (joinedId && previewCommunitySubId === joinedId) {
         setPreviewCommunitySubId(null);
       }
@@ -536,7 +565,18 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     return () => window.removeEventListener("mansa_community_joined", handleCommunityJoined);
   }, [previewCommunitySubId]);
 
-  const handleVisitEnterpriseFromDiscover = (enterprise: any) => {
+  const handleVisitEnterpriseFromDiscover = (enterprise: CreatorEnterpriseCard | string) => {
+    if (typeof enterprise === "string") {
+      const existing = memberSubscriptions.find(
+        (subscription) => subscription.id === enterprise || subscription.companyId === enterprise,
+      );
+      if (existing) {
+        setSelectedCommunitySubId(existing.id);
+        setActiveWorkspaceId("personnel");
+        switchTab("communaute");
+      }
+      return;
+    }
     const compId = enterprise.companyId || enterprise.id;
     const compName = enterprise.companyName || "Entreprise";
     const ownedCompany = uniqueCompanies.find((company) => company.id === compId);
@@ -570,7 +610,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       companyId: compId,
       companyName: compName,
       companyLogo: enterprise.companyLogo || "",
-      companyBanner: enterprise.bannerUrl || enterprise.companyBanner || "",
+      companyBanner: enterprise.bannerUrl || "",
       companyInitials: enterprise.companyInitials || compName.slice(0, 2).toUpperCase(),
       companyGradient: enterprise.accentColor || "from-[#12141c] to-black",
       productName: "Accès Visiteur",
@@ -627,8 +667,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       companyId: company.id,
       companyName: company.name,
       companyInitials: company.logoInitials || company.name.slice(0, 2).toUpperCase(),
-      companyLogo: company.companyLogo,
-      companyBanner: company.companyBanner,
+      ...(company.companyLogo ? { companyLogo: company.companyLogo } : {}),
+      ...(company.companyBanner ? { companyBanner: company.companyBanner } : {}),
       companyGradient: company.colorGradient || "from-[#12141c] to-black",
       productName: companyProduct?.name || "Communauté de l'entreprise",
       priceDisplay: companyProduct?.priceDisplay || "Gratuit",
@@ -658,7 +698,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   ) => {
     const userKey = user.uid || user.email || "";
     if (!userKey) throw new Error("Un compte connecté est requis.");
-    const { companies: updated, created, persisted } = saveCompany(userKey, newComp);
+    const {
+      companies: updated,
+      created,
+      persisted,
+    } = saveCompany(userKey, {
+      ...newComp,
+      ownerUid: userKey,
+      discoverable: true,
+    });
     await persisted;
     setCompanies(updated);
     setActiveWorkspaceId(created.id);
@@ -684,11 +732,18 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   : "";
             const pCurrency = (p.currency as CurrencyCode) || "USD";
             const revenueNumber = (p.pricingAmount || 0) * (p.membersCount || 0);
-            const storedProductType = p.productType || (p as any).type;
+            const extendedProject = p as BusinessProject &
+              Partial<
+                Pick<CreatedProductData, "pricingOptions" | "digitalFiles" | "courseModules">
+              > & {
+                type?: string;
+              };
+            const storedProductType = p.productType || extendedProject.type;
 
             return {
               id: p.id,
-              productType: (["course", "ebook", "membership"].includes(storedProductType)
+              productType: (storedProductType &&
+              ["course", "ebook", "membership"].includes(storedProductType)
                 ? storedProductType
                 : "digital") as ProductTypeCategory,
               name: p.name,
@@ -707,7 +762,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               imageUrl:
                 p.coverImage ||
                 "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80",
-              bannerUrl: p.bannerUrl,
+              ...(p.bannerUrl ? { bannerUrl: p.bannerUrl } : {}),
               title: p.name,
               description: p.tagline || "",
               productUrl: p.storeUrl || `mansa.af/p/${p.id}`,
@@ -715,9 +770,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               ctaText: p.ctaText || "Rejoindre maintenant",
               companyId: p.companyId || "",
               companyName: p.companyName || "",
-              pricingOptions: (p as any).pricingOptions || [],
-              digitalFiles: (p as any).digitalFiles || [],
-              courseModules: (p as any).courseModules || [],
+              pricingOptions: extendedProject.pricingOptions || [],
+              digitalFiles: extendedProject.digitalFiles || [],
+              courseModules: extendedProject.courseModules || [],
             };
           }),
         );
@@ -886,11 +941,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       includedApps: newProj.apps,
       affiliateRate: newProj.affiliateCommissionRate,
       productUrl: newProj.storeUrl,
-      ctaText: newProj.ctaText,
-      coverImage: newProj.coverImage,
-      bannerUrl: newProj.bannerUrl,
-      companyId: newProj.companyId || activeCompany?.id,
-      companyName: newProj.companyName || activeCompany?.name,
+      ...(newProj.ctaText ? { ctaText: newProj.ctaText } : {}),
+      ...(newProj.coverImage ? { coverImage: newProj.coverImage } : {}),
+      ...(newProj.bannerUrl ? { bannerUrl: newProj.bannerUrl } : {}),
+      companyId: newProj.companyId || activeCompany?.id || "",
+      companyName: newProj.companyName || activeCompany?.name || "",
     });
   };
 
@@ -908,11 +963,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       includedApps: updated.apps,
       affiliateRate: updated.affiliateCommissionRate,
       productUrl: updated.storeUrl,
-      ctaText: updated.ctaText,
-      coverImage: updated.coverImage,
-      bannerUrl: updated.bannerUrl,
-      companyId: updated.companyId || activeCompany?.id,
-      companyName: updated.companyName || activeCompany?.name,
+      ...(updated.ctaText ? { ctaText: updated.ctaText } : {}),
+      ...(updated.coverImage ? { coverImage: updated.coverImage } : {}),
+      ...(updated.bannerUrl ? { bannerUrl: updated.bannerUrl } : {}),
+      companyId: updated.companyId || activeCompany?.id || "",
+      companyName: updated.companyName || activeCompany?.name || "",
     });
   };
 
@@ -1010,6 +1065,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     }
 
     previousPulseIdsRef.current = currentIds;
+    return undefined;
   }, [contextTransactions]);
 
   useEffect(() => {
@@ -1060,8 +1116,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           id: activeCompany.id,
           companyId: activeCompany.id,
           companyName: activeCompany.name,
-          companyBanner: activeCompany.companyBanner,
-          companyLogo: activeCompany.companyLogo,
+          ...(activeCompany.companyBanner ? { companyBanner: activeCompany.companyBanner } : {}),
+          ...(activeCompany.companyLogo ? { companyLogo: activeCompany.companyLogo } : {}),
           companyInitials:
             activeCompany.logoInitials || activeCompany.name.substring(0, 2).toUpperCase(),
           productName: activeCompany.description || "Pass Membre Officiel",
@@ -1332,7 +1388,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               const updated = getSavedSubscriptions(userKey);
               setMemberSubscriptions(updated);
               if (updated.length > 0) {
-                setSelectedCommunitySubId(updated[0].id);
+                setSelectedCommunitySubId(updated[0]?.id ?? null);
               } else {
                 setSelectedCommunitySubId(null);
               }
@@ -2642,15 +2698,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                                     {companies.length > 0 ? (
                                       <button
                                         onClick={() => {
-                                          setActiveWorkspaceId(companies[0].id);
+                                          setActiveWorkspaceId(companies[0]?.id ?? "personnel");
                                           setActiveNav("produits");
                                         }}
                                         className="ui-btn-primary px-4 py-1.5 text-xs font-bold flex items-center gap-2 cursor-pointer"
                                       >
                                         <span>
                                           {lang === "fr"
-                                            ? `Accéder à ${companies[0].name}`
-                                            : `Go to ${companies[0].name}`}
+                                            ? `Accéder à ${companies[0]?.name ?? "votre entreprise"}`
+                                            : `Go to ${companies[0]?.name ?? "your company"}`}
                                         </span>
                                         <ArrowRight className="size-3" />
                                       </button>
@@ -3006,7 +3062,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   lang={lang}
                   currency={currency}
                   activeWorkspaceId={activeWorkspaceId}
-                  activeCompanyName={activeCompany?.name}
+                  {...(activeCompany?.name ? { activeCompanyName: activeCompany.name } : {})}
                 />
               ))}
 
@@ -3020,8 +3076,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <CustomersView
                   key={activeWorkspaceId}
                   lang={lang}
-                  activeCompanyId={activeCompany?.id}
-                  activeCompanyName={activeCompany?.name}
+                  {...(activeCompany
+                    ? { activeCompanyId: activeCompany.id, activeCompanyName: activeCompany.name }
+                    : {})}
                 />
               ))}
 
@@ -3161,8 +3218,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   user={user}
                   onLogout={onLogout}
                   initialTab="account"
-                  activeCompanyId={activeCompany?.id}
-                  activeCompanyName={activeCompany?.name}
+                  {...(activeCompany
+                    ? { activeCompanyId: activeCompany.id, activeCompanyName: activeCompany.name }
+                    : {})}
                 />
               ))}
 
@@ -3182,8 +3240,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   onLogout={onLogout}
                   initialTab="store"
                   key={`${activeWorkspaceId}-company-settings`}
-                  activeCompanyId={activeCompany?.id}
-                  activeCompanyName={activeCompany?.name}
+                  {...(activeCompany
+                    ? { activeCompanyId: activeCompany.id, activeCompanyName: activeCompany.name }
+                    : {})}
                 />
               ))}
 
@@ -3200,8 +3259,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   key={activeWorkspaceId}
                   lang={lang}
                   user={user}
-                  activeCompanyId={activeCompany?.id}
-                  activeCompanyName={activeCompany?.name}
+                  {...(activeCompany
+                    ? { activeCompanyId: activeCompany.id, activeCompanyName: activeCompany.name }
+                    : {})}
                 />
               ))}
 
@@ -3216,8 +3276,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   key={activeWorkspaceId}
                   lang={lang}
                   user={user}
-                  activeCompanyId={activeCompany?.id}
-                  activeCompanyName={activeCompany?.name}
+                  {...(activeCompany
+                    ? { activeCompanyId: activeCompany.id, activeCompanyName: activeCompany.name }
+                    : {})}
                 />
               ))}
           </main>
@@ -3477,7 +3538,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           companyName={activeCompany.name}
           companies={[activeCompany]}
           initialCompanyId={activeCompany.id}
-          initialData={activeEditingProduct || undefined}
+          {...(activeEditingProduct ? { initialData: activeEditingProduct } : {})}
           activeCurrency={currency}
           onCurrencyChange={(newCurr) => {
             setCurrency(newCurr);
@@ -3502,13 +3563,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               affiliateRate: newProduct.affiliateRate || 25,
               productUrl: newProduct.productUrl,
               ctaText: newProduct.ctaText,
-              coverImage: newProduct.imageUrl,
-              bannerUrl: newProduct.bannerUrl,
-              companyId: newProduct.companyId,
-              companyName: newProduct.companyName,
+              ...(newProduct.imageUrl ? { coverImage: newProduct.imageUrl } : {}),
+              ...(newProduct.bannerUrl ? { bannerUrl: newProduct.bannerUrl } : {}),
+              companyId: newProduct.companyId || activeCompany.id,
+              companyName: newProduct.companyName || activeCompany.name,
               productType: newProduct.productType,
-              digitalFiles: newProduct.digitalFiles,
-              courseModules: newProduct.courseModules,
+              ...(newProduct.digitalFiles ? { digitalFiles: newProduct.digitalFiles } : {}),
+              ...(newProduct.courseModules ? { courseModules: newProduct.courseModules } : {}),
               visibility: newProduct.visibility,
             });
             setIsProductStudioOpen(false);
@@ -3626,7 +3687,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                         }),
                         telegramEnabled: true,
                         telegramChannelName: channelName,
-                        telegramChannelId: channelId,
+                        telegramChannelId: channelId || "",
                       },
                     }
                   : p,

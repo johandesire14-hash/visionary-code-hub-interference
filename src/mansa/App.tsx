@@ -96,10 +96,10 @@ export default function App({ openStudioOnMount = false }: { openStudioOnMount?:
       includedApps: product.includedApps || ["Chat VIP", "Mansa Checkout"],
       affiliateRate: product.affiliateRate || 25,
       productUrl: product.productUrl,
-      coverImage: product.imageUrl,
-      bannerUrl: product.bannerUrl,
-      companyId: product.companyId,
-      companyName: product.companyName,
+      ...(product.imageUrl ? { coverImage: product.imageUrl } : {}),
+      ...(product.bannerUrl ? { bannerUrl: product.bannerUrl } : {}),
+      companyId: product.companyId || "",
+      companyName: product.companyName || "",
     });
     setIsStudioOpen(false);
   };
@@ -138,7 +138,9 @@ export default function App({ openStudioOnMount = false }: { openStudioOnMount?:
             onClose={() => setIsStudioOpen(false)}
             onSaveProduct={handleSaveProductFromStudio}
             companies={getSavedCompanies(currentUser.uid)}
-            initialCompanyId={getSavedCompanies(currentUser.uid)[0]?.id}
+            {...(getSavedCompanies(currentUser.uid)[0]?.id
+              ? { initialCompanyId: getSavedCompanies(currentUser.uid)[0]!.id }
+              : {})}
           />
         )}
       </>

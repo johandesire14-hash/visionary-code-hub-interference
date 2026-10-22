@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   auth,
@@ -11,9 +10,29 @@ import {
   onAuthStateChanged,
   FirebaseUser,
   firebaseConfigured,
-} from "../services/firebase";
-import { syncUserProfile, FirestoreUserProfile } from "../services/dbService";
+} from "../services/firebaseAuth";
+import type { FirestoreUserProfile } from "../services/dbService";
 import { safeStorage } from "../utils/storage";
+
+const syncAuthenticatedProfile = async (user: {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL?: string | null;
+}) => {
+  const { syncUserProfile } = await import("../services/dbService");
+  return syncUserProfile(user);
+};
+
+const getAuthErrorCode = (error: unknown): string | undefined => {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    return typeof error.code === "string" ? error.code : undefined;
+  }
+  return undefined;
+};
+
+const getErrorMessage = (error: unknown): string | undefined =>
+  error instanceof Error ? error.message : undefined;
 
 export type AppUser = Pick<FirebaseUser, "uid" | "email" | "displayName" | "photoURL">;
 
@@ -123,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (firebaseUser) {
         setUser(firebaseUser);
         try {
-          const userProfile = await syncUserProfile({
+          const userProfile = await syncAuthenticatedProfile({
             uid: firebaseUser.uid,
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
@@ -149,7 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               displayName:
                 firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Créateur",
               avatarInitials: initials,
-              photoURL: firebaseUser.photoURL || undefined,
+              ...(firebaseUser.photoURL ? { photoURL: firebaseUser.photoURL } : {}),
               country: "Côte d'Ivoire",
               currency: "XOF",
             });
@@ -183,7 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const res = await signInWithPopup(auth, googleProvider);
       if (res.user) {
-        const userProfile = await syncUserProfile({
+        const userProfile = await syncAuthenticatedProfile({
           uid: res.user.uid,
           email: res.user.email,
           displayName: res.user.displayName,
@@ -191,15 +210,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setProfile(userProfile);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Google Sign-In Error:", err);
       let msg = "Échec de la connexion Google.";
-      if (err.code === "auth/popup-closed-by-user") {
+      const code = getAuthErrorCode(err);
+      if (code === "auth/popup-closed-by-user") {
         msg = "Connexion annulée par l'utilisateur.";
-      } else if (err.code === "auth/unauthorized-domain") {
+      } else if (code === "auth/unauthorized-domain") {
         msg = "Domaine non autorisé dans la console Firebase.";
-      } else if (err.message) {
-        msg = err.message;
+      } else if (getErrorMessage(err)) {
+        msg = getErrorMessage(err)!;
       }
       setError(msg);
       throw err;
@@ -229,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const res = await signInWithEmailAndPassword(auth, email, pass);
       if (res.user) {
-        const userProfile = await syncUserProfile({
+        const userProfile = await syncAuthenticatedProfile({
           uid: res.user.uid,
           email: res.user.email,
           displayName: res.user.displayName,
@@ -237,16 +257,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setProfile(userProfile);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Email Sign-In Error:", err);
       let msg = "Adresse email ou mot de passe incorrect.";
+      const code = getAuthErrorCode(err);
       if (
-        err.code === "auth/user-not-found" ||
-        err.code === "auth/wrong-password" ||
-        err.code === "auth/invalid-credential"
+        code === "auth/user-not-found" ||
+        code === "auth/wrong-password" ||
+        code === "auth/invalid-credential"
       ) {
         msg = "Identifiants invalides. Vérifiez votre email et mot de passe.";
-      } else if (err.code === "auth/too-many-requests") {
+      } else if (code === "auth/too-many-requests") {
         msg = "Trop de tentatives échouées. Veuillez patienter un moment.";
       }
       setError(msg);
@@ -274,7 +295,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         uid: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         email: normalizedEmail,
         password: pass,
-        displayName: name?.trim() || normalizedEmail.split("@")[0],
+        displayName: name?.trim() || normalizedEmail.split("@")[0] || "Créateur",
         createdAt: new Date().toISOString(),
       };
       safeStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify([...accounts, account]));
@@ -289,7 +310,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(true);
       const res = await createUserWithEmailAndPassword(auth, email, pass);
       if (res.user) {
-        const userProfile = await syncUserProfile({
+        const userProfile = await syncAuthenticatedProfile({
           uid: res.user.uid,
           email: res.user.email,
           displayName: name || res.user.email?.split("@")[0] || "Nouveau Créateur",
@@ -297,14 +318,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         setProfile(userProfile);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Sign-Up Error:", err);
       let msg = "Erreur lors de la création du compte.";
-      if (err.code === "auth/email-already-in-use") {
+      const code = getAuthErrorCode(err);
+      if (code === "auth/email-already-in-use") {
         msg = "Cette adresse email est déjà associée à un compte.";
-      } else if (err.code === "auth/weak-password") {
+      } else if (code === "auth/weak-password") {
         msg = "Le mot de passe doit contenir au moins 6 caractères.";
-      } else if (err.code === "auth/invalid-email") {
+      } else if (code === "auth/invalid-email") {
         msg = "Format d'adresse email invalide.";
       }
       setError(msg);
@@ -326,7 +348,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setError(null);
       await sendPasswordResetEmail(auth, email);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Reset password error:", err);
       setError("Impossible d'envoyer l'email de réinitialisation.");
       throw err;

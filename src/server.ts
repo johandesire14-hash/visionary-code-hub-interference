@@ -12,11 +12,16 @@ const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
 async function enforceApiProtection(request: Request): Promise<Response | null> {
   const url = new URL(request.url);
-  if (!url.pathname.startsWith("/api/") || !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return null;
+  if (
+    !url.pathname.startsWith("/api/") ||
+    !["POST", "PUT", "PATCH", "DELETE"].includes(request.method)
+  )
+    return null;
 
   const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   const ip = forwardedFor || request.headers.get("cf-connecting-ip") || "unknown";
-  const user = request.headers.get("x-user-id") || request.headers.get("authorization") || "anonymous";
+  const user =
+    request.headers.get("x-user-id") || request.headers.get("authorization") || "anonymous";
   const now = Date.now();
   const bucketKey = `${url.pathname}:${ip}:${user}`;
   const bucket = requestBuckets.get(bucketKey);
@@ -34,7 +39,7 @@ async function enforceApiProtection(request: Request): Promise<Response | null> 
   if (request.headers.get("content-type")?.includes("application/json")) {
     try {
       const payload = (await request.clone().json()) as Record<string, unknown>;
-      if (typeof payload.website === "string" && payload.website.trim()) {
+      if (typeof payload["website"] === "string" && payload["website"].trim()) {
         return new Response(JSON.stringify({ error: "Requête rejetée." }), {
           status: 400,
           headers: { "content-type": "application/json" },

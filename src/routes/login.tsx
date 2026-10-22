@@ -5,7 +5,7 @@ import { useAuth } from "@/mansa/context/AuthContext";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>) => ({
-    mode: search.mode === "signup" ? ("signup" as const) : ("login" as const),
+    mode: search["mode"] === "signup" ? ("signup" as const) : ("login" as const),
   }),
   component: LoginRoute,
 });

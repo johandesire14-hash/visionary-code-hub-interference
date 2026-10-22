@@ -42,7 +42,7 @@ interface WithdrawalRequestModalProps {
   successActionLabel?: string;
 }
 
-const DEFAULT_WITHDRAWAL_COUNTRY = DIAL_CODE_CONFIGS["+225"].countryName;
+const DEFAULT_WITHDRAWAL_COUNTRY = DIAL_CODE_CONFIGS["+225"]?.countryName ?? "Côte d'Ivoire";
 const normalizeCountryName = (name: string) => name.replace(/[‘’]/g, "'").toLowerCase();
 const WITHDRAWAL_METHODS = [
   { id: "wave", name: "Wave", category: "wallet", color: "#1DC3FD" },
@@ -344,7 +344,7 @@ export const WithdrawalRequestModal: React.FC<WithdrawalRequestModalProps> = ({
       amount: numericAmount,
       currency: activeCurrency,
       payoutMethodId: oneTimePayoutMethod?.id ?? selectedMethodId,
-      payoutMethod: oneTimePayoutMethod,
+      ...(oneTimePayoutMethod ? { payoutMethod: oneTimePayoutMethod } : {}),
     });
     setIsSubmitting(false);
     if (result.success && result.request) {

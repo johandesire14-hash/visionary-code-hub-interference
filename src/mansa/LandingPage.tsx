@@ -22,7 +22,10 @@ export default function LandingPage() {
 
   const openStudio = (category?: string) => {
     if (user) {
-      void navigate({ to: "/app", state: { openStudio: true, category } });
+      void navigate({
+        to: "/app",
+        state: (previous) => ({ ...previous, openStudio: true, category }),
+      });
     } else {
       void navigate({ to: "/login", search: { mode: "signup" } });
     }
