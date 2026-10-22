@@ -3,6 +3,12 @@ import { Bot, Building2, CheckCircle2, Loader2, MessageSquare, Send, UserRound }
 import { useAuth } from "../../context/AuthContext";
 import { Company } from "../../types";
 import { getSavedCompanies, updateCompanyAutoReply } from "../../utils/companyStorage";
+import {
+  appendLocalSupportMessage,
+  getLocalSupportConversations,
+  LOCAL_SUPPORT_CONVERSATIONS_EVENT,
+  LOCAL_SUPPORT_CONVERSATIONS_PREFIX,
+} from "../../utils/localCommunityStore";
 
 interface AssistanceViewProps {
   lang?: "fr" | "en";
@@ -72,37 +78,32 @@ export const AssistanceView: React.FC<AssistanceViewProps> = ({ lang = "fr", act
   }, [companyId, userKey, companies, activeCompany]);
 
   useEffect(() => {
-    const handleMemberMessage = (event: Event) => {
-      const detail = (event as CustomEvent<{ companyId?: string; memberName?: string; memberEmail?: string; message?: string }>).detail;
-      if (!detail?.companyId || !detail.message || isPersonalWorkspace || !activeCompany?.id || detail.companyId !== activeCompany.id) return;
-      const memberEmail = detail.memberEmail || "membre@mansa.app";
-      const conversationId = `${detail.companyId}:${memberEmail}`;
-      const nextMessage: SupportMessage = {
-        id: `member-${Date.now()}`,
-        sender: "member",
-        text: detail.message,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-
-      setConversations((previous) => {
-        const existing = previous.find((conversation) => conversation.id === conversationId);
-        if (existing) {
-          return previous.map((conversation) => conversation.id === conversationId ? { ...conversation, messages: [...conversation.messages, nextMessage] } : conversation);
-        }
-        return [...previous, {
-          id: conversationId,
-          companyId: detail.companyId || "",
-          memberName: detail.memberName || "Membre",
-          memberEmail,
-          messages: [nextMessage],
-        }];
-      });
-      setSelectedConversationId((current) => current || conversationId);
+    if (!companyId || isPersonalWorkspace) {
+      setConversations([]);
+      return;
+    }
+    const refreshConversations = () => {
+      const next = getLocalSupportConversations(companyId);
+      setConversations(next);
+      setSelectedConversationId((current) =>
+        current && next.some((conversation) => conversation.id === current)
+          ? current
+          : next[0]?.id || null,
+      );
     };
-
-    window.addEventListener("mansa_member_assistance_sent", handleMemberMessage);
-    return () => window.removeEventListener("mansa_member_assistance_sent", handleMemberMessage);
-  }, [activeCompany?.id, isPersonalWorkspace]);
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key?.startsWith(LOCAL_SUPPORT_CONVERSATIONS_PREFIX)) return;
+      if (event.key !== `${LOCAL_SUPPORT_CONVERSATIONS_PREFIX}${companyId}`) return;
+      refreshConversations();
+    };
+    refreshConversations();
+    window.addEventListener(LOCAL_SUPPORT_CONVERSATIONS_EVENT, refreshConversations);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(LOCAL_SUPPORT_CONVERSATIONS_EVENT, refreshConversations);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [companyId, isPersonalWorkspace]);
 
   const save = (event: React.FormEvent) => {
     event.preventDefault();
@@ -132,10 +133,16 @@ export const AssistanceView: React.FC<AssistanceViewProps> = ({ lang = "fr", act
       text,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
-    setConversations((previous) => previous.map((conversation) => conversation.id === selectedConversation.id ? { ...conversation, messages: [...conversation.messages, replyMessage] } : conversation));
-    window.dispatchEvent(new CustomEvent("mansa_creator_assistance_replied", {
-      detail: { companyId: selectedConversation.companyId, memberEmail: selectedConversation.memberEmail, text },
-    }));
+    const persistedConversation = appendLocalSupportMessage({
+      companyId: selectedConversation.companyId,
+      memberEmail: selectedConversation.memberEmail,
+      memberName: selectedConversation.memberName,
+      sender: "creator",
+      text,
+    });
+    if (!persistedConversation) {
+      setConversations((previous) => previous.map((conversation) => conversation.id === selectedConversation.id ? { ...conversation, messages: [...conversation.messages, replyMessage] } : conversation));
+    }
     setReply("");
     setIsSendingReply(false);
   };

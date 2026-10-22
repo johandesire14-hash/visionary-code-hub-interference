@@ -130,6 +130,7 @@ export interface Company {
   companyLogo?: string; // Photo de profil / Logo de l'entreprise
   socialLinks?: CompanySocialLinks;
   discoverable?: boolean;
+  membersCount?: number;
   createdAt: string;
   updatedAt?: string;
   payoutMethod?: string;

@@ -18,6 +18,7 @@ import {
 import { EnterpriseSubscription, CreatorPlatformOffer, BusinessProject } from "../../types";
 import { PLATFORM_OFFERS_CATALOG } from "../../utils/rightsAccessEngine";
 import { loadDiscoverableCompanies } from "../../utils/companyStorage";
+import { LOCAL_COMPANY_MEMBERS_PREFIX } from "../../utils/localCommunityStore";
 import { loadDiscoverableProducts } from "../../services/dbService";
 
 export const PLATFORM_CREATOR_OFFERS: CreatorPlatformOffer[] = PLATFORM_OFFERS_CATALOG;
@@ -209,8 +210,8 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
         description: company.description || "",
         rating: 0,
         reviewsCount: 0,
-        subscribersCount: "0 membre",
-        membersNumber: 0,
+        subscribersCount: `${company.membersCount || 0} membre${company.membersCount === 1 ? "" : "s"}`,
+        membersNumber: company.membersCount || 0,
         category: "community",
         categoryLabel: "Communauté",
         accentColor: company.colorGradient,
@@ -231,10 +232,17 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
     refreshDiscoverableContent();
     window.addEventListener("mansa_discoverable_companies_updated", refreshDiscoverableContent);
     window.addEventListener("mansa_discoverable_products_updated", refreshDiscoverableContent);
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key?.startsWith(LOCAL_COMPANY_MEMBERS_PREFIX)) {
+        void refreshDiscoverableContent();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
     return () => {
       cancelled = true;
       window.removeEventListener("mansa_discoverable_companies_updated", refreshDiscoverableContent);
       window.removeEventListener("mansa_discoverable_products_updated", refreshDiscoverableContent);
+      window.removeEventListener("storage", handleStorage);
     };
   }, []);
   

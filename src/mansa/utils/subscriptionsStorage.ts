@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { EnterpriseSubscription } from "../types";
+import { registerLocalCompanyMember, unregisterLocalCompanyMember } from "./localCommunityStore";
 import {
   getMemberAuthorizedTelegramChannels,
   getMemberAuthorizedDiscordChannels,
@@ -167,12 +168,23 @@ export function saveSubscription(
 
   if (typeof window !== "undefined") {
     localStorage.setItem(SUBSCRIPTIONS_STORAGE_KEY_PREFIX + userKey, JSON.stringify(updated));
+    if (newSub.companyId && newSub.hasJoined !== false && !newSub.isCommunityPreview) {
+      const email = userKey.includes("@") ? userKey.trim().toLowerCase() : "";
+      registerLocalCompanyMember(newSub.companyId, {
+        memberId: userKey,
+        email,
+        name: email ? email.split("@")[0] : "Membre",
+      });
+    }
     window.dispatchEvent(new CustomEvent("mansa_subscription_updated", { detail: newSub }));
   }
   return updated;
 }
 
 export function removeSubscription(userKey: string, targetId: string): EnterpriseSubscription[] {
+  const current = getSavedSubscriptions(userKey);
+  const removed = current.find((sub) => sub.id === targetId || sub.companyId === targetId);
+
   // Track in left enterprises list
   try {
     const leftKey = `mansa_left_enterprises_${userKey}`;
@@ -184,11 +196,11 @@ export function removeSubscription(userKey: string, targetId: string): Enterpris
     }
   } catch {}
 
-  const current = getSavedSubscriptions(userKey);
   const updated = current.filter((sub) => sub.id !== targetId && sub.companyId !== targetId);
 
   if (typeof window !== "undefined") {
     localStorage.setItem(SUBSCRIPTIONS_STORAGE_KEY_PREFIX + userKey, JSON.stringify(updated));
+    if (removed?.companyId) unregisterLocalCompanyMember(removed.companyId, userKey);
     window.dispatchEvent(
       new CustomEvent("mansa_subscription_updated", { detail: { removedId: targetId } }),
     );

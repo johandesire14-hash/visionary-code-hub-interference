@@ -95,6 +95,12 @@ import {
   CompanyPost,
 } from "../../utils/companyPostsStorage";
 import { updateCompanyBranding, getSavedCompanies } from "../../utils/companyStorage";
+import {
+  appendLocalSupportMessage,
+  getLocalSupportConversation,
+  LOCAL_SUPPORT_CONVERSATIONS_EVENT,
+  LOCAL_SUPPORT_CONVERSATIONS_PREFIX,
+} from "../../utils/localCommunityStore";
 import { EnterpriseBrandingModal } from "./EnterpriseBrandingModal";
 import { ManageMembershipModal } from "./ManageMembershipModal";
 import { ReportEnterpriseModal } from "./ReportEnterpriseModal";
@@ -1303,6 +1309,39 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     },
   ]);
 
+  React.useEffect(() => {
+    const companyId = subscription.companyId || subscription.id;
+    const memberEmail = user?.email || "membre@mansa.app";
+    const welcomeMessage = {
+      id: "msg-1",
+      sender: "creator" as const,
+      text: `Bienvenue dans l'espace membre officiel de ${subscription.companyName} ! Votre abonnement est actif. Si vous avez besoin d'aide pour vos accès Telegram, Discord ou vos services inclus, écrivez-nous ici.`,
+      time: "10:15",
+    };
+    const refreshConversation = () => {
+      const conversation = getLocalSupportConversation(companyId, memberEmail);
+      setSupportChatList([
+        welcomeMessage,
+        ...(conversation?.messages.map((message) => ({
+          ...message,
+          sender: message.sender === "member" ? ("user" as const) : ("creator" as const),
+        })) || []),
+      ]);
+    };
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === `${LOCAL_SUPPORT_CONVERSATIONS_PREFIX}${companyId}`) {
+        refreshConversation();
+      }
+    };
+    refreshConversation();
+    window.addEventListener(LOCAL_SUPPORT_CONVERSATIONS_EVENT, refreshConversation);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(LOCAL_SUPPORT_CONVERSATIONS_EVENT, refreshConversation);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [subscription.companyId, subscription.id, subscription.companyName, user?.email]);
+
   const handleSelectChannelToClaim = (channel: TelegramChannelItem) => {
     setSelectedChannel(channel);
     setTelegramFlowStep("claim_qr");
@@ -1464,20 +1503,16 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       text: textToSend,
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
-    setSupportChatList((prev) => [...prev, newMsg]);
+    const companyId = subscription.companyId || subscription.id;
+    const persistedConversation = appendLocalSupportMessage({
+      companyId,
+      memberEmail: user?.email || "membre@mansa.app",
+      memberName: user?.name || "Membre",
+      sender: "member",
+      text: textToSend,
+    });
+    if (!persistedConversation) setSupportChatList((prev) => [...prev, newMsg]);
     setSupportMessage("");
-
-    // Broadcast to creator's Assistance page
-    window.dispatchEvent(
-      new CustomEvent("mansa_member_assistance_sent", {
-        detail: {
-          companyId: subscription.companyId || subscription.id,
-          memberName: user?.name || "Membre",
-          memberEmail: user?.email || "membre@mansa.app",
-          message: textToSend,
-        },
-      })
-    );
 
     // Auto-reply acknowledgment from support if configured by creator
     setTimeout(() => {
@@ -1504,15 +1539,24 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         .replace(/\{nom\}/gi, user?.name || "Membre")
         .replace(/\{entreprise\}/gi, currentSub.companyName);
 
-      setSupportChatList((prev) => [
-        ...prev,
-        {
-          id: `msg-${Date.now() + 1}`,
-          sender: "creator",
-          text: personalizedMsg,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        },
-      ]);
+      const persistedAutoReply = appendLocalSupportMessage({
+        companyId: compId,
+        memberEmail: user?.email || "membre@mansa.app",
+        memberName: user?.name || "Membre",
+        sender: "creator",
+        text: personalizedMsg,
+      });
+      if (!persistedAutoReply) {
+        setSupportChatList((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now() + 1}`,
+            sender: "creator",
+            text: personalizedMsg,
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          },
+        ]);
+      }
     }, 1000);
   };
 
@@ -3154,11 +3198,14 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             );
             setCurrentIncludedApps(updatedApps);
             setUnlockedProductIds(updatedUnlockedIds);
-            setHasPaidOffer(true);
+            const hasPaidMembership = Boolean(currentSub.hasPaidOffer || newSub.hasPaidOffer);
+            setHasPaidOffer(hasPaidMembership);
             const userKey = user?.email || "default";
             const updatedSubscription: EnterpriseSubscription = {
               ...currentSub,
-              hasPaidOffer: true,
+              hasPaidOffer: hasPaidMembership,
+              hasJoined: true,
+              isCommunityPreview: false,
               includedApps: updatedApps,
               unlockedProductIds: updatedUnlockedIds,
               purchasedOfferIds: updatedUnlockedIds,

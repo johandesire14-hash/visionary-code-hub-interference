@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { Company } from "../types";
+import { getLocalCompanyMemberCount } from "./localCommunityStore";
 import { db, doc, setDoc, deleteDoc, collection, getDocs, query, where } from "../services/firebase";
 
 const COMPANIES_STORAGE_PREFIX = "mansa_companies_";
@@ -72,6 +73,10 @@ export async function loadDiscoverableCompanies(): Promise<Company[]> {
     colorGradient: company.colorGradient || "from-emerald-600 via-teal-700 to-black",
     companyBanner: company.companyBanner || "",
     companyLogo: company.companyLogo || "",
+    membersCount: Math.max(
+      company.membersCount || 0,
+      getLocalCompanyMemberCount(company.id || company.companyId || ""),
+    ),
     discoverable: true,
   } as Company);
   const readLocalDirectory = (): Company[] => {
