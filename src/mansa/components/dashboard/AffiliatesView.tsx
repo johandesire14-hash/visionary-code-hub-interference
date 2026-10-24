@@ -145,7 +145,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
   };
 
   const handleJoinAffiliate = async (company: AffiliateCompany) => {
-    const affiliateCode = `${userRefName}-${company.id}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+    const affiliateCode = `${userId}-${company.id}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
     const customUrl = siteUrl(`/p/${company.id}?a=${affiliateCode}&p=${company.id}`);
     const updatedCompany = { ...company, isJoined: true, affiliateUrl: customUrl };
 

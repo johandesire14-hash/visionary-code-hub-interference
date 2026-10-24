@@ -251,7 +251,7 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
         const confirmationResponse = await fetch(`/api/payment/invoices/${invoiceData.invoice.paymentId}/test-confirm`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ amount: currentPlan.price, providerFee: 0 }),
+          body: JSON.stringify({ amount: currentPlan.price, providerFee: 0, referralCode }),
         });
         const confirmationData = await confirmationResponse.json();
         if (!confirmationResponse.ok || !confirmationData.success) {
