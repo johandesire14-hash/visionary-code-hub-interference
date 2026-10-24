@@ -139,6 +139,7 @@ import {
   subscribeToCreatorTransactions,
   subscribeToCreatorCustomers,
   createRealTransaction,
+  loadVerifiedMemberContent,
   FirestoreTransaction,
   FirestoreCustomer,
 } from "../services/dbService";
@@ -535,6 +536,49 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     const userKey = user.uid || user.email || "default";
     return getSavedSubscriptions(userKey);
   });
+
+  useEffect(() => {
+    const memberUid = user.uid;
+    if (!memberUid || memberSubscriptions.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const hydrated = await Promise.all(memberSubscriptions.map(async (subscription) => {
+        const productIds = subscription.unlockedProductIds || subscription.purchasedOfferIds || [];
+        const contents = await Promise.all(productIds.map((productId) => loadVerifiedMemberContent(memberUid, productId)));
+        const digitalFiles = contents.flatMap((content) => content?.digitalFiles || []);
+        const courseModules = contents.flatMap((content) => content?.courseModules || []);
+        if (!digitalFiles.length && !courseModules.length) return subscription;
+        const hydratedCourses = courseModules.map((module: any, index) => ({
+          id: module.id || `course-module-${subscription.companyId}-${index}`,
+          title: module.title || `Formation ${index + 1}`,
+          description: module.description || "Module inclus dans votre offre",
+          modulesCount: module.lessons?.length || module.modulesCount || 1,
+          accessUrl: module.accessUrl || `/courses/${subscription.companyId}`,
+          associatedOfferId: module.associatedOfferId || productIds[0],
+          associatedOfferTitle: subscription.productName,
+        }));
+        return {
+          ...subscription,
+          digitalFiles,
+          courseModules,
+          ebooks: [...(subscription.ebooks || []), ...digitalFiles.map((file: any) => ({
+            id: file.id,
+            title: file.name,
+            description: "Fichier inclus dans votre offre",
+            downloadUrl: file.downloadUrl,
+            associatedOfferId: file.productId || productIds[0],
+            associatedOfferTitle: subscription.productName,
+          }))],
+          courses: [...(subscription.courses || []), ...hydratedCourses],
+        };
+      }));
+      if (cancelled) return;
+      const userKey = user.uid || user.email || "default";
+      setMemberSubscriptions(hydrated);
+      localStorage.setItem(`mansa_enterprise_subscriptions_${userKey}`, JSON.stringify(hydrated));
+    })().catch((error) => console.warn("Impossible de charger les droits membres persistants:", error));
+    return () => { cancelled = true; };
+  }, [user.uid]);
 
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("personnel");
   const [isCompanyOnboardingOpen, setIsCompanyOnboardingOpen] = useState(false);

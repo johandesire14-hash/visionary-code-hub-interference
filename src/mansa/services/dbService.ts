@@ -435,6 +435,32 @@ export async function getAffiliateMembership(productId: string, affiliateUserId:
   return null;
 }
 
+export async function persistVerifiedMemberEntitlement(input: {
+  memberUid: string;
+  productId: string;
+  companyId: string;
+  invoiceId: string;
+  verifiedAt?: string;
+}): Promise<void> {
+  if (!db || !input.memberUid || !input.productId) return;
+  await setDoc(doc(db, "memberEntitlements", `${input.memberUid}_${input.productId}`), {
+    ...input,
+    status: "paid",
+    verifiedAt: input.verifiedAt || new Date().toISOString(),
+  }, { merge: true });
+}
+
+export async function loadVerifiedMemberContent(memberUid: string, productId: string): Promise<{
+  digitalFiles?: unknown[];
+  courseModules?: unknown[];
+} | null> {
+  if (!db || !memberUid || !productId) return null;
+  const entitlement = await getDoc(doc(db, "memberEntitlements", `${memberUid}_${productId}`));
+  if (!entitlement.exists() || entitlement.data().status !== "paid") return null;
+  const content = await getDoc(doc(db, "productPrivateContent", productId));
+  return content.exists() ? content.data() as { digitalFiles?: unknown[]; courseModules?: unknown[] } : null;
+}
+
 // ----------------- USER PROFILE & ENTERPRISE SETTINGS -----------------
 export function isCreatorPayoutConfigured(profile?: Partial<FirestoreUserProfile> | null): boolean {
   if (!profile) return false;

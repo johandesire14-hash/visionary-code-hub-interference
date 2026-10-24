@@ -35,7 +35,7 @@ import {
 import { MobileMoneyPaymentForm } from "../payment/MobileMoneyPaymentForm";
 import { PhoneValidationResult } from "../../utils/phoneValidationRules";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
-import { createRealTransaction } from "../../services/dbService";
+import { createRealTransaction, persistVerifiedMemberEntitlement } from "../../services/dbService";
 import { recordConfirmedSale } from "../../services/creatorPayoutLedger";
 import { CheckoutPreviewModal } from "./CheckoutPreviewModal";
 
@@ -214,6 +214,8 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
       }
 
       try {
+        const referralParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+        const referralCode = referralParams?.get("a") || "";
         const paymentProvider = paymentMethod === "mobile_money" && mobileMoneyValidation?.operatorId.toLowerCase().includes("wave") ? "wave" : "kpay";
         const invoiceResponse = await fetch("/api/payment/invoices", {
           method: "POST",
@@ -232,6 +234,8 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
             operatorId: mobileMoneyValidation?.operatorId,
             countryCode: mobileMoneyValidation?.countryCode,
             phoneNumber: mobileMoneyValidation?.normalizedNumber,
+            referralCode: referralCode || undefined,
+            referralProductId: offer.id,
             expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
           }),
         });
@@ -263,6 +267,13 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
           platformFee: confirmationData.invoice.platformFee,
           currency: confirmationData.invoice.currency,
           invoiceId: invoiceData.invoice.paymentId,
+        });
+        await persistVerifiedMemberEntitlement({
+          memberUid: user.uid,
+          productId: offer.id,
+          companyId: offer.companyId,
+          invoiceId: invoiceData.invoice.paymentId,
+          verifiedAt: confirmationData.invoice.confirmedAt || new Date().toISOString(),
         });
       } catch (err: any) {
         setIsProcessing(false);

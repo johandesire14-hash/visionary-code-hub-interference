@@ -55,6 +55,13 @@ service cloud.firestore {
         && ownsCompany(get(/databases/$(database)/documents/products/$(productId)).data.get('companyId', ''));
     }
 
+    function hasVerifiedEntitlement(productId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId))
+        && get(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId)).data.get('status', '') == 'paid'
+        && get(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId)).data.get('productId', '') == productId;
+    }
+
     function validStatusUpdate(allowedStatuses) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
@@ -168,7 +175,7 @@ service cloud.firestore {
     // Le programme de cours et les ressources ne sont jamais inclus dans la fiche publique.
     // Même leur lecture par ID exige que l’utilisateur possède encore le produit et l’entreprise.
     match /productPrivateContent/{productId} {
-      allow get: if canReadPrivateProductContent(productId);
+      allow get: if canReadPrivateProductContent(productId) || hasVerifiedEntitlement(productId);
       allow list: if false;
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly([
@@ -599,6 +606,23 @@ service cloud.firestore {
           'commissionRate', 'membershipId', 'joinedAt'
         ]);
       allow update, delete: if false;
+    }
+
+    match /memberEntitlements/{entitlementId} {
+      allow get: if signedIn() && resource.data.get('memberUid', '') == request.auth.uid;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.get('memberUid', '') == request.auth.uid
+        && request.resource.data.get('status', '') == 'paid'
+        && request.resource.data.get('productId', '') != ''
+        && request.resource.data.get('invoiceId', '') != ''
+        && request.resource.data.keys().hasOnly([
+          'memberUid', 'productId', 'companyId', 'invoiceId', 'status', 'verifiedAt'
+        ]);
+      allow update: if signedIn()
+        && resource.data.get('memberUid', '') == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verifiedAt']);
+      allow delete: if false;
     }
 
     // Refus par défaut. Ne pas ajouter de règle globale permissive: les règles
