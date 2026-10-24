@@ -3234,14 +3234,15 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         <EnterpriseBrandingModal
           isOpen={isBrandingModalOpen}
           onClose={() => setIsBrandingModalOpen(false)}
-          company={{
+            company={{
             id: currentSub.companyId,
             name: currentSub.companyName,
             description: currentSub.productName,
             companyBanner: currentSub.companyBanner,
             companyLogo: currentSub.companyLogo,
             socialLinks: currentSub.socialLinks,
-          }}
+            }}
+          ownerUid={user.uid}
           onSave={handleSaveBranding}
           lang={lang}
         />

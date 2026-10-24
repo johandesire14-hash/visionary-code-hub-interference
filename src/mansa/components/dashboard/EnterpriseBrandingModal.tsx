@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
 import { CompanySocialLinks } from "../../types";
+import { uploadProjectAsset } from "../../services/dbService";
 
 interface EnterpriseBrandingModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ interface EnterpriseBrandingModalProps {
     companyLogo?: string;
     socialLinks?: CompanySocialLinks;
   };
+  ownerUid?: string;
   onSave: (branding: {
     name: string;
     description: string;
@@ -74,6 +76,7 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
   isOpen,
   onClose,
   company,
+  ownerUid,
   onSave,
   lang = "fr",
 }) => {
@@ -95,28 +98,16 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
 
   if (!isOpen) return null;
 
-  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setCompanyBanner(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    setCompanyBanner(await uploadProjectAsset(file, `${ownerUid || company.id}/branding`));
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setCompanyLogo(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    setCompanyLogo(await uploadProjectAsset(file, `${ownerUid || company.id}/branding`));
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {

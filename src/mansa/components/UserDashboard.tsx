@@ -135,6 +135,7 @@ import {
   subscribeToCreatorProducts,
   saveProductToFirestore,
   deleteProductFromFirestore,
+  saveProductPrivateContent,
   subscribeToCreatorTransactions,
   subscribeToCreatorCustomers,
   createRealTransaction,
@@ -215,42 +216,65 @@ const getCountryFlagFromLocation = (location: string): string => {
 };
 
 const CreatorCoursesWorkspace: React.FC<{
+  creatorId: string;
   companyId: string;
   productIds: string[];
   products: CreatedProductData[];
   onBack: () => void;
-}> = ({ companyId, productIds, products, onBack }) => {
+}> = ({ creatorId, companyId, productIds, products, onBack }) => {
   const storageKey = `mansa_creator_courses_${companyId}`;
   const [courses, setCourses] = useState<
-    Array<{ id: string; title: string; description: string; chapters: string[] }>
+    Array<{ id: string; title: string; description: string; chapters: string[]; lessons?: Array<{ id: string; title: string; videoUrl?: string }> }>
   >(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      return Array.isArray(saved) ? saved : [];
+      const remote = products
+        .filter((product) => productIds.includes(product.id))
+        .flatMap((product) => product.courseModules || []);
+      const merged = [...(Array.isArray(saved) ? saved : []), ...remote];
+      return merged.filter((course, index) => merged.findIndex((item) => item.id === course.id) === index);
     } catch {
       return [];
     }
   });
   const [editing, setEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [chapters, setChapters] = useState<string[]>(["Introduction"]);
+  const [lessonUrl, setLessonUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const linkedProducts = products.filter((product) => productIds.includes(product.id));
-  const saveCourse = () => {
+  const saveCourse = async () => {
     if (!title.trim()) return;
+    setIsSaving(true);
     const next = [
-      ...courses,
+      ...courses.filter((course) => course.id !== editingId),
       {
-        id: `course-${Date.now()}`,
+        id: editingId || `course-${Date.now()}`,
         title: title.trim(),
         description: description.trim(),
-        chapters: ["Introduction"],
+        chapters: chapters.map((chapter) => chapter.trim()).filter(Boolean),
+        lessons: lessonUrl.trim() ? [{ id: `lesson-${Date.now()}`, title: "Leçon 1", videoUrl: lessonUrl.trim() }] : [],
       },
     ];
     setCourses(next);
     localStorage.setItem(storageKey, JSON.stringify(next));
+    const savedCourse = next[next.length - 1];
+    await Promise.all(linkedProducts.map((product) => saveProductPrivateContent(
+      product.id,
+      creatorId,
+      companyId,
+      product.digitalFiles || [],
+      [...(product.courseModules || []).filter((module: any) => module.id !== savedCourse?.id), ...(savedCourse ? [savedCourse] : [])],
+    )));
     setEditing(false);
+    setEditingId(null);
     setTitle("");
     setDescription("");
+    setChapters(["Introduction"]);
+    setLessonUrl("");
+    setIsSaving(false);
   };
 
   if (editing) {
@@ -278,7 +302,7 @@ const CreatorCoursesWorkspace: React.FC<{
             <div className="mt-3 rounded-lg bg-blue-500/10 px-3 py-3 text-sm font-semibold text-white">
               Chapitre 1
             </div>
-            <button className="mt-3 w-full rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs text-zinc-400">
+            <button type="button" onClick={() => setChapters((current) => [...current, `Chapitre ${current.length + 1}`])} className="mt-3 w-full rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs text-zinc-400 hover:border-blue-500/50 hover:text-white">
               + Ajouter un nouveau chapitre
             </button>
           </aside>
@@ -305,24 +329,25 @@ const CreatorCoursesWorkspace: React.FC<{
             <div className="rounded-xl border border-white/10 bg-[#121316] p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-sm font-bold text-white">Chapitre 1</div>
+                  <div className="text-sm font-bold text-white">{chapters[0] || "Introduction"}</div>
                   <div className="mt-1 text-xs text-zinc-500">Lesson 1</div>
                 </div>
-                <button className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300">
+                <button type="button" onClick={() => setLessonUrl(lessonUrl ? "" : "https://")} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:text-white">
                   Ajouter une vidéo
                 </button>
               </div>
-              <div className="mt-4 rounded-lg border border-dashed border-white/15 p-5 text-center text-xs text-zinc-500">
-                Ajoutez une vidéo, un lien YouTube ou une pièce jointe à cette leçon.
+              <div className="mt-4 space-y-3 rounded-lg border border-dashed border-white/15 p-5 text-center text-xs text-zinc-500">
+                <p>Ajoutez une vidéo ou un lien YouTube à cette leçon.</p>
+                {lessonUrl !== "" && <input value={lessonUrl} onChange={(event) => setLessonUrl(event.target.value)} placeholder="https://youtube.com/..." className="w-full rounded-lg border border-white/10 bg-[#161822] px-3 py-2 text-left text-xs text-white outline-none focus:border-blue-500" />}
               </div>
             </div>
             <div className="flex justify-end border-t border-white/10 pt-4">
               <button
                 onClick={saveCourse}
-                disabled={!title.trim()}
+                disabled={!title.trim() || isSaving}
                 className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
               >
-                Enregistrer le cours
+                {isSaving ? "Enregistrement…" : "Enregistrer le cours"}
               </button>
             </div>
           </main>
@@ -366,8 +391,11 @@ const CreatorCoursesWorkspace: React.FC<{
           <button
             key={course.id}
             onClick={() => {
+              setEditingId(course.id);
               setTitle(course.title);
               setDescription(course.description);
+              setChapters(course.chapters?.length ? course.chapters : ["Introduction"]);
+              setLessonUrl(course.lessons?.[0]?.videoUrl || "");
               setEditing(true);
             }}
             className="min-h-44 rounded-xl border border-white/10 bg-[#121316] p-4 text-left hover:border-blue-500/50"
@@ -3109,6 +3137,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <AffiliatesView
                   lang={lang}
                   userRefName={user.name || "johan"}
+                  userId={user.uid || user.email || "local-user"}
                   isPersonalWorkspace={activeWorkspaceId === "personnel"}
                   currency={currency}
                 />
@@ -3123,6 +3152,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               ) : creatorCoursesLink && activeCompany ? (
                 <CreatorCoursesWorkspace
                   key={`${activeWorkspaceId}-courses`}
+                  creatorId={user.uid || user.email || "local-user"}
                   companyId={activeCompany.id}
                   productIds={creatorCoursesLink}
                   products={contextProducts}
@@ -3131,6 +3161,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               ) : creatorFilesLink && activeCompany ? (
                 <FilesWorkspace
                   key={`${activeWorkspaceId}-files`}
+                  creatorId={user.uid || user.email || "local-user"}
                   companyId={activeCompany.id}
                   productIds={creatorFilesLink}
                   products={contextProducts}

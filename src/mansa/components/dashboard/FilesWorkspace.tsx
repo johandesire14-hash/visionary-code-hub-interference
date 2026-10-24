@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { ChevronLeft, FileText, Plus, Upload } from "lucide-react";
+import { saveProductPrivateContent, uploadProjectAsset } from "../../services/dbService";
 
 interface FilesWorkspaceProps {
+  creatorId: string;
   companyId: string;
   productIds: string[];
   products: any[];
@@ -15,6 +17,7 @@ type FileItem = {
   type: string;
   productIds: string[];
   updatedAt: string;
+  downloadUrl?: string;
 };
 
 const formatSize = (bytes: number) => {
@@ -23,7 +26,7 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({ companyId, productIds, products, onBack }) => {
+export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({ creatorId, companyId, productIds, products, onBack }) => {
   const [screen, setScreen] = useState<"library" | "add">("library");
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -44,21 +47,26 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({ companyId, produ
     [productIds, products],
   );
 
-  const handleAddFile = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleAddFile = async () => {
     const name = selectedFile?.name || fileName.trim();
-    if (!name) return;
-    const newFile: FileItem = {
+    if (!name || !selectedFile || isSaving) return;
+    setIsSaving(true);
+    try {
+      const downloadUrl = await uploadProjectAsset(selectedFile, `${creatorId}/${companyId}/files`);
+      const newFile: FileItem = {
       id: `file-${Date.now()}`,
       name,
       size: selectedFile ? formatSize(selectedFile.size) : "Taille inconnue",
       type: selectedFile?.type || "application/octet-stream",
       productIds,
       updatedAt: new Date().toISOString(),
-    };
-    const nextFiles = [...files, newFile];
-    setFiles(nextFiles);
+      downloadUrl,
+      };
+      const nextFiles = [...files, newFile];
+      setFiles(nextFiles);
 
-    try {
       const key = `mansa_creator_offers_${companyId}`;
       const savedOffers = JSON.parse(localStorage.getItem(key) || "[]");
       const sourceOffers = Array.isArray(savedOffers) && savedOffers.length ? savedOffers : products;
@@ -77,13 +85,20 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({ companyId, produ
         files: nextFiles,
         updatedAt: new Date().toISOString(),
       }]));
-    } catch {
-      // Le rendu local reste disponible même si le stockage du navigateur est indisponible.
-    }
+      await Promise.all(productIds.map(async (productId) => {
+        const product = products.find((item) => item.id === productId) || {};
+        const existingFiles = product.digitalFiles || [];
+        await saveProductPrivateContent(productId, creatorId, companyId, [...existingFiles, { ...newFile, isFreePreview: false }], product.courseModules || []);
+      }));
 
-    setFileName("");
-    setSelectedFile(null);
-    setScreen("library");
+      setFileName("");
+      setSelectedFile(null);
+      setScreen("library");
+    } catch (error) {
+      console.error("File upload failed:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -122,7 +137,7 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({ companyId, produ
               {files.map((file) => (
                 <div key={file.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0c0d0e] px-4 py-3">
                   <div className="flex min-w-0 items-center gap-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-300"><FileText className="size-5" /></div><div className="min-w-0"><div className="truncate text-sm font-semibold text-white">{file.name}</div><div className="mt-1 text-[11px] text-zinc-500">{file.size} · {file.type || "Fichier"}</div></div></div>
-                  <span className="rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">Prêt au téléchargement</span>
+                  {file.downloadUrl ? <a href={file.downloadUrl} target="_blank" rel="noreferrer" className="rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300 hover:bg-emerald-500/20">Télécharger</a> : <span className="rounded-lg bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold text-amber-300">En attente de stockage</span>}
                 </div>
               ))}
             </div>
@@ -140,7 +155,7 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({ companyId, produ
           </label>
           <label className="block space-y-1.5"><span className="text-xs font-semibold text-zinc-300">Nom du fichier</span><input value={fileName} onChange={(event) => setFileName(event.target.value)} placeholder="Ex. Guide PDF premium" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500" /></label>
           {selectedFile && <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-xs text-emerald-300"><span className="truncate">✓ {selectedFile.name}</span><span className="ml-3 shrink-0 text-[10px]">{formatSize(selectedFile.size)}</span></div>}
-          <div className="flex items-center justify-between border-t border-white/10 pt-4"><button type="button" onClick={() => setScreen("library")} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Annuler</button><button type="button" disabled={!fileName.trim()} onClick={handleAddFile} className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Ajouter le fichier</button></div>
+          <div className="flex items-center justify-between border-t border-white/10 pt-4"><button type="button" onClick={() => setScreen("library")} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Annuler</button><button type="button" disabled={!fileName.trim() || !selectedFile || isSaving} onClick={handleAddFile} className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40">{isSaving ? "Enregistrement…" : "Ajouter le fichier"}</button></div>
         </div>
       )}
     </div>

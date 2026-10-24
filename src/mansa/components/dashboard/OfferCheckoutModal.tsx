@@ -303,6 +303,8 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
         discordChannels: offer.discordChannels || [],
         ebooks: offer.ebooks || [],
         courses: offer.courses || [],
+        digitalFiles: (offer as any).digitalFiles || [],
+        courseModules: (offer as any).courseModules || [],
         customResources: offer.customResources || [],
         discordServerName: `${offer.companyName} Discord HQ`,
         discordInvite: offer.discordInvite || (offer.discordChannels?.[0]?.inviteLink || ""),

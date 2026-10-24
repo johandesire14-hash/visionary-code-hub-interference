@@ -1,6 +1,7 @@
 // @ts-nocheck
 import {
   db,
+  storage,
   auth,
   collection,
   doc,
@@ -18,6 +19,9 @@ import {
   serverTimestamp,
   writeBatch,
   deleteField,
+  ref,
+  uploadBytes,
+  getDownloadURL,
 } from "./firebase";
 import { BusinessProject, LiveEvent, MarketplaceItem } from "../types";
 import { safeStorage } from "../utils/storage";
@@ -290,6 +294,49 @@ function saveLocalItems<T>(key: string, items: T[]) {
   }
 }
 
+export async function uploadProjectAsset(file: File, scope: string): Promise<string> {
+  if (storage) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const assetRef = ref(storage, `project-assets/${scope}/${Date.now()}-${safeName}`);
+    const snapshot = await uploadBytes(assetRef, file, { contentType: file.type || undefined });
+    return getDownloadURL(snapshot.ref);
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Impossible de lire le fichier."));
+    reader.onload = () =>
+      typeof reader.result === "string"
+        ? resolve(reader.result)
+        : reject(new Error("Format de fichier non pris en charge."));
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function saveProductPrivateContent(
+  productId: string,
+  creatorId: string,
+  companyId: string,
+  digitalFiles: unknown[],
+  courseModules: unknown[],
+): Promise<void> {
+  const payload = { creatorId, companyId, digitalFiles, courseModules, updatedAt: new Date().toISOString() };
+  if (db) {
+    const contentRef = doc(db, "productPrivateContent", productId);
+    const current = await getDoc(contentRef);
+    if (current.exists() && current.data().creatorId !== creatorId) {
+      throw new Error("Vous ne pouvez pas modifier le contenu de cette offre.");
+    }
+    await setDoc(contentRef, payload, { merge: true });
+  }
+  const localProducts = getCreatorLocalProducts(creatorId);
+  const index = localProducts.findIndex((product) => product.id === productId);
+  if (index >= 0) {
+    localProducts[index] = { ...localProducts[index], digitalFiles, courseModules };
+    saveCreatorLocalProducts(creatorId, localProducts);
+  }
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("mansa_discoverable_products_updated"));
+}
+
 export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
   const toPublicProduct = (
     product: Partial<BusinessProject> & {
@@ -299,6 +346,7 @@ export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
       companyName?: string;
       productType?: string;
       coverImage?: string;
+      affiliateCommissionRate?: number;
     },
     id = product.id,
   ): BusinessProject =>
@@ -316,6 +364,7 @@ export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
       companyName: product.companyName,
       productType: product.productType,
       coverImage: product.coverImage,
+      affiliateCommissionRate: product.affiliateCommissionRate || 0,
     }) as BusinessProject;
   const loadLocalPublicProducts = (): BusinessProject[] => {
     if (typeof window === "undefined") return [];
@@ -351,6 +400,39 @@ export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
     console.warn("Could not load discoverable products; using public local cache:", error);
     return loadLocalPublicProducts();
   }
+}
+
+export async function joinAffiliateProgram(input: {
+  affiliateUserId: string;
+  affiliateCode: string;
+  productId: string;
+  ownerId: string;
+  commissionRate: number;
+}): Promise<void> {
+  const membershipId = `${input.productId}_${input.affiliateUserId}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const payload = { ...input, membershipId, joinedAt: new Date().toISOString() };
+  if (db) await setDoc(doc(db, "affiliateMemberships", membershipId), payload, { merge: true });
+  if (typeof window !== "undefined") {
+    const key = "mansa_affiliate_memberships";
+    const current = JSON.parse(window.localStorage.getItem(key) || "[]");
+    window.localStorage.setItem(key, JSON.stringify([
+      ...current.filter((item: any) => item.membershipId !== membershipId),
+      payload,
+    ]));
+  }
+}
+
+export async function getAffiliateMembership(productId: string, affiliateUserId: string): Promise<Record<string, unknown> | null> {
+  const membershipId = `${productId}_${affiliateUserId}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (db) {
+    const snapshot = await getDoc(doc(db, "affiliateMemberships", membershipId));
+    if (snapshot.exists()) return snapshot.data() as Record<string, unknown>;
+  }
+  if (typeof window !== "undefined") {
+    const current = JSON.parse(window.localStorage.getItem("mansa_affiliate_memberships") || "[]");
+    return current.find((item: any) => item.membershipId === membershipId) || null;
+  }
+  return null;
 }
 
 // ----------------- USER PROFILE & ENTERPRISE SETTINGS -----------------

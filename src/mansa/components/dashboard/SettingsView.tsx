@@ -24,6 +24,7 @@ import {
   getUserProfile,
   updateUserProfile,
   isCreatorPayoutConfigured,
+  uploadProjectAsset,
 } from "../../services/dbService";
 import { getSavedCompanies, updateCompanyBranding } from "../../utils/companyStorage";
 import { updateSubscriptionBranding } from "../../utils/subscriptionsStorage";
@@ -279,28 +280,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     };
   }, [user.uid, user.email, activeCompanyId, isCompanyContext, activeCompanyName]);
 
-  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setCompanyBanner(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setCompanyBanner(await uploadProjectAsset(file, `${user.uid || "anonymous"}/branding`));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Impossible de téléverser la bannière.");
+    }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        setCompanyLogo(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setCompanyLogo(await uploadProjectAsset(file, `${user.uid || "anonymous"}/branding`));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Impossible de téléverser le logo.");
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {

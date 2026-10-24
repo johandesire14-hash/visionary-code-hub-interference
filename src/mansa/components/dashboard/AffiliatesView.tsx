@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Search,
   Plus,
@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { ModalOverlay } from "../common/ModalOverlay";
 import { siteUrl } from "@/lib/site";
+import { getAffiliateMembership, joinAffiliateProgram, loadDiscoverableProducts } from "../../services/dbService";
 
 import {
   CurrencyCode,
@@ -54,6 +55,7 @@ const MARKETPLACE_DATA: AffiliateCompany[] = [];
 interface AffiliatesViewProps {
   lang?: "fr" | "en";
   userRefName?: string;
+  userId?: string;
   isPersonalWorkspace?: boolean;
   currency?: CurrencyCode | string;
 }
@@ -61,6 +63,7 @@ interface AffiliatesViewProps {
 export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
   lang = "fr",
   userRefName = "johan",
+  userId = userRefName,
   currency = "USD",
 }) => {
   const activeCurrency = (currency as CurrencyCode) || "USD";
@@ -91,8 +94,43 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
   const [withdrawMethod, setWithdrawMethod] = useState<"wave" | "orange" | "mtn" | "crypto">("wave");
   const [withdrawPhone, setWithdrawPhone] = useState("");
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
+  const [pendingAffiliate, setPendingAffiliate] = useState<AffiliateCompany | null>(null);
 
-  const industriesList = Array.from(new Set(MARKETPLACE_DATA.map((c) => c.industry)));
+  useEffect(() => {
+    let active = true;
+    loadDiscoverableProducts().then(async (products) => {
+      if (!active) return;
+      const mappedCompanies = products.map((product: any) => ({
+        id: product.id,
+        name: product.companyName || product.name,
+        handle: product.id,
+        logo: product.coverImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80",
+        industry: product.category || "Produit digital",
+        commissionRate: `${product.affiliateCommissionRate || 0}%`,
+        affiliateEarnings: "—",
+        conversions: "—",
+        earningsPerClick: "—",
+        conversionRate: "—",
+        description: product.tagline,
+        productId: product.id,
+        ownerId: product.creatorId,
+      }));
+      const joined = await Promise.all(mappedCompanies.map(async (company) => {
+        const membership = await getAffiliateMembership(company.id, userId);
+        return membership ? {
+          ...company,
+          isJoined: true,
+          affiliateUrl: siteUrl(`/p/${company.id}?a=${membership.affiliateCode}&p=${company.id}`),
+        } : null;
+      }));
+      const joinedById = new Map(joined.filter(Boolean).map((company: any) => [company.id, company]));
+      setCompanies(mappedCompanies.map((company) => joinedById.get(company.id) || company));
+      setJoinedAffiliates(Array.from(joinedById.values()) as AffiliateCompany[]);
+    }).catch((error) => console.warn("Impossible de charger les programmes affiliés:", error));
+    return () => { active = false; };
+  }, []);
+
+  const industriesList = Array.from(new Set(companies.map((c) => c.industry)));
 
   const handleCopy = (url: string) => {
     navigator.clipboard?.writeText?.(url);
@@ -106,9 +144,18 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
     setTimeout(() => setSocialCopyFeedback(null), 2500);
   };
 
-  const handleJoinAffiliate = (company: AffiliateCompany) => {
-    const customUrl = siteUrl(`/${company.handle}?a=${userRefName.toLowerCase()}`);
+  const handleJoinAffiliate = async (company: AffiliateCompany) => {
+    const affiliateCode = `${userRefName}-${company.id}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+    const customUrl = siteUrl(`/p/${company.id}?a=${affiliateCode}&p=${company.id}`);
     const updatedCompany = { ...company, isJoined: true, affiliateUrl: customUrl };
+
+    await joinAffiliateProgram({
+      affiliateUserId: userId,
+      affiliateCode,
+      productId: (company as any).productId || company.id,
+      ownerId: (company as any).ownerId || "",
+      commissionRate: Number.parseFloat(company.commissionRate) || 0,
+    });
 
     setCompanies((prev) =>
       prev.map((c) => (c.id === company.id ? updatedCompany : c))
@@ -365,7 +412,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
                         </div>
                       ) : (
                         <button
-                          onClick={() => handleJoinAffiliate(comp)}
+                          onClick={() => setPendingAffiliate(comp)}
                           className="px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white font-medium text-xs transition-colors cursor-pointer whitespace-nowrap"
                         >
                           Devenir affilié
@@ -689,7 +736,23 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
         )}
       </ModalOverlay>
 
-      {/* 5. SUCCESS JOIN MODAL */}
+      <ModalOverlay
+        isOpen={Boolean(pendingAffiliate)}
+        onClose={() => setPendingAffiliate(null)}
+        contentClassName="max-w-md mx-auto"
+      >
+        {pendingAffiliate && (
+          <div className="w-full rounded-2xl border border-white/10 bg-[#121316] p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-white">Conditions du programme</h3>
+            <p className="text-xs leading-relaxed text-zinc-300">Vous allez créer un lien unique pour ce produit. Le taux affiché est fixé par le créateur et ne peut pas être modifié par l’affilié.</p>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-300">Commission : {pendingAffiliate.commissionRate}</div>
+            <p className="text-[11px] leading-relaxed text-zinc-400">Un clic ou une visite ne crée aucune commission. L’attribution et la commission ne sont enregistrées qu’après une vente confirmée.</p>
+            <div className="flex justify-end gap-2"><button type="button" onClick={() => setPendingAffiliate(null)} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Annuler</button><button type="button" onClick={() => { const item = pendingAffiliate; setPendingAffiliate(null); void handleJoinAffiliate(item); }} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500">Accepter et créer mon lien</button></div>
+          </div>
+        )}
+      </ModalOverlay>
+
+      {/* 5. SUCCESS MODAL */}
       <ModalOverlay
         isOpen={!!activeSuccessModal}
         onClose={() => setActiveSuccessModal(null)}
@@ -761,7 +824,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
               </div>
 
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] leading-relaxed">
-                Toutes les ventes réalisées via ce lien seront automatiquement créditées sur votre solde d'affilié et payables via Mobile Money (Wave, Orange, MTN).
+                Les clics ne génèrent aucune commission. Après confirmation d'une vente, l'attribution et la commission sont enregistrées sur le produit concerné.
               </div>
             </div>
 
