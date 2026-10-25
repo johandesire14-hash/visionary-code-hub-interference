@@ -11,6 +11,27 @@ import {
 
 export type { EbookResourceItem, CourseResourceItem, PrivateResourceItem };
 
+interface DigitalFileReference {
+  id: string;
+  name?: string;
+  title?: string;
+  size?: string;
+  type?: string;
+  description?: string;
+  downloadUrl?: string;
+  storageKey?: string;
+}
+
+type DownloadableEbookResource = EbookResourceItem & {
+  storageKey?: string;
+  fileId?: string;
+  fileSize?: string;
+};
+
+type OfferWithDigitalFiles = CreatorPlatformOffer & {
+  digitalFiles?: DigitalFileReference[];
+};
+
 /**
  * CATALOGUE CENTRAL DES OFFRES ET DES RESSOURCES/AVANTAGES RATTACHÉS
  * Chaque créateur/entreprise peut avoir plusieurs offres distinctes.
@@ -597,38 +618,30 @@ export function convertProjectToPlatformOffer(
         : []),
     ebooks:
       project.ebooks ||
-      (apps.some((a: string) =>
-        ["ebook", "guide", "pdf", "files"].some((k) => a.toLowerCase().includes(k))
-      )
-        ? [
-            {
-              id: `eb-${project.id}`,
-              title: `Guide & Fichiers · ${prodTitle}`,
-              description: `Documents téléchargeables et ressources d'application pour ${prodTitle}.`,
-              pagesCount: project.ebookDetails?.pageCount || 85,
-              downloadUrl: `/downloads/${project.id}.pdf`,
-              associatedOfferId: project.id,
-              associatedOfferTitle: prodTitle,
-            },
-          ]
-        : []),
+      (project.digitalFiles || []).map((file: any) => ({
+        id: file.id,
+        title: file.title || file.name || "Fichier sans nom",
+        description: file.description || file.type || "Fichier téléchargeable",
+        downloadUrl: file.downloadUrl,
+        storageKey: file.storageKey,
+        fileId: file.id,
+        fileSize: file.size,
+        associatedOfferId: project.id,
+        associatedOfferTitle: prodTitle,
+      })),
     courseModules: project.courseModules || [],
     digitalFiles: project.digitalFiles || [],
     courses:
       project.courses ||
-      (apps.some((a: string) =>
-        ["course", "courses", "formation", "masterclass"].some((k) =>
-          a.toLowerCase().includes(k)
-        )
-      )
+      (project.courseModules?.length
         ? [
             {
               id: `co-${project.id}`,
-              title: `Formation Vidéo · ${prodTitle}`,
-              description: `Masterclass complète et modules de formation pas-à-pas pour ${prodTitle}.`,
-              modulesCount: project.courseModules?.length || 8,
-              duration: "4h 45m",
-              accessUrl: `/courses/${project.id}`,
+              title: prodTitle,
+              description: project.description || "Modules de formation inclus dans cette offre.",
+              modulesCount: project.courseModules.length,
+              courseModules: project.courseModules,
+              accessUrl: undefined,
               associatedOfferId: project.id,
               associatedOfferTitle: prodTitle,
             },
@@ -655,6 +668,73 @@ export function convertProjectToPlatformOffer(
   };
 }
 
+function readStoredArray(key: string): any[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function storedCreatorOffers(): CreatorPlatformOffer[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const keys = Object.keys(localStorage).filter((key) => key.startsWith("mansa_creator_offers_"));
+    return keys.flatMap((key) => {
+      const fallbackCompanyId = key.slice("mansa_creator_offers_".length);
+      return readStoredArray(key)
+        .filter((offer) => offer?.id)
+        .map((offer) => {
+          const converted = convertProjectToPlatformOffer(
+            { ...offer, name: offer.name || offer.title, includedApps: offer.includedApps || offer.apps },
+            offer.companyId || fallbackCompanyId,
+            offer.companyName,
+          );
+          return {
+            ...offer,
+            id: offer.id,
+            title: offer.title || offer.name || converted.title,
+            companyId: offer.companyId || fallbackCompanyId,
+            companyName: offer.companyName || converted.companyName,
+            category: offer.category || converted.category,
+            type: offer.type || converted.type,
+            priceDisplay: offer.priceDisplay || converted.priceDisplay,
+            priceAmount: offer.priceAmount ?? converted.priceAmount,
+            currency: offer.currency || converted.currency,
+            pricingType: offer.pricingType || converted.pricingType,
+            billingCycle: offer.billingCycle || converted.billingCycle,
+            includedApps: offer.includedApps || offer.apps || converted.includedApps,
+          } as CreatorPlatformOffer;
+        });
+    });
+  } catch (error) {
+    console.warn("Notice: unable to read creator offers from browser storage:", error);
+    return [];
+  }
+}
+
+function mergeOfferResources(
+  existing: CreatorPlatformOffer,
+  incoming: CreatorPlatformOffer,
+): CreatorPlatformOffer {
+  return {
+    ...existing,
+    ...incoming,
+    description: incoming.description ?? existing.description,
+    imageUrl: incoming.imageUrl ?? existing.imageUrl,
+    bannerUrl: incoming.bannerUrl ?? existing.bannerUrl,
+    creatorName: incoming.creatorName ?? existing.creatorName,
+    telegramChannels: incoming.telegramChannels ?? existing.telegramChannels,
+    discordChannels: incoming.discordChannels ?? existing.discordChannels,
+    ebooks: incoming.ebooks ?? existing.ebooks,
+    courses: incoming.courses ?? existing.courses,
+    courseModules: incoming.courseModules ?? existing.courseModules,
+    digitalFiles: incoming.digitalFiles ?? existing.digitalFiles,
+    customResources: incoming.customResources ?? existing.customResources,
+  };
+}
+
 /**
  * Récupère toutes les offres configurées pour une entreprise donnée
  * (Offres statiques de catalogue + Produits créés dynamiquement)
@@ -671,28 +751,34 @@ export function getOffersForCompany(companyId: string): CreatorPlatformOffer[] {
       o.companyName.toLowerCase() === normalized
   );
 
-  // 2. Produits créés dynamiquement depuis le stockage local
+  // 2. Produits créés dynamiquement depuis le cache local du créateur
   try {
     if (typeof window !== "undefined") {
       const keys = Object.keys(localStorage).filter((key) => key.startsWith("mansa_saved_products_cache_"));
       const products = keys.flatMap((key) => {
-        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
-        return Array.isArray(parsed) ? parsed : [];
+        return readStoredArray(key);
       });
       const dynamicOffers: CreatorPlatformOffer[] = products
         .filter((product) => product?.id && product.status === "active"
           && (product.companyId || "").trim().toLowerCase() === normalized)
         .map((product) => convertProjectToPlatformOffer(product, companyId));
-      const existingIds = new Set(staticOffers.map((offer) => offer.id));
-      for (const dynamicOffer of dynamicOffers) {
-        if (!existingIds.has(dynamicOffer.id)) {
-          staticOffers.push(dynamicOffer);
-          existingIds.add(dynamicOffer.id);
-        }
+      for (const offer of dynamicOffers) {
+        const index = staticOffers.findIndex((saved) => saved.id === offer.id);
+        if (index < 0) staticOffers.push(offer);
+        else staticOffers[index] = mergeOfferResources(staticOffers[index], offer);
       }
     }
   } catch (err) {
     console.warn("Notice: getOffersForCompany reading dynamic products:", err);
+  }
+
+  // 3. L’éditeur d’offres écrit les ressources sous cette clé. Elle est la source
+  // canonique du workflow créateur et doit être fusionnée au cache de produits.
+  for (const savedOffer of storedCreatorOffers()) {
+    if ((savedOffer.companyId || "").trim().toLowerCase() !== normalized) continue;
+    const index = staticOffers.findIndex((offer) => offer.id === savedOffer.id);
+    if (index < 0) staticOffers.push(savedOffer);
+    else staticOffers[index] = mergeOfferResources(staticOffers[index], savedOffer);
   }
 
   return staticOffers;
@@ -705,6 +791,9 @@ export function getOfferById(offerId: string): CreatorPlatformOffer | undefined 
   if (!offerId) return undefined;
   const staticFound = PLATFORM_OFFERS_CATALOG.find((o) => o.id === offerId);
   if (staticFound) return staticFound;
+
+  const creatorOffer = storedCreatorOffers().find((offer) => offer.id === offerId);
+  if (creatorOffer) return creatorOffer;
 
   // Chercher dans les produits créés dynamiquement
   try {
@@ -733,12 +822,17 @@ export function getOfferById(offerId: string): CreatorPlatformOffer | undefined 
  */
 export function getMemberAuthorizedOffers(
   companyId: string,
-  unlockedOfferIds: string[]
+  unlockedOfferIds: string[],
+  additionalOffers: CreatorPlatformOffer[] = [],
 ): CreatorPlatformOffer[] {
   const companyOffers = getOffersForCompany(companyId);
+  const merged = new Map(companyOffers.map((offer) => [offer.id, offer]));
+  for (const offer of additionalOffers) {
+    if (offer.companyId === companyId) merged.set(offer.id, { ...merged.get(offer.id), ...offer });
+  }
   const normalizedUnlocked = new Set(unlockedOfferIds.map((id) => id.trim().toLowerCase()));
 
-  return companyOffers.filter((o) => normalizedUnlocked.has(o.id.toLowerCase()));
+  return [...merged.values()].filter((offer) => normalizedUnlocked.has(offer.id.toLowerCase()));
 }
 
 /**
@@ -748,9 +842,10 @@ export function getMemberAuthorizedOffers(
  */
 export function getMemberAuthorizedTelegramChannels(
   companyId: string,
-  unlockedOfferIds: string[]
+  unlockedOfferIds: string[],
+  additionalOffers: CreatorPlatformOffer[] = [],
 ): TelegramChannelItem[] {
-  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds);
+  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds, additionalOffers);
   const channels: TelegramChannelItem[] = [];
   const seen = new Set<string>();
 
@@ -776,9 +871,10 @@ export function getMemberAuthorizedTelegramChannels(
  */
 export function getMemberAuthorizedDiscordChannels(
   companyId: string,
-  unlockedOfferIds: string[]
+  unlockedOfferIds: string[],
+  additionalOffers: CreatorPlatformOffer[] = [],
 ): DiscordChannelItem[] {
-  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds);
+  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds, additionalOffers);
   const channels: DiscordChannelItem[] = [];
   const seen = new Set<string>();
 
@@ -801,18 +897,44 @@ export function getMemberAuthorizedDiscordChannels(
  */
 export function getMemberAuthorizedEbooks(
   companyId: string,
-  unlockedOfferIds: string[]
+  unlockedOfferIds: string[],
+  additionalOffers: CreatorPlatformOffer[] = [],
 ): EbookResourceItem[] {
-  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds);
+  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds, additionalOffers);
   const ebooks: EbookResourceItem[] = [];
   const seen = new Set<string>();
 
   for (const offer of authorizedOffers) {
     if (offer.ebooks && Array.isArray(offer.ebooks)) {
-      for (const eb of offer.ebooks) {
+      for (const eb of offer.ebooks as DownloadableEbookResource[]) {
+        if (!eb.storageKey && !eb.downloadUrl) continue;
         if (!seen.has(eb.id)) {
           seen.add(eb.id);
           ebooks.push(eb);
+        }
+      }
+    }
+    const digitalFiles = (offer as OfferWithDigitalFiles).digitalFiles || [];
+    if (Array.isArray(digitalFiles)) {
+      for (const file of digitalFiles) {
+        if (!file?.id || (!file.storageKey && !file.downloadUrl)) continue;
+        const ebook = {
+          id: file.id,
+          title: file.title || file.name || "Fichier sans nom",
+          description: file.description || file.type || "Fichier téléchargeable",
+          downloadUrl: file.downloadUrl,
+          storageKey: file.storageKey,
+          fileId: file.id,
+          fileSize: file.size,
+          associatedOfferId: offer.id,
+          associatedOfferTitle: offer.title,
+        };
+        const existingIndex = ebooks.findIndex((item) => item.id === ebook.id);
+        if (existingIndex < 0) {
+          seen.add(ebook.id);
+          ebooks.push(ebook);
+        } else {
+          ebooks[existingIndex] = { ...ebooks[existingIndex], ...ebook };
         }
       }
     }
@@ -826,9 +948,10 @@ export function getMemberAuthorizedEbooks(
  */
 export function getMemberAuthorizedCourses(
   companyId: string,
-  unlockedOfferIds: string[]
+  unlockedOfferIds: string[],
+  additionalOffers: CreatorPlatformOffer[] = [],
 ): CourseResourceItem[] {
-  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds);
+  const authorizedOffers = getMemberAuthorizedOffers(companyId, unlockedOfferIds, additionalOffers);
   const courses: CourseResourceItem[] = [];
   const seen = new Set<string>();
 
@@ -894,8 +1017,9 @@ export function verifyMemberResourceAccess(params: {
         targetResource = found;
         break;
       }
-    } else if (resourceType === "ebook" && offer.ebooks) {
-      const found = offer.ebooks.find((e) => e.id === resourceId || e.downloadUrl === resourceId);
+    } else if (resourceType === "ebook" && (offer.ebooks || (offer as OfferWithDigitalFiles).digitalFiles)) {
+      const found = (offer.ebooks as DownloadableEbookResource[] | undefined || []).find((e) => e.id === resourceId || e.downloadUrl === resourceId)
+        || ((offer as OfferWithDigitalFiles).digitalFiles || []).find((file) => file.id === resourceId || file.downloadUrl === resourceId);
       if (found) {
         targetOffer = offer;
         targetResource = found;
@@ -938,6 +1062,21 @@ export function verifyMemberResourceAccess(params: {
   // Vérifier si le membre possède STRICTEMENT l'offre associée à cette ressource
   const memberUnlockedSet = new Set(unlockedOfferIds.map((id) => id.trim().toLowerCase()));
   const hasOffer = memberUnlockedSet.has(targetOffer.id.toLowerCase());
+
+  // Une ressource peut être liée à plusieurs offres. Si la première offre de la
+  // liste n’est pas détenue, chercher une autre offre autorisée qui fournit le même ID.
+  if (!hasOffer && (resourceType === "course" || resourceType === "ebook")) {
+    for (const offer of companyOffers) {
+      if (!memberUnlockedSet.has(offer.id.toLowerCase())) continue;
+      const resource = resourceType === "course"
+        ? (offer.courses || []).find((item) => item.id === resourceId || item.accessUrl === resourceId)
+        : (offer.ebooks as DownloadableEbookResource[] | undefined || []).find((item) => item.id === resourceId || item.downloadUrl === resourceId)
+          || ((offer as OfferWithDigitalFiles).digitalFiles || []).find((item) => item.id === resourceId || item.downloadUrl === resourceId);
+      if (resource) {
+        return { isAuthorized: true, resource, grantedByOffer: offer };
+      }
+    }
+  }
 
   if (hasOffer) {
     return {

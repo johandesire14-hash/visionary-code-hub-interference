@@ -1,959 +1,215 @@
-// @ts-nocheck
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowLeft, Check, Copy, ExternalLink, Link2, RefreshCw, ShieldCheck } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import {
-  Search,
-  Plus,
-  Check,
-  Copy,
-  ChevronLeft,
-  ChevronDown,
-  DollarSign,
-  TrendingUp,
-  Users,
-  Trophy,
-  Wallet,
-  ExternalLink,
-  MessageCircle,
-  Send,
-  CheckCircle2,
-  X,
-  Sparkles,
-  Share2,
-  Instagram,
-  Video,
-  Smartphone,
-  QrCode,
-} from "lucide-react";
-import { ModalOverlay } from "../common/ModalOverlay";
+  AffiliateLink,
+  AffiliateProduct,
+  createOrGetAffiliateLink,
+  getAffiliateEligibleProducts,
+  getAffiliateLinksForUser,
+} from "../../services/affiliateService";
+import { CurrencyCode, formatCurrency } from "../../utils/currency";
 import { siteUrl } from "@/lib/site";
 import { getAffiliateMembership, joinAffiliateProgram, loadDiscoverableProducts } from "../../services/dbService";
 
-import {
-  CurrencyCode,
-  formatCurrency,
-  convertFromUSD,
-} from "../../utils/currency";
-
-export interface AffiliateCompany {
-  id: string;
-  name: string;
-  handle: string;
-  logo: string;
-  industry: string;
-  commissionRate: string; // e.g. "50%" or "-"
-  affiliateEarnings: string; // e.g. "$500k+"
-  conversions: string; // e.g. "10 000+"
-  earningsPerClick: string; // e.g. "1,70 $US"
-  conversionRate: string; // e.g. "4.14%"
-  isJoined?: boolean;
-  affiliateUrl?: string;
-  description?: string;
-}
-
-const MARKETPLACE_DATA: AffiliateCompany[] = [];
-
 interface AffiliatesViewProps {
   lang?: "fr" | "en";
+  /** Retained for caller compatibility only. Display names are never used in affiliate links. */
   userRefName?: string;
   userId?: string;
   isPersonalWorkspace?: boolean;
   currency?: CurrencyCode | string;
 }
 
-export const AffiliatesView: React.FC<AffiliatesViewProps> = ({
-  lang = "fr",
-  userRefName = "johan",
-  userId = userRefName,
-  currency = "USD",
-}) => {
-  const activeCurrency = (currency as CurrencyCode) || "USD";
-  // Tabs: "dashboard" (Tableau de bord) vs "refer_buyers" (Parrainer des acheteurs)
-  const [topTab, setTopTab] = useState<"dashboard" | "refer_buyers">("refer_buyers");
+const percentLabel = (rate: number) => `${String(rate)} %`;
+const publicAffiliateUrl = (code: string) => siteUrl(`/affiliate/${encodeURIComponent(code)}`);
 
-  // Filter & Search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIndustry, setSelectedIndustry] = useState<string>("all");
-  const [isIndustryDropdownOpen, setIsIndustryDropdownOpen] = useState(false);
+const formatProductPrice = (amount: number, currency: string) => {
+  try {
+    return formatCurrency(amount, currency as CurrencyCode);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+};
 
-  // Companies state
-  const [companies, setCompanies] = useState<AffiliateCompany[]>(MARKETPLACE_DATA);
+export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF" }) => {
+  const { user } = useAuth();
+  const affiliateUid = user?.uid || "";
+  const [products, setProducts] = useState<AffiliateProduct[]>([]);
+  const [links, setLinks] = useState<AffiliateLink[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<AffiliateProduct | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [createdLink, setCreatedLink] = useState<AffiliateLink | null>(null);
+  const [copiedUrl, setCopiedUrl] = useState("");
+  const activeCurrency = (currency as CurrencyCode) || "XOF";
 
-  // Active joined list for dashboard
-  const [joinedAffiliates, setJoinedAffiliates] = useState<AffiliateCompany[]>([]);
-
-  // Social share modal
-  const [socialModalItem, setSocialModalItem] = useState<AffiliateCompany | null>(null);
-  const [socialCopyFeedback, setSocialCopyFeedback] = useState<string | null>(null);
-
-  // Modal feedback for newly joined affiliate
-  const [activeSuccessModal, setActiveSuccessModal] = useState<AffiliateCompany | null>(null);
-  const [copiedLink, setCopiedLink] = useState<string | null>(null);
-
-  // Withdrawal modal
-  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [withdrawMethod, setWithdrawMethod] = useState<"wave" | "orange" | "mtn" | "crypto">("wave");
-  const [withdrawPhone, setWithdrawPhone] = useState("");
-  const [withdrawSuccess, setWithdrawSuccess] = useState(false);
-  const [pendingAffiliate, setPendingAffiliate] = useState<AffiliateCompany | null>(null);
+  const refresh = useCallback(async (showRefresh = false) => {
+    if (!affiliateUid) {
+      setProducts([]);
+      setLinks([]);
+      setLoading(false);
+      return;
+    }
+    if (showRefresh) setRefreshing(true);
+    else setLoading(true);
+    setLoadError("");
+    try {
+      const [eligibleProducts, ownLinks] = await Promise.all([
+        getAffiliateEligibleProducts(affiliateUid),
+        getAffiliateLinksForUser(affiliateUid),
+      ]);
+      setProducts(eligibleProducts);
+      setLinks(ownLinks);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Impossible de charger les programmes affiliés.");
+      setProducts([]);
+      setLinks([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [affiliateUid]);
 
   useEffect(() => {
-    let active = true;
-    loadDiscoverableProducts().then(async (products) => {
-      if (!active) return;
-      const mappedCompanies = products.map((product: any) => ({
-        id: product.id,
-        name: product.companyName || product.name,
-        handle: product.id,
-        logo: product.coverImage || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80",
-        industry: product.category || "Produit digital",
-        commissionRate: `${product.affiliateCommissionRate || 0}%`,
-        affiliateEarnings: "—",
-        conversions: "—",
-        earningsPerClick: "—",
-        conversionRate: "—",
-        description: product.tagline,
-        productId: product.id,
-        ownerId: product.creatorId,
-      }));
-      const joined = await Promise.all(mappedCompanies.map(async (company) => {
-        const membership = await getAffiliateMembership(company.id, userId);
-        return membership ? {
-          ...company,
-          isJoined: true,
-          affiliateUrl: siteUrl(`/p/${company.id}?a=${membership.affiliateCode}&p=${company.id}`),
-        } : null;
-      }));
-      const joinedById = new Map(joined.filter(Boolean).map((company: any) => [company.id, company]));
-      setCompanies(mappedCompanies.map((company) => joinedById.get(company.id) || company));
-      setJoinedAffiliates(Array.from(joinedById.values()) as AffiliateCompany[]);
-    }).catch((error) => console.warn("Impossible de charger les programmes affiliés:", error));
-    return () => { active = false; };
-  }, []);
+    void refresh();
+  }, [refresh]);
 
-  const industriesList = Array.from(new Set(companies.map((c) => c.industry)));
+  const productLinks = useMemo(
+    () => new Map(links.map((link) => [link.productId, link])),
+    [links],
+  );
 
-  const handleCopy = (url: string) => {
-    navigator.clipboard?.writeText?.(url);
-    setCopiedLink(url);
-    setTimeout(() => setCopiedLink(null), 2000);
+  const beginPromotion = (product: AffiliateProduct) => {
+    setSelectedProduct(product);
+    setAccepted(false);
+    setCreateError("");
+    setCreatedLink(null);
   };
 
-  const handleSocialCopy = (text: string, type: string) => {
-    navigator.clipboard?.writeText?.(text);
-    setSocialCopyFeedback(type);
-    setTimeout(() => setSocialCopyFeedback(null), 2500);
+  const cancelConditions = () => {
+    setSelectedProduct(null);
+    setAccepted(false);
+    setCreateError("");
   };
 
-  const handleJoinAffiliate = async (company: AffiliateCompany) => {
-    const affiliateCode = `${userId}-${company.id}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
-    const customUrl = siteUrl(`/p/${company.id}?a=${affiliateCode}&p=${company.id}`);
-    const updatedCompany = { ...company, isJoined: true, affiliateUrl: customUrl };
-
-    await joinAffiliateProgram({
-      affiliateUserId: userId,
-      affiliateCode,
-      productId: (company as any).productId || company.id,
-      ownerId: (company as any).ownerId || "",
-      commissionRate: Number.parseFloat(company.commissionRate) || 0,
-    });
-
-    setCompanies((prev) =>
-      prev.map((c) => (c.id === company.id ? updatedCompany : c))
-    );
-
-    if (!joinedAffiliates.some((j) => j.id === company.id)) {
-      setJoinedAffiliates((prev) => [updatedCompany, ...prev]);
+  const acceptAndCreateLink = async () => {
+    if (!affiliateUid || !selectedProduct || !accepted || creating) return;
+    setCreating(true);
+    setCreateError("");
+    try {
+      const link = await createOrGetAffiliateLink(affiliateUid, selectedProduct);
+      setCreatedLink(link);
+      setLinks((existing) => [link, ...existing.filter((item) => item.id !== link.id)]);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "Le lien n’a pas pu être créé.");
+    } finally {
+      setCreating(false);
     }
-
-    setActiveSuccessModal(updatedCompany);
   };
 
-  const filteredCompanies = companies.filter((c) => {
-    const matchesSearch =
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.handle.toLowerCase().includes(searchQuery.toLowerCase());
+  const copyUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(url);
+      window.setTimeout(() => setCopiedUrl(""), 1800);
+    } catch {
+      setCopiedUrl("");
+    }
+  };
 
-    const matchesIndustry =
-      selectedIndustry === "all" || c.industry === selectedIndustry;
-
-    return matchesSearch && matchesIndustry;
-  });
+  if (selectedProduct) {
+    return (
+      <main className="min-h-screen pb-16 text-white" aria-label="Conditions du programme d’affiliation">
+        <button type="button" onClick={cancelConditions} className="mb-5 inline-flex items-center gap-2 rounded-lg px-1 py-2 text-sm text-zinc-300 hover:text-white">
+          <ArrowLeft className="size-4" /> Retour aux produits
+        </button>
+        <section className="mx-auto max-w-3xl rounded-2xl border border-white/10 bg-[#15171d] p-5 sm:p-8">
+          <div className="mb-5 flex items-start gap-3">
+            {selectedProduct.coverImage ? <img src={selectedProduct.coverImage} alt="" className="size-16 rounded-xl object-cover" /> : <div className="flex size-16 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300"><Link2 className="size-7" /></div>}
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-emerald-300">Conditions avant création du lien</p><h1 className="mt-1 text-xl font-bold">{selectedProduct.name}</h1><p className="mt-1 text-sm text-zinc-400">{selectedProduct.category}</p></div>
+          </div>
+          <div className="rounded-xl border border-emerald-400/25 bg-emerald-400/[0.07] p-4">
+            <p className="text-sm text-zinc-300">Taux exact fixé par le créateur pour ce produit</p>
+            <p className="mt-1 text-3xl font-bold text-emerald-300" data-testid="accepted-rate">{percentLabel(selectedProduct.affiliateCommissionRate)}</p>
+            <p className="mt-2 text-xs leading-relaxed text-zinc-400">Ce pourcentage est affiché tel qu’enregistré dans Firebase. Il s’agit du taux annoncé par le créateur, pas d’une commission gagnée ou garantie.</p>
+          </div>
+          <div className="mt-6 space-y-4 text-sm leading-relaxed text-zinc-300">
+            <h2 className="font-semibold text-white">Règles d’utilisation et d’attribution</h2>
+            <ul className="list-disc space-y-2 pl-5">
+              <li>Utilisez le lien généré pour présenter ce produit et ne modifiez pas son code d’attribution.</li>
+              <li>Présentez honnêtement le produit, son prix et ses conditions ; n’employez pas de pratiques trompeuses, de spam ou de promesses non autorisées.</li>
+              <li>Indiquez clairement à votre audience que vous partagez un lien affilié lorsque la loi ou les règles de la plateforme l’exigent.</li>
+              <li>Le code associe le lien à votre compte Firebase et à ce produit. Le pourcentage ci-dessus est celui actuellement fixé par le créateur.</li>
+            </ul>
+            <div className="flex gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-amber-100">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0" />
+              <p className="text-xs leading-relaxed">Limite importante : ce dépôt ne contient pas de backend de paiement confirmé ni de webhook serveur d’attribution. Le lien identifie l’affilié, mais aucune vente ni commission réelle n’est actuellement suivie, créditée ou payée. Une attribution réelle exige un paiement confirmé et un webhook contrôlé côté serveur.</p>
+            </div>
+          </div>
+          <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-zinc-200">
+            <input type="checkbox" checked={accepted} onChange={(event) => setAccepted(event.target.checked)} className="mt-0.5 size-4 accent-emerald-500" />
+            <span>J’ai lu et j’accepte les conditions d’utilisation et d’attribution ci-dessus pour promouvoir « {selectedProduct.name} » au taux exact de {percentLabel(selectedProduct.affiliateCommissionRate)}.</span>
+          </label>
+          {createError && <p role="alert" className="mt-4 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{createError}</p>}
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button type="button" onClick={() => void acceptAndCreateLink()} disabled={!accepted || creating} className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-45">{creating ? "Création du lien…" : "J’accepte les conditions et génère mon lien"}</button>
+            <button type="button" onClick={cancelConditions} className="rounded-xl border border-white/10 px-5 py-3 text-sm text-zinc-300 hover:bg-white/5">Annuler</button>
+          </div>
+          {createdLink && (
+            <div className="mt-6 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.06] p-4" role="status">
+              <div className="flex items-center gap-2 font-semibold text-emerald-200"><ShieldCheck className="size-5" /> Lien affilié enregistré dans Firestore</div>
+              <p className="mt-2 text-xs leading-relaxed text-zinc-300">Ce lien contient un code aléatoire associé à votre UID Firebase et au produit. Il identifie l’affilié, mais ne confirme ni ne comptabilise de vente ou de commission.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <input readOnly value={publicAffiliateUrl(createdLink.code)} aria-label="Votre lien affilié" className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs text-zinc-200" />
+                <button type="button" onClick={() => void copyUrl(publicAffiliateUrl(createdLink.code))} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white">{copiedUrl === publicAffiliateUrl(createdLink.code) ? <Check className="size-4" /> : <Copy className="size-4" />}{copiedUrl === publicAffiliateUrl(createdLink.code) ? "Copié" : "Copier"}</button>
+                <a href={publicAffiliateUrl(createdLink.code)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm text-zinc-200"><ExternalLink className="size-4" /> Voir la page publique</a>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
 
   return (
-    <div className="min-h-screen text-white pb-16">
-      
-      {/* 1. TOP HEADER (Layout Mansa) */}
-      <div className="border-b border-white/[0.08] pb-0">
-        <h1 className="text-xl font-bold tracking-tight text-white px-1">
-          Affiliés
-        </h1>
-
-        {/* Tab Navigation: Tableau de bord | Parrainer des acheteurs */}
-        <div className="flex items-center gap-6 mt-4 text-xs font-semibold px-1">
-          <button
-            onClick={() => setTopTab("dashboard")}
-            className={`pb-3 transition-colors relative cursor-pointer ${
-              topTab === "dashboard"
-                ? "text-white font-bold"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            Tableau de bord
-            {topTab === "dashboard" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-full" />
-            )}
-          </button>
-
-          <button
-            onClick={() => setTopTab("refer_buyers")}
-            className={`pb-3 transition-colors relative cursor-pointer ${
-              topTab === "refer_buyers"
-                ? "text-white font-bold"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            Parrainer des acheteurs
-            {topTab === "refer_buyers" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-white rounded-full" />
-            )}
-          </button>
-        </div>
+    <main className="min-h-screen pb-16 text-white">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
+        <div><h1 className="text-xl font-bold tracking-tight">Affiliés</h1><p className="mt-1 text-sm text-zinc-400">Découvrez les produits actifs dont le créateur a activé un taux d’affiliation.</p></div>
+        <button type="button" onClick={() => void refresh(true)} disabled={refreshing || loading} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/5 disabled:opacity-50"><RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} /> Actualiser</button>
       </div>
-
-      {/* 2. TAB: PARRAINER DES ACHETEURS (MARCHÉ DES AFFILIÉS) */}
-      {topTab === "refer_buyers" && (
-        <div className="mt-5 space-y-4">
-          
-          {/* Breadcrumb / Subheader */}
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setTopTab("dashboard")}
-                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="size-4" />
-                <span>Retour</span>
-              </button>
-              <h2 className="text-base font-bold text-white">
-                Marché des affiliés
-              </h2>
-
-              {/* Type d'industrie filter button */}
-              <div className="relative">
-                <button
-                  onClick={() => setIsIndustryDropdownOpen(!isIndustryDropdownOpen)}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#16181f] px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                >
-                  <Plus className="size-3 text-zinc-400" />
-                  <span>
-                    {selectedIndustry === "all" ? "Type d'industrie" : selectedIndustry}
-                  </span>
-                  <ChevronDown className="size-3 text-zinc-400 ml-0.5" />
-                </button>
-
-                {/* Dropdown Menu */}
-                {isIndustryDropdownOpen && (
-                  <div className="absolute left-0 top-full mt-1.5 w-64 rounded-xl border border-white/10 bg-[#16181f] p-1.5 shadow-2xl z-30 space-y-0.5">
-                    <button
-                      onClick={() => {
-                        setSelectedIndustry("all");
-                        setIsIndustryDropdownOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                        selectedIndustry === "all" ? "bg-white/10 text-white font-bold" : "text-zinc-300 hover:bg-white/5"
-                      }`}
-                    >
-                      Toutes les industries
-                    </button>
-                    {industriesList.map((ind) => (
-                      <button
-                        key={ind}
-                        onClick={() => {
-                          setSelectedIndustry(ind);
-                          setIsIndustryDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer truncate ${
-                          selectedIndustry === ind ? "bg-white/10 text-white font-bold" : "text-zinc-300 hover:bg-white/5"
-                        }`}
-                      >
-                        {ind}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Search Input on the right */}
-            <div className="relative w-full sm:w-64">
-              <Search className="size-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Rechercher"
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg bg-[#141518] border border-white/10 text-white placeholder-zinc-500 outline-none focus:border-white/30 transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* TABLE OF AFFILIATES (Design Mansa) */}
-          <div className="overflow-x-auto rounded-xl border border-white/[0.06] bg-[#0c0d0e]">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-white/[0.06] text-[11px] font-medium text-zinc-400 bg-[#121316]/50">
-                  <th className="py-3 px-4 font-normal">Entreprise</th>
-                  <th className="py-3 px-4 font-normal">Type d'industrie</th>
-                  <th className="py-3 px-4 font-normal">Taux de commission</th>
-                  <th className="py-3 px-4 font-normal">Gains d'affiliés</th>
-                  <th className="py-3 px-4 font-normal">Conversions</th>
-                  <th className="py-3 px-4 font-normal">Gains par clic</th>
-                  <th className="py-3 px-4 font-normal">Taux de conversion</th>
-                  <th className="py-3 px-4 font-normal text-right">Action</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-white/[0.04]">
-                {filteredCompanies.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 px-4 text-center">
-                      <div className="flex flex-col items-center justify-center space-y-2 text-zinc-500">
-                        <Users className="size-8 text-zinc-600" />
-                        <p className="text-xs font-medium text-zinc-300">
-                          {lang === "fr" ? "Aucun programme d'affiliation disponible" : "No affiliate programs available"}
-                        </p>
-                        <p className="text-[11px] text-zinc-500 max-w-sm">
-                          {lang === "fr"
-                            ? "Les créateurs et entreprises partenaires apparaîtront ici lorsqu'ils ouvriront leurs programmes d'affiliation."
-                            : "Partner companies and creators will appear here when their programs become available."}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCompanies.map((comp) => (
-                  <tr
-                    key={comp.id}
-                    className="hover:bg-white/[0.02] transition-colors group"
-                  >
-                    {/* Entreprise (Logo + Name) */}
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={comp.logo}
-                          alt={comp.name}
-                          className="size-7 rounded-lg object-cover bg-zinc-800 border border-white/10"
-                        />
-                        <span className="font-semibold text-white text-xs whitespace-nowrap">
-                          {comp.name}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* Type d'industrie */}
-                    <td className="py-3.5 px-4 text-zinc-300 whitespace-nowrap">
-                      {comp.industry}
-                    </td>
-
-                    {/* Taux de commission */}
-                    <td className="py-3.5 px-4 font-medium text-zinc-200">
-                      {comp.commissionRate}
-                    </td>
-
-                    {/* Gains d'affiliés */}
-                    <td className="py-3.5 px-4 font-medium text-zinc-200 font-mono">
-                      {comp.affiliateEarnings}
-                    </td>
-
-                    {/* Conversions */}
-                    <td className="py-3.5 px-4 font-medium text-zinc-200 font-mono">
-                      {comp.conversions}
-                    </td>
-
-                    {/* Gains par clic */}
-                    <td className="py-3.5 px-4 font-medium text-zinc-200 font-mono">
-                      {comp.earningsPerClick}
-                    </td>
-
-                    {/* Taux de conversion */}
-                    <td className="py-3.5 px-4 font-medium text-zinc-200 font-mono">
-                      {comp.conversionRate}
-                    </td>
-
-                    {/* Action Button: Devenir affilié / Copier & Partager */}
-                    <td className="py-3.5 px-4 text-right">
-                      {comp.isJoined ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => setSocialModalItem(comp)}
-                            className="p-1.5 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/20 cursor-pointer transition-colors"
-                            title="Partager sur Instagram & TikTok"
-                          >
-                            <Instagram className="size-3.5" />
-                          </button>
-
-                          <button
-                            onClick={() => handleCopy(comp.affiliateUrl || siteUrl(`/${comp.handle}?a=${userRefName}`))}
-                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white font-medium text-xs transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5"
-                          >
-                            {copiedLink === (comp.affiliateUrl || siteUrl(`/${comp.handle}?a=${userRefName}`)) ? (
-                              <>
-                                <Check className="size-3 text-emerald-400" />
-                                <span className="text-emerald-400">Lien copié</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="size-3 text-zinc-300" />
-                                <span>Copier</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setPendingAffiliate(comp)}
-                          className="px-3 py-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-white font-medium text-xs transition-colors cursor-pointer whitespace-nowrap"
-                        >
-                          Devenir affilié
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-              </tbody>
-            </table>
-          </div>
-
-        </div>
-      )}
-
-      {/* 3. TAB: TABLEAU DE BORD (DASHBOARD AFFILIÉ) */}
-      {topTab === "dashboard" && (
-        <div className="mt-6 space-y-6">
-          
-          {/* Metric cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="rounded-xl border border-white/[0.08] bg-[#0c0d0e] p-4 space-y-1">
-              <span className="text-zinc-400 text-xs">Commissions Disponibles</span>
-              <div className="text-2xl font-bold font-mono text-emerald-400">
-                {formatCurrency(0, activeCurrency)}
-              </div>
-              <div className="text-[10px] text-zinc-500 font-mono">
-                {activeCurrency !== "USD"
-                  ? `${convertFromUSD(0, "USD").toFixed(2)} $US`
-                  : `${convertFromUSD(0, "XOF")} FCFA`}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-white/[0.08] bg-[#0c0d0e] p-4 space-y-1">
-              <span className="text-zinc-400 text-xs">Total Ventes Apportées</span>
-              <div className="text-2xl font-bold font-mono text-white">
-                0
-              </div>
-              <div className="text-[10px] text-zinc-500">Clients convertis</div>
-            </div>
-
-            <div className="rounded-xl border border-white/[0.08] bg-[#0c0d0e] p-4 space-y-1">
-              <span className="text-zinc-400 text-xs">Clics Totaux</span>
-              <div className="text-2xl font-bold font-mono text-emerald-400">
-                0
-              </div>
-              <div className="text-[10px] text-zinc-500">Taux conv. 0.0%</div>
-            </div>
-
-            <div className="rounded-xl border border-white/[0.08] bg-[#0c0d0e] p-4 space-y-1 flex flex-col justify-between">
-              <div>
-                <span className="text-zinc-400 text-xs">Programmes Rejoints</span>
-                <div className="text-2xl font-bold font-mono text-white">
-                  {joinedAffiliates.length}
+      {!affiliateUid && <p role="alert" className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">Connectez-vous avec un compte Firebase pour consulter et créer des liens affiliés.</p>}
+      {loadError && <p role="alert" className="mt-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-100">{loadError}</p>}
+      <section className="mt-6" aria-labelledby="affiliate-products-heading">
+        <h2 id="affiliate-products-heading" className="mb-3 text-base font-bold">Produits disponibles</h2>
+        {loading ? <p role="status" className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-zinc-400">Chargement des produits Firebase…</p> : !loadError && products.length === 0 ? <p className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm leading-relaxed text-zinc-400">Aucun produit actif avec un programme d’affiliation n’est disponible. Les produits dont le taux est nul, absent ou négatif sont exclus. Les produits de votre propre compte Firebase sont également exclus.</p> : (
+          <div className="grid gap-3 lg:grid-cols-2">
+            {products.map((product) => {
+              const existingLink = productLinks.get(product.id);
+              return <article key={product.id} className="flex gap-4 rounded-xl border border-white/10 bg-[#15171d] p-4">
+                {product.coverImage ? <img src={product.coverImage} alt="" className="size-16 shrink-0 rounded-lg object-cover" /> : <div className="flex size-16 shrink-0 items-center justify-center rounded-lg bg-white/5 text-zinc-500"><Link2 className="size-6" /></div>}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-semibold text-white">{product.name}</h3><p className="text-xs text-zinc-500">{product.category}</p></div><span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-bold text-emerald-300">{percentLabel(product.affiliateCommissionRate)}</span></div>
+                  {product.description && <p className="mt-2 line-clamp-2 text-sm text-zinc-400">{product.description}</p>}
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-zinc-400">{formatProductPrice(product.pricingAmount, activeCurrency === "XOF" ? product.currency : activeCurrency)}</span><button type="button" onClick={() => beginPromotion(product)} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500">{existingLink ? "Conditions et lien existant" : "Promouvoir ce produit"}</button></div>
                 </div>
-              </div>
-              <button
-                onClick={() => setIsWithdrawModalOpen(true)}
-                disabled={joinedAffiliates.length === 0}
-                className="w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer mt-2"
-              >
-                <Wallet className="size-3.5" />
-                <span>Retirer mon solde</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Active affiliate links table */}
-          <div className="rounded-xl border border-white/[0.08] bg-[#0c0d0e] p-5 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <h3 className="text-sm font-bold text-white">Vos Liens de Parrainage Actifs</h3>
-                <p className="text-xs text-zinc-400">
-                  Partagez directement sur Instagram, TikTok, WhatsApp ou Telegram pour toucher vos commissions.
-                </p>
-              </div>
-              <button
-                onClick={() => setTopTab("refer_buyers")}
-                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1.5 cursor-pointer"
-              >
-                <Plus className="size-3.5" />
-                <span>Parcourir plus d'entreprises</span>
-              </button>
-            </div>
-
-            {joinedAffiliates.length === 0 ? (
-              <div className="py-12 text-center space-y-3">
-                <div className="size-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mx-auto text-zinc-500">
-                  <Share2 className="size-6 text-zinc-500" />
-                </div>
-                <p className="text-sm font-semibold text-zinc-300">
-                  {lang === "fr" ? "Aucun programme d'affiliation actif" : "No active affiliate program"}
-                </p>
-                <p className="text-xs text-zinc-500 max-w-md mx-auto">
-                  {lang === "fr"
-                    ? "Rejoignez un programme partenaire dans le catalogue pour obtenir vos liens traqués et commencer à générer des revenus passifs."
-                    : "Join a partner company in the catalog to get tracked referral links and start earning commissions."}
-                </p>
-                <button
-                  onClick={() => setTopTab("refer_buyers")}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer mt-2"
-                >
-                  <Plus className="size-4" />
-                  <span>{lang === "fr" ? "Parcourir le catalogue d'affiliation" : "Browse affiliate catalog"}</span>
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/[0.04]">
-                {joinedAffiliates.map((item) => {
-                  const url = item.affiliateUrl || siteUrl(`/${item.handle}?a=${userRefName}`);
-                  return (
-                    <div key={item.id} className="py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <img src={item.logo} alt={item.name} className="size-9 rounded-xl object-cover border border-white/10 bg-zinc-800" />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white text-xs">{item.name}</span>
-                            <span className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-zinc-400 font-mono">
-                              {item.industry}
-                            </span>
-                            <span className="rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono font-bold px-1.5 py-0.5">
-                              {item.commissionRate} com.
-                            </span>
-                          </div>
-                          <span className="text-[11px] font-mono text-zinc-500">{url}</span>
-                        </div>
-                      </div>
-
-                      {/* Social quick share action bar */}
-                      <div className="flex items-center gap-2 flex-wrap self-end lg:self-auto">
-                        {/* Instagram & TikTok Share Button */}
-                        <button
-                          onClick={() => setSocialModalItem(item)}
-                          className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-semibold flex items-center gap-1.5 border border-emerald-500/30 cursor-pointer shadow-sm"
-                          title="Partager sur Instagram & TikTok"
-                        >
-                          <Instagram className="size-3.5 text-emerald-400" />
-                          <span className="text-[11px]">Insta / TikTok</span>
-                        </button>
-
-                        {/* WhatsApp */}
-                        <a
-                          href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`🔥 Découvre ${item.name} : ${url}`)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 rounded-lg bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white transition-colors"
-                          title="Partager sur WhatsApp"
-                        >
-                          <MessageCircle className="size-3.5" />
-                        </a>
-
-                        {/* Telegram */}
-                        <a
-                          href={`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(`🔥 Découvre ${item.name}`)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="p-2 rounded-lg bg-[#229ED9]/20 text-[#229ED9] hover:bg-[#229ED9] hover:text-white transition-colors"
-                          title="Partager sur Telegram"
-                        >
-                          <Send className="size-3.5" />
-                        </a>
-
-                        {/* Copy link */}
-                        <button
-                          onClick={() => handleCopy(url)}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs cursor-pointer flex items-center gap-1.5"
-                        >
-                          {copiedLink === url ? (
-                            <>
-                              <Check className="size-3 text-white" />
-                              <span>Copié</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="size-3 text-white" />
-                              <span>Copier</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-        </div>
-      )}
-
-      {/* 4. MODAL INSTAGRAM & TIKTOK SHARING */}
-      <ModalOverlay
-        isOpen={!!socialModalItem}
-        onClose={() => {
-          setSocialModalItem(null);
-          setSocialCopyFeedback(null);
-        }}
-        contentClassName="max-w-lg mx-auto"
-      >
-        {socialModalItem && (
-          <div className="w-full rounded-2xl border border-white/15 bg-[#121316] p-6 shadow-2xl space-y-5 text-white animate-in fade-in zoom-in duration-150">
-            
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-gradient-to-tr from-yellow-500 via-pink-600 to-purple-600 text-white">
-                  <Share2 className="size-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">
-                    Partager sur Instagram & TikTok
-                  </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    Générez vos textes prêts à coller en bio ou story.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setSocialModalItem(null);
-                  setSocialCopyFeedback(null);
-                }}
-                className="text-zinc-400 hover:text-white cursor-pointer"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            {/* Target Creator Details */}
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-              <img src={socialModalItem.logo} alt={socialModalItem.name} className="size-10 rounded-xl object-cover" />
-              <div>
-                <span className="font-bold text-white text-sm block">{socialModalItem.name}</span>
-                <span className="text-[11px] text-zinc-400">{socialModalItem.industry} • Commission : <strong className="text-emerald-400">{socialModalItem.commissionRate}</strong></span>
-              </div>
-            </div>
-
-            {/* Options Tabs / Formats */}
-            <div className="space-y-3.5 text-xs">
-              
-              {/* INSTAGRAM BIO / STORY */}
-              <div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Instagram className="size-4 text-pink-400" />
-                    <span className="font-bold text-white">Instagram (Bio / Sticker Story)</span>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handleSocialCopy(
-                        socialModalItem.affiliateUrl || siteUrl(`/${socialModalItem.handle}?a=${userRefName}`),
-                        "insta_link"
-                      )
-                    }
-                    className="px-2.5 py-1 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-[11px] font-bold cursor-pointer flex items-center gap-1"
-                  >
-                    {socialCopyFeedback === "insta_link" ? <Check className="size-3" /> : <Copy className="size-3" />}
-                    <span>{socialCopyFeedback === "insta_link" ? "Lien Copié !" : "Copier le Lien"}</span>
-                  </button>
-                </div>
-
-                <p className="text-[11px] text-zinc-300">
-                  Collez ce lien dans votre <strong>Bio Instagram</strong> ou utilisez le <strong>Sticker « Lien »</strong> dans vos Stories.
-                </p>
-
-                <div className="p-2 rounded-lg bg-black/40 border border-white/5 font-mono text-[11px] text-pink-300 break-all">
-                  {socialModalItem.affiliateUrl || siteUrl(`/${socialModalItem.handle}?a=${userRefName}`)}
-                </div>
-              </div>
-
-              {/* TIKTOK BIO / CAPTION */}
-              <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3.5 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="size-4 text-cyan-400" />
-                    <span className="font-bold text-white">TikTok (Lien en Bio & Légende)</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      const caption = `🔥 Rejoins ${socialModalItem.name} ici : ${socialModalItem.affiliateUrl || siteUrl(`/${socialModalItem.handle}?a=${userRefName}`)} #mansa #${socialModalItem.handle} #business`;
-                      handleSocialCopy(caption, "tiktok_caption");
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold cursor-pointer flex items-center gap-1"
-                  >
-                    {socialCopyFeedback === "tiktok_caption" ? <Check className="size-3" /> : <Copy className="size-3" />}
-                    <span>{socialCopyFeedback === "tiktok_caption" ? "Texte Copié !" : "Copier Légende TikTok"}</span>
-                  </button>
-                </div>
-
-                <p className="text-[11px] text-zinc-300">
-                  Idéal pour insérer dans la description de vos vidéos TikTok virales avec vos hashtags.
-                </p>
-              </div>
-
-              {/* DIRECT QUICK APP LAUNCHERS */}
-              <div className="pt-2 flex items-center justify-between gap-2">
-                <a
-                  href="https://www.instagram.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 py-2 px-3 rounded-xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Instagram className="size-3.5 text-pink-400" />
-                  <span>Ouvrir Instagram</span>
-                </a>
-
-                <a
-                  href="https://www.tiktok.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 py-2 px-3 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Smartphone className="size-3.5 text-cyan-400" />
-                  <span>Ouvrir TikTok</span>
-                </a>
-              </div>
-
-            </div>
-
+              </article>;
+            })}
           </div>
         )}
-      </ModalOverlay>
-
-      <ModalOverlay
-        isOpen={Boolean(pendingAffiliate)}
-        onClose={() => setPendingAffiliate(null)}
-        contentClassName="max-w-md mx-auto"
-      >
-        {pendingAffiliate && (
-          <div className="w-full rounded-2xl border border-white/10 bg-[#121316] p-6 shadow-2xl space-y-4">
-            <h3 className="text-base font-bold text-white">Conditions du programme</h3>
-            <p className="text-xs leading-relaxed text-zinc-300">Vous allez créer un lien unique pour ce produit. Le taux affiché est fixé par le créateur et ne peut pas être modifié par l’affilié.</p>
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-300">Commission : {pendingAffiliate.commissionRate}</div>
-            <p className="text-[11px] leading-relaxed text-zinc-400">Un clic ou une visite ne crée aucune commission. L’attribution et la commission ne sont enregistrées qu’après une vente confirmée.</p>
-            <div className="flex justify-end gap-2"><button type="button" onClick={() => setPendingAffiliate(null)} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Annuler</button><button type="button" onClick={() => { const item = pendingAffiliate; setPendingAffiliate(null); void handleJoinAffiliate(item); }} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500">Accepter et créer mon lien</button></div>
-          </div>
-        )}
-      </ModalOverlay>
-
-      {/* 5. SUCCESS MODAL */}
-      <ModalOverlay
-        isOpen={!!activeSuccessModal}
-        onClose={() => setActiveSuccessModal(null)}
-        contentClassName="max-w-md mx-auto"
-      >
-        {activeSuccessModal && (
-          <div className="w-full rounded-2xl border border-white/10 bg-[#121316] p-6 shadow-2xl space-y-4">
-            
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="size-5 text-emerald-400" />
-                <h3 className="text-base font-bold text-white">Programme d'affiliation rejoint !</h3>
-              </div>
-              <button
-                onClick={() => setActiveSuccessModal(null)}
-                className="text-zinc-400 hover:text-white cursor-pointer"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/5">
-                <img src={activeSuccessModal.logo} alt={activeSuccessModal.name} className="size-10 rounded-xl object-cover" />
-                <div>
-                  <span className="font-bold text-white text-sm block">{activeSuccessModal.name}</span>
-                  <span className="text-[11px] text-zinc-400">{activeSuccessModal.industry}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 pt-1">
-                <label className="block text-zinc-400 font-medium text-[11px]">
-                  Votre lien de parrainage exclusif :
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={activeSuccessModal.affiliateUrl || siteUrl(`/${activeSuccessModal.handle}?a=${userRefName}`)}
-                    className="w-full rounded-xl border border-white/10 bg-[#181a20] px-3 py-2 text-xs font-mono text-white outline-none"
-                  />
-                  <button
-                    onClick={() => handleCopy(activeSuccessModal.affiliateUrl || siteUrl(`/${activeSuccessModal.handle}?a=${userRefName}`))}
-                    className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer transition-colors shrink-0"
-                    title="Copier"
-                  >
-                    {copiedLink === (activeSuccessModal.affiliateUrl || siteUrl(`/${activeSuccessModal.handle}?a=${userRefName}`)) ? (
-                      <Check className="size-4 text-white" />
-                    ) : (
-                      <Copy className="size-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Social sharing options inside success modal */}
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    const comp = activeSuccessModal;
-                    setActiveSuccessModal(null);
-                    setSocialModalItem(comp);
-                  }}
-                  className="w-full py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  <Instagram className="size-3.5 text-emerald-400" />
-                  <span>Partager sur Insta & TikTok</span>
-                </button>
-              </div>
-
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] leading-relaxed">
-                Les clics ne génèrent aucune commission. Après confirmation d'une vente, l'attribution et la commission sont enregistrées sur le produit concerné.
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={() => setActiveSuccessModal(null)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold cursor-pointer"
-              >
-                Terminer
-              </button>
-            </div>
-
-          </div>
-        )}
-      </ModalOverlay>
-
-      {/* 6. WITHDRAWAL MODAL */}
-      <ModalOverlay
-        isOpen={isWithdrawModalOpen}
-        onClose={() => setIsWithdrawModalOpen(false)}
-        contentClassName="max-w-md mx-auto"
-      >
-        <div className="w-full rounded-2xl border border-white/10 bg-[#121316] p-6 shadow-2xl space-y-4">
-          
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
-              <Wallet className="size-5 text-emerald-400" />
-              <h3 className="text-base font-bold text-white">Retirer mes commissions</h3>
-            </div>
-            <button
-              onClick={() => setIsWithdrawModalOpen(false)}
-              className="text-zinc-400 hover:text-white cursor-pointer"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
-
-          {withdrawSuccess ? (
-            <div className="py-6 text-center space-y-3">
-              <div className="size-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center">
-                <CheckCircle2 className="size-6" />
-              </div>
-              <h4 className="text-base font-bold text-white">Demande de Retrait Transmise !</h4>
-              <p className="text-xs text-zinc-400">
-                Votre virement de <strong>{formatCurrency(0, activeCurrency)}</strong> est en cours de transfert vers <strong>{withdrawMethod.toUpperCase()} ({withdrawPhone || "+225 07..."})</strong>.
-              </p>
-              <button
-                onClick={() => {
-                  setWithdrawSuccess(false);
-                  setIsWithdrawModalOpen(false);
-                }}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
-              >
-                Fermer
-              </button>
-            </div>
-          ) : (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setWithdrawSuccess(true);
-              }}
-              className="space-y-4 text-xs"
-            >
-              <div className="p-3 rounded-xl bg-[#181a20] border border-white/5 flex items-center justify-between font-mono">
-                <span className="text-zinc-400">Solde disponible :</span>
-                <span className="text-base font-bold text-emerald-400">{formatCurrency(0, activeCurrency)}</span>
-              </div>
-
-              <div>
-                <label className="block text-zinc-300 font-semibold mb-2">Moyen de paiement :</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: "wave", label: "Wave Mobile" },
-                    { id: "orange", label: "Orange Money" },
-                    { id: "mtn", label: "MTN MoMo" },
-                    { id: "crypto", label: "USDT (TRC20)" },
-                  ].map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => setWithdrawMethod(m.id as any)}
-                      className={`p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
-                        withdrawMethod === m.id
-                          ? "bg-emerald-600/20 border-emerald-500 text-emerald-400 shadow-sm"
-                          : "bg-[#16181f] border-white/10 text-zinc-400 hover:text-white"
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-zinc-300 font-semibold mb-1">
-                  {withdrawMethod === "crypto" ? "Adresse de portefeuille USDT" : "Numéro de téléphone"}
-                </label>
-                <input
-                  type="text"
-                  value={withdrawPhone}
-                  onChange={(e) => setWithdrawPhone(e.target.value)}
-                  placeholder={withdrawMethod === "crypto" ? "T9yD14Nj9yDbv3G9..." : "+225 07 00 00 00 00"}
-                  className="w-full rounded-xl border border-white/10 bg-[#16181f] p-2.5 text-white outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
-
-              <div className="pt-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsWithdrawModalOpen(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-white/10 text-xs font-semibold text-zinc-400 hover:text-white cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer shadow-md"
-                >
-                  Confirmer le retrait
-                </button>
-              </div>
-            </form>
-          )}
-
-        </div>
-      </ModalOverlay>
-
-    </div>
+      </section>
+      <section className="mt-9" aria-labelledby="affiliate-links-heading">
+        <h2 id="affiliate-links-heading" className="mb-1 text-base font-bold">Mes liens affiliés</h2><p className="mb-3 text-xs leading-relaxed text-zinc-400">Liens enregistrés sous votre UID Firebase. Les vues, ventes et commissions ne sont pas suivies par ce dépôt.</p>
+        {links.length === 0 ? <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-zinc-500">Aucun lien créé.</p> : <div className="space-y-2">{links.map((link) => {
+          const url = publicAffiliateUrl(link.code);
+          return <div key={link.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#15171d] p-4"><div className="min-w-0"><p className="font-semibold">{link.productName}</p><p className="mt-1 font-mono text-xs text-zinc-400">{url}</p><p className="mt-1 text-xs text-emerald-300">Taux accepté : {percentLabel(link.commissionRate)} · aucune commission comptabilisée</p></div><button type="button" onClick={() => void copyUrl(url)} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/5">{copiedUrl === url ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}{copiedUrl === url ? "Copié" : "Copier le lien"}</button></div>;
+        })}</div>}
+      </section>
+      <aside className="mt-7 flex gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-xs leading-relaxed text-amber-100"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><p>Le lien pointe vers une page publique et identifie l’affilié. Il ne réalise pas de vente. Le dépôt ne contient pas de backend de paiement confirmé : une commission réelle nécessite un paiement validé et un webhook serveur qui vérifie puis attribue cette vente.</p></aside>
+    </main>
   );
 };

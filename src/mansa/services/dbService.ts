@@ -164,7 +164,7 @@ function mapFirestoreProduct(
     techStack: data.techStack || ["Mansa Mobile Money", "Paiement Instantané"],
     estimatedMonthlyRevenue:
       data.estimatedMonthlyRevenue || (data.pricingAmount || 0) * (data.membersCount || 0),
-    affiliateCommissionRate: data.affiliateCommissionRate || 30,
+    affiliateCommissionRate: data.affiliateCommissionRate ?? 30,
     membersCount: data.membersCount || 0,
     conversionRate: data.conversionRate || "0%",
     createdAt: data.createdAt || new Date().toISOString().split("T")[0],
@@ -639,6 +639,32 @@ export async function getCreatorProducts(
   }
 }
 
+export async function getMemberProductsByIds(productIds: string[]): Promise<BusinessProject[]> {
+  if (!db || !auth?.currentUser?.uid) return [];
+  const uniqueIds = [...new Set(productIds.filter(Boolean))];
+  const products = await Promise.all(
+    uniqueIds.map(async (productId) => {
+      try {
+        const productSnap = await getDoc(doc(db, "products", productId));
+        if (!productSnap.exists() || productSnap.data().status !== "active") return null;
+        const privateSnap = await getDoc(doc(db, "productPrivateContent", productId));
+        if (!privateSnap.exists()) return null;
+        return mapFirestoreProduct(
+          productSnap.id,
+          productSnap.data() as FirestoreProduct,
+          privateSnap.data(),
+        );
+      } catch (error) {
+        // Security rules deny the read until a trusted payment backend has issued
+        // an active entitlement for this authenticated member.
+        console.info(`Private content remains locked for product ${productId}:`, error);
+        return null;
+      }
+    }),
+  );
+  return products.filter((product): product is BusinessProject => Boolean(product));
+}
+
 export function subscribeToCreatorProducts(
   creatorId: string,
   callback: (products: BusinessProject[]) => void,
@@ -862,7 +888,7 @@ export async function saveProductToFirestore(
     ],
     techStack: ["Mansa Engine v2", "Mobile Money Multi-Gateway"],
     estimatedMonthlyRevenue: 0,
-    affiliateCommissionRate: productData.affiliateRate || 25,
+    affiliateCommissionRate: productData.affiliateRate ?? 25,
     membersCount: 0,
     conversionRate: "0%",
     apps: productData.includedApps,
@@ -897,7 +923,7 @@ export async function saveProductToFirestore(
       features: newProject.features,
       techStack: newProject.techStack,
       estimatedMonthlyRevenue: 0,
-      affiliateCommissionRate: productData.affiliateRate || 25,
+      affiliateCommissionRate: productData.affiliateRate ?? 25,
       membersCount: 0,
       conversionRate: "0%",
       apps: productData.includedApps,
@@ -1277,7 +1303,7 @@ export async function getPublicProducts(): Promise<BusinessProject[]> {
         features: data.features || [],
         techStack: data.techStack || ["Mansa Mobile Money"],
         estimatedMonthlyRevenue: data.estimatedMonthlyRevenue || 0,
-        affiliateCommissionRate: data.affiliateCommissionRate || 20,
+        affiliateCommissionRate: data.affiliateCommissionRate ?? 20,
         membersCount: data.membersCount || 0,
         conversionRate: data.conversionRate || "0%",
         createdAt: data.createdAt || new Date().toISOString().split("T")[0],

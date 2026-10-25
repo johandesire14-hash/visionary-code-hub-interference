@@ -49,6 +49,7 @@ import {
   TelegramChannelItem,
 } from "../utils/telegramStorage";
 import type { Company } from "../types";
+import { saveDigitalAsset } from "../utils/digitalAssetStorage";
 import {
   CurrencyCode,
   SUPPORTED_CURRENCIES,
@@ -69,6 +70,7 @@ export interface DigitalFileAttachment {
   type: string;
   isFreePreview?: boolean;
   downloadUrl?: string;
+  storageKey?: string;
   isAudio?: boolean;
   audioPreviewSeconds?: number;
 }
@@ -166,7 +168,13 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
     initialData?.companyId || initialCompanyId || companies[0]?.id || "",
   );
   const selectedCompany = companies.find((company) => company.id === selectedCompanyId);
-  const effectiveCompanyName = selectedCompany?.name || companyName || initialData?.storeName || "";
+  const effectiveCompanyName =
+    selectedCompany?.name ||
+    companyName ||
+    initialData?.companyName ||
+    initialData?.storeName ||
+    "Créateur";
+  const [productId] = useState(() => initialData?.id || `prod-${Date.now()}`);
 
   useEffect(() => {
     if (!selectedCompanyId && (initialCompanyId || companies[0]?.id)) {
@@ -380,40 +388,13 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
   }, [priceAmount, billingCycle, pricingType, currentCurrency]);
 
   // Digital files & E-book upload documents (Only default for ebook and digital type, empty for membership/course)
-  const [digitalFiles, setDigitalFiles] = useState<DigitalFileAttachment[]>(
-    initialData?.digitalFiles || (
-      productType === "ebook"
-        ? [
-            {
-              id: "file-ebook-1",
-              name: "Guide_Ultime_Complet_2026.pdf",
-              size: "18.4 MB",
-              type: "application/pdf",
-              isFreePreview: false,
-            },
-          ]
-        : productType === "digital"
-        ? [
-            {
-              id: "file-zip-1",
-              name: "Pack_Ressources_Digitales_2026.zip",
-              size: "42.8 MB",
-              type: "archive/zip",
-              isFreePreview: false,
-            },
-          ]
-        : []
-    )
-  );
+  const [digitalFiles, setDigitalFiles] = useState<DigitalFileAttachment[]>(initialData?.digitalFiles || []);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
 
   // Course modules
   const [courseModules, setCourseModules] = useState<CourseModuleItem[]>(
-    initialData?.courseModules || [
-      { id: "mod-1", title: "Module 1 : Fondations et prise en main", duration: "18 min" },
-      { id: "mod-2", title: "Module 2 : Méthodologies avancées", duration: "34 min" },
-      { id: "mod-3", title: "Module 3 : Cas concrets & Mise en pratique", duration: "25 min" },
-    ]
+    initialData?.courseModules || [],
   );
 
   // Ebook details
@@ -483,17 +464,8 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
     return initialData?.includedApps ? sanitizeApps(initialData.includedApps) : [];
   });
 
-  // Applications effectives synchronisées entre le formulaire, les modules et la fiche preview
-  const effectivePreviewApps = React.useMemo(() => {
-    const list = new Set<string>(selectedApps);
-    if (productType === "course" || (courseModules && courseModules.length > 0)) {
-      list.add("Cours & formations");
-    }
-    if (productType === "ebook" || productType === "digital" || (digitalFiles && digitalFiles.length > 0)) {
-      list.add("Fichiers");
-    }
-    return Array.from(list).filter((a) => VALID_MANSA_APPS.includes(a));
-  }, [selectedApps, productType, courseModules, digitalFiles]);
+  // La sélection explicite d’applications détermine celles qui sont incluses dans l’offre.
+  const effectivePreviewApps = sanitizeApps(selectedApps);
   const customerFacingApps = effectivePreviewApps.filter(
     (app) => !/(cours|course|formation)/i.test(app)
   );
@@ -623,14 +595,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
       );
       setBillingCycle("one_time");
       setCtaButtonText("Télécharger maintenant");
-      setDigitalFiles([
-        {
-          id: "file-zip-1",
-          name: "Templates_Pack_Pro_2026.zip",
-          size: "34.5 MB",
-          type: "archive/zip",
-        },
-      ]);
     } else if (type === "course") {
       const name = "Masterclass Pro & Cursus Vidéo";
       setProductName(name);
@@ -639,7 +603,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
       );
       setBillingCycle("one_time");
       setCtaButtonText("Accéder à la formation");
-      setDigitalFiles([]);
     } else if (type === "ebook") {
       const name = "E-book : Guide Pratique & Stratégies";
       setProductName(name);
@@ -648,22 +611,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
       );
       setBillingCycle("one_time");
       setCtaButtonText("Acheter l'e-book");
-      setDigitalFiles([
-        {
-          id: "file-ebook-pdf",
-          name: "Guide_Pratique_Complet_2026.pdf",
-          size: "16.8 MB",
-          type: "application/pdf",
-          isFreePreview: false,
-        },
-        {
-          id: "file-ebook-epub",
-          name: "Guide_Pratique_Version_ePub.epub",
-          size: "8.2 MB",
-          type: "application/epub+zip",
-          isFreePreview: false,
-        },
-      ]);
     } else if (type === "membership") {
       const name = "Accès Club VIP Scalping";
       setProductName(name);
@@ -672,7 +619,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
       );
       setBillingCycle("monthly");
       setCtaButtonText("Rejoindre maintenant");
-      setDigitalFiles([]);
     }
   };
 
@@ -690,42 +636,36 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
     setTags(tags.filter((t) => t !== tagToRemove));
   };
 
-  // Upload file handlers
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Upload file handlers: keep the actual Blob in IndexedDB; local product data stores only its key.
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setIsUploadingFile(true);
-
-    const newUploaded: DigitalFileAttachment[] = Array.from(files).map((f: File, i: number) => {
-      const isAudio = f.type.startsWith("audio/") || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(f.name);
-      return {
-        id: "file-" + Date.now() + "-" + i,
-        name: f.name,
-        size: (f.size / (1024 * 1024)).toFixed(1) + " MB",
-        type: f.type || "application/octet-stream",
-        isFreePreview: false,
-        isAudio,
-        audioPreviewSeconds: isAudio ? 30 : undefined,
-      };
-    });
-
-    setTimeout(() => {
-      setDigitalFiles((prev) => [...prev, ...newUploaded]);
+    setFileUploadError(null);
+    const companyId = selectedCompanyId || initialData?.companyId || initialCompanyId || productId;
+    try {
+      const uploaded = await Promise.all(Array.from(files).map(async (file: File, index: number) => {
+        const id = `file-${Date.now()}-${index}`;
+        const stored = await saveDigitalAsset(companyId, id, file);
+        const isAudio = file.type.startsWith("audio/") || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(file.name);
+        return {
+          id,
+          name: file.name,
+          size: (file.size / (1024 * 1024)).toFixed(1) + " MB",
+          type: file.type || "application/octet-stream",
+          storageKey: stored.storageKey,
+          isFreePreview: false,
+          isAudio,
+          audioPreviewSeconds: isAudio ? 30 : undefined,
+        };
+      }));
+      setDigitalFiles((prev) => [...prev, ...uploaded]);
+    } catch (error) {
+      setFileUploadError(error instanceof Error ? error.message : "Le téléversement a échoué.");
+    } finally {
       setIsUploadingFile(false);
-    }, 400);
-  };
-
-  const handleAddAudioSample = () => {
-    const sampleAudio: DigitalFileAttachment = {
-      id: "audio-" + Date.now(),
-      name: "Afrobeat_Lagos_Summer_Hit_Prod_Master.mp3",
-      size: "9.4 MB",
-      type: "audio/mpeg",
-      isFreePreview: false,
-      isAudio: true,
-      audioPreviewSeconds: 30,
-    };
-    setDigitalFiles((prev) => [...prev, sampleAudio]);
+      e.target.value = "";
+    }
   };
 
   const handleRemoveFile = (fileId: string) => {
@@ -808,10 +748,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
 
   // Final Submit
   const handleFinalSubmit = async () => {
-    if (!selectedCompanyId || !selectedCompany) {
-      window.alert("Sélectionnez une entreprise appartenant à votre compte avant d'enregistrer le produit.");
-      return;
-    }
     const numericPrice = pricingType === "free" ? 0 : parseFloat(priceAmount) || 0;
     const currencyConfig = SUPPORTED_CURRENCIES[currentCurrency] || SUPPORTED_CURRENCIES.USD;
     const symbol = currencyConfig.symbol;
@@ -826,14 +762,19 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
         : `${numericPrice} ${symbol} paiement unique`;
 
     const newProduct: CreatedProductData = {
-      id: initialData?.id || "prod-" + Date.now(),
+      id: productId,
       productType,
       name: productName,
       title: productName,
       description: productDescription,
       storeName: effectiveCompanyName,
-      companyId: selectedCompany.id,
-      companyName: selectedCompany.name,
+      companyId: selectedCompany?.id || initialData?.companyId || initialCompanyId || undefined,
+      companyName:
+        selectedCompany?.name ||
+        companyName ||
+        initialData?.companyName ||
+        initialData?.storeName ||
+        undefined,
       priceDisplay: formattedPrice,
       priceAmount: numericPrice,
       currency: currentCurrency,
@@ -956,7 +897,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
 
           <button
             onClick={handleFinalSubmit}
-            disabled={!selectedCompany}
             className="ui-btn-primary text-xs px-4 py-2 font-bold cursor-pointer flex items-center gap-1.5 shadow-lg"
           >
             <Check className="size-3.5" />
@@ -975,28 +915,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
           
           <div className="space-y-6">
             
-            {/* SECTION: ENTREPRISE OBLIGATOIRE */}
-            <div className="space-y-1.5">
-              <label htmlFor="product-company" className="text-[11px] font-semibold text-zinc-300">
-                Entreprise associée <span className="text-[#00D26A]">*</span>
-              </label>
-              <select
-                id="product-company"
-                value={selectedCompanyId}
-                onChange={(event) => setSelectedCompanyId(event.target.value)}
-                required
-                className="w-full rounded-xl border border-white/10 bg-[#16181f] px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#00D26A]"
-              >
-                <option value="">Sélectionner une entreprise</option>
-                {companies.map((company) => (
-                  <option key={company.id} value={company.id}>{company.name}</option>
-                ))}
-              </select>
-              {companies.length === 0 && (
-                <p className="text-[11px] text-amber-300">Créez d’abord une entreprise avant de créer un produit.</p>
-              )}
-            </div>
-
             {/* SECTION: DÉTAILS DU PRODUIT */}
             <div className="space-y-4">
               <div>
@@ -1098,7 +1016,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
                     </h3>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
                       {selectedApps.some((app) => ["Fichiers", "Fichiers & Documents", "Téléchargement instantané"].includes(app))
-                        ? "Gérez les fichiers depuis l’application Fichiers de cette entreprise."
+                        ? "Ajoutez les fichiers qui seront disponibles dans l’application Fichiers de cette offre."
                         : productType === "ebook"
                           ? "Ajoutez votre e-book ou guide (PDF, ePub) téléchargeable après achat ou en accès gratuit."
                           : "Ajoutez les fichiers numériques, guides ou documents inclus dans cette offre."}
@@ -1107,7 +1025,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
                 </div>
 
                 {/* Upload Zone */}
-                {!selectedApps.some((app) => ["Fichiers", "Fichiers & Documents", "Téléchargement instantané"].includes(app)) && (
                 <div className="rounded-2xl border-2 border-dashed border-white/15 bg-[#14161f] p-4 text-center hover:border-[#00D26A]/50 transition-colors space-y-3">
                   <input
                     type="file"
@@ -1137,19 +1054,9 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
                     </span>
                   </label>
 
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={handleAddAudioSample}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#00D26A]/10 hover:bg-[#00D26A]/20 text-[#00D26A] text-xs font-bold border border-[#00D26A]/30 cursor-pointer transition-all"
-                    >
-                      <Music className="size-3.5" />
-                      <span>+ Ajouter un Beat / Fichier Prod (Extrait 30s)</span>
-                    </button>
-                  </div>
+                  {isUploadingFile && <div className="text-xs font-semibold text-blue-300">Enregistrement des fichiers…</div>}
+                  {fileUploadError && <div role="alert" className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-left text-xs text-red-200">{fileUploadError}</div>}
                 </div>
-
-                )}
 
                 {/* E-book specific metadata */}
                 {productType === "ebook" && (

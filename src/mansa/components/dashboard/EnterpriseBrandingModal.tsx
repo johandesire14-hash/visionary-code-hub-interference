@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   X,
   Camera,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
 import { CompanySocialLinks } from "../../types";
-import { uploadProjectAsset } from "../../services/dbService";
+import { uploadCompanyBrandingAsset } from "../../services/companyAssetStorage";
 
 interface EnterpriseBrandingModalProps {
   isOpen: boolean;
@@ -34,7 +34,7 @@ interface EnterpriseBrandingModalProps {
     companyBanner: string;
     companyLogo: string;
     socialLinks: CompanySocialLinks;
-  }) => void;
+  }) => void | Promise<void>;
   lang?: "fr" | "en";
 }
 
@@ -84,46 +84,108 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
   const [description, setDescription] = useState(company.description || "");
   const [companyBanner, setCompanyBanner] = useState(
     company.companyBanner ||
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1800&q=85"
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1800&q=85",
   );
   const [companyLogo, setCompanyLogo] = useState(
     company.companyLogo ||
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80"
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80",
   );
   const [socialLinks, setSocialLinks] = useState<CompanySocialLinks>(company.socialLinks || {});
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(company.name || "");
+    setDescription(company.description || "");
+    setCompanyBanner(company.companyBanner || "");
+    setCompanyLogo(company.companyLogo || "");
+    setSocialLinks(company.socialLinks || {});
+    setBannerFile(null);
+    setLogoFile(null);
+    setSaveError(null);
+  }, [
+    isOpen,
+    company.id,
+    company.name,
+    company.description,
+    company.companyBanner,
+    company.companyLogo,
+  ]);
 
   const bannerFileRef = useRef<HTMLInputElement | null>(null);
   const logoFileRef = useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
 
-  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const validateImage = (file: File): string | null => {
+    if (!file.type.startsWith("image/")) return "Choisissez un fichier image.";
+    if (file.size > 5 * 1024 * 1024) return "L’image ne doit pas dépasser 5 Mo.";
+    return null;
+  };
+
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setCompanyBanner(await uploadProjectAsset(file, `${ownerUid || company.id}/branding`));
+    const error = validateImage(file);
+    if (error) {
+      setSaveError(error);
+      e.target.value = "";
+      return;
+    }
+    setSaveError(null);
+    setBannerFile(file);
+    setCompanyBanner(URL.createObjectURL(file));
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setCompanyLogo(await uploadProjectAsset(file, `${ownerUid || company.id}/branding`));
+    const error = validateImage(file);
+    if (error) {
+      setSaveError(error);
+      e.target.value = "";
+      return;
+    }
+    setSaveError(null);
+    setLogoFile(file);
+    setCompanyLogo(URL.createObjectURL(file));
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      name: name.trim() || company.name,
-      description: description.trim(),
-      companyBanner: companyBanner.trim(),
-      companyLogo: companyLogo.trim(),
-      socialLinks: Object.fromEntries(Object.entries(socialLinks).filter(([, value]) => value.trim())),
-    });
-    setIsSaved(true);
-    setTimeout(() => {
-      setIsSaved(false);
-      onClose();
-    }, 800);
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const [uploadedBanner, uploadedLogo] = await Promise.all([
+        bannerFile
+          ? uploadCompanyBrandingAsset(company.id, "banner", bannerFile)
+          : companyBanner.trim(),
+        logoFile ? uploadCompanyBrandingAsset(company.id, "logo", logoFile) : companyLogo.trim(),
+      ]);
+      await onSave({
+        name: name.trim() || company.name,
+        description: description.trim(),
+        companyBanner: uploadedBanner,
+        companyLogo: uploadedLogo,
+        socialLinks: Object.fromEntries(
+          Object.entries(socialLinks).filter(([, value]) => value.trim()),
+        ),
+      });
+      setIsSaved(true);
+      window.setTimeout(() => {
+        setIsSaved(false);
+        onClose();
+      }, 650);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "La sauvegarde du branding a échoué.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const { overlayProps, contentProps } = useModalDismiss({
@@ -138,9 +200,7 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 select-none animate-in fade-in duration-150 cursor-pointer"
     >
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-md pointer-events-none"
-      />
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-md pointer-events-none" />
 
       {/* Modal Dialog */}
       <div
@@ -181,27 +241,17 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
             {lang === "fr" ? "Aperçu en temps réel" : "Real-time preview"}
           </span>
           <div className="relative w-full h-36 sm:h-44 rounded-2xl overflow-hidden border border-white/10 bg-[#14161f] shadow-inner group">
-            <img
-              src={companyBanner}
-              alt="Bannière"
-              className="w-full h-full object-cover"
-            />
+            <img src={companyBanner} alt="Bannière" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent pointer-events-none" />
 
             {/* Profile Photo Overlaid */}
             <div className="absolute bottom-3 left-4 flex items-end gap-3 z-10">
               <div className="relative size-16 sm:size-20 rounded-2xl border-2 border-black bg-[#121316] shadow-xl overflow-hidden shrink-0">
-                <img
-                  src={companyLogo}
-                  alt="Logo"
-                  className="size-full object-cover"
-                />
+                <img src={companyLogo} alt="Logo" className="size-full object-cover" />
                 <span className="absolute bottom-1 right-1 size-2.5 rounded-full bg-emerald-400 ring-2 ring-black" />
               </div>
               <div className="text-white drop-shadow-md pb-0.5">
-                <h4 className="text-sm font-bold tracking-tight">
-                  {name || company.name}
-                </h4>
+                <h4 className="text-sm font-bold tracking-tight">{name || company.name}</h4>
                 <p className="text-[11px] text-zinc-300 line-clamp-1">
                   {description || "Holding digitale & communauté privée"}
                 </p>
@@ -211,12 +261,18 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
         </div>
 
         <form onSubmit={handleFormSubmit} className="space-y-5">
+          {saveError && (
+            <div
+              role="alert"
+              className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+            >
+              {saveError}
+            </div>
+          )}
           {/* Company Details */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
-              <label className="block text-zinc-300 font-semibold mb-1">
-                Nom de l'entreprise
-              </label>
+              <label className="block text-zinc-300 font-semibold mb-1">Nom de l'entreprise</label>
               <input
                 type="text"
                 value={name}
@@ -245,8 +301,22 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
               <span className="text-xs font-bold text-white">Liens sociaux de la communauté</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[['instagram','Instagram'],['tiktok','TikTok'],['youtube','YouTube'],['linkedin','LinkedIn'],['twitter','X / Twitter'],['website','Site web']].map(([key,label]) => (
-                <input key={key} type="url" value={socialLinks[key] || ""} onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))} placeholder={`${label} · https://...`} className="w-full rounded-xl border border-white/10 bg-[#0d0e12] p-2.5 text-xs font-mono text-zinc-200 outline-none focus:border-[#00D26A]" />
+              {[
+                ["instagram", "Instagram"],
+                ["tiktok", "TikTok"],
+                ["youtube", "YouTube"],
+                ["linkedin", "LinkedIn"],
+                ["twitter", "X / Twitter"],
+                ["website", "Site web"],
+              ].map(([key, label]) => (
+                <input
+                  key={key}
+                  type="url"
+                  value={socialLinks[key] || ""}
+                  onChange={(e) => setSocialLinks((prev) => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={`${label} · https://...`}
+                  className="w-full rounded-xl border border-white/10 bg-[#0d0e12] p-2.5 text-xs font-mono text-zinc-200 outline-none focus:border-[#00D26A]"
+                />
               ))}
             </div>
           </div>
@@ -256,9 +326,7 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <ImageIcon className="size-4 text-emerald-400" />
-                <span className="text-xs font-bold text-white">
-                  Bannière de l'entreprise
-                </span>
+                <span className="text-xs font-bold text-white">Bannière de l'entreprise</span>
               </div>
               <div>
                 <input
@@ -282,7 +350,10 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
             <input
               type="url"
               value={companyBanner}
-              onChange={(e) => setCompanyBanner(e.target.value)}
+              onChange={(e) => {
+                setCompanyBanner(e.target.value);
+                setBannerFile(null);
+              }}
               placeholder="https://..."
               className="w-full rounded-xl border border-white/10 bg-[#0d0e12] p-2.5 text-xs font-mono text-zinc-200 outline-none focus:border-[#00D26A]"
             />
@@ -293,7 +364,10 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
                 <button
                   key={preset.label}
                   type="button"
-                  onClick={() => setCompanyBanner(preset.url)}
+                  onClick={() => {
+                    setCompanyBanner(preset.url);
+                    setBannerFile(null);
+                  }}
                   className={`relative h-11 rounded-lg overflow-hidden border transition-all text-left p-1 cursor-pointer ${
                     companyBanner === preset.url
                       ? "border-[#00D26A] ring-1 ring-[#00D26A]"
@@ -345,7 +419,10 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
             <input
               type="url"
               value={companyLogo}
-              onChange={(e) => setCompanyLogo(e.target.value)}
+              onChange={(e) => {
+                setCompanyLogo(e.target.value);
+                setLogoFile(null);
+              }}
               placeholder="https://..."
               className="w-full rounded-xl border border-white/10 bg-[#0d0e12] p-2.5 text-xs font-mono text-zinc-200 outline-none focus:border-[#00D26A]"
             />
@@ -356,7 +433,10 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
                 <button
                   key={preset.label}
                   type="button"
-                  onClick={() => setCompanyLogo(preset.url)}
+                  onClick={() => {
+                    setCompanyLogo(preset.url);
+                    setLogoFile(null);
+                  }}
                   className={`flex items-center gap-2 p-1.5 rounded-lg border transition-all text-left cursor-pointer bg-[#0d0e12] ${
                     companyLogo === preset.url
                       ? "border-[#00D26A] bg-[#00D26A]/10"
@@ -381,15 +461,19 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
             <button
               type="button"
               onClick={onClose}
+              disabled={isSaving}
               className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
+              disabled={isSaving}
               className="px-5 py-2.5 rounded-xl bg-[#00D26A] hover:bg-[#00c060] text-black text-xs font-bold transition-all shadow-lg shadow-[#00D26A]/20 cursor-pointer flex items-center gap-1.5"
             >
-              {isSaved ? (
+              {isSaving ? (
+                <span>Téléversement et sauvegarde…</span>
+              ) : isSaved ? (
                 <>
                   <CheckCircle2 className="size-4 text-black" />
                   <span>Enregistré !</span>

@@ -15,6 +15,7 @@ import { Route as CguRouteImport } from './routes/cgu'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as AffiliateCodeRouteImport } from './routes/affiliate.$code'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -46,6 +47,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AffiliateCodeRoute = AffiliateCodeRouteImport.update({
+  id: '/affiliate/$code',
+  path: '/affiliate/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/privacy': typeof PrivacyRoute
+  '/affiliate/$code': typeof AffiliateCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/privacy': typeof PrivacyRoute
+  '/affiliate/$code': typeof AffiliateCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,12 +79,27 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/privacy': typeof PrivacyRoute
+  '/affiliate/$code': typeof AffiliateCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/app' | '/cgu' | '/login' | '/mentions-legales' | '/privacy'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/cgu'
+    | '/login'
+    | '/mentions-legales'
+    | '/privacy'
+    | '/affiliate/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/app' | '/cgu' | '/login' | '/mentions-legales' | '/privacy'
+  to:
+    | '/'
+    | '/app'
+    | '/cgu'
+    | '/login'
+    | '/mentions-legales'
+    | '/privacy'
+    | '/affiliate/$code'
   id:
     | '__root__'
     | '/'
@@ -85,6 +108,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/mentions-legales'
     | '/privacy'
+    | '/affiliate/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -94,6 +118,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MentionsLegalesRoute: typeof MentionsLegalesRoute
   PrivacyRoute: typeof PrivacyRoute
+  AffiliateCodeRoute: typeof AffiliateCodeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -140,6 +165,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/affiliate/$code': {
+      id: '/affiliate/$code'
+      path: '/affiliate/$code'
+      fullPath: '/affiliate/$code'
+      preLoaderRoute: typeof AffiliateCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -150,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MentionsLegalesRoute: MentionsLegalesRoute,
   PrivacyRoute: PrivacyRoute,
+  AffiliateCodeRoute: AffiliateCodeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

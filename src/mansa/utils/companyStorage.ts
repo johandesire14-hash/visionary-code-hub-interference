@@ -1,7 +1,17 @@
 // @ts-nocheck
 import { Company } from "../types";
 import { getLocalCompanyMemberCount } from "./localCommunityStore";
-import { db, doc, setDoc, deleteDoc, collection, getDocs, query, where } from "../services/firebase";
+import {
+  db,
+  doc,
+  setDoc,
+  deleteDoc,
+  collection,
+  getDocs,
+  onSnapshot,
+  query,
+  where,
+} from "../services/firebase";
 
 const COMPANIES_STORAGE_PREFIX = "mansa_companies_";
 const LEGACY_COMPANIES_STORAGE_PREFIX = "afhub_companies_";
@@ -34,55 +44,119 @@ const publicCompanyPayload = (company: Company) => ({
   updatedAt: company.updatedAt || company.createdAt,
 });
 
+const privateCompanyPayload = (company: Company) => ({
+  id: company.id,
+  ownerUid: company.ownerUid,
+  name: company.name,
+  description: company.description || "",
+  acceptedPayments: company.acceptedPayments || [],
+  primaryCurrency: company.primaryCurrency || "XOF",
+  logoInitials: company.logoInitials || "EN",
+  colorGradient: company.colorGradient || "from-emerald-600 via-teal-700 to-black",
+  supportEmail: company.supportEmail || "",
+  supportAutoReplyEnabled: company.supportAutoReplyEnabled ?? true,
+  supportAutoReplyMessage: company.supportAutoReplyMessage || "",
+  companyBanner: company.companyBanner || "",
+  companyLogo: company.companyLogo || "",
+  socialLinks: company.socialLinks || {},
+  discoverable: true,
+  createdAt: company.createdAt,
+  updatedAt: company.updatedAt || company.createdAt,
+});
+
 async function syncCompanyToFirestore(company: Company): Promise<void> {
   if (!db) {
-    if (typeof window !== "undefined") window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
+    if (typeof window !== "undefined")
+      window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
     return;
   }
-  await setDoc(doc(db, "companies", company.id), company);
+  await setDoc(doc(db, "companies", company.id), privateCompanyPayload(company));
   await setDoc(doc(db, "discoverableCompanies", company.id), publicCompanyPayload(company));
-  if (typeof window !== "undefined") window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
+}
+
+export function subscribeToDiscoverableCompany(
+  companyId: string,
+  callback: (company: Partial<Company> | null) => void,
+): () => void {
+  if (!db || !companyId) return () => {};
+  return onSnapshot(
+    doc(db, "discoverableCompanies", companyId),
+    (snapshot) => {
+      if (!snapshot.exists() || snapshot.data().discoverable !== true) {
+        callback(null);
+        return;
+      }
+      const data = snapshot.data();
+      callback({
+        id: snapshot.id,
+        ownerUid: data.ownerUid || "",
+        name: data.name || "",
+        description: data.description || "",
+        logoInitials: data.logoInitials || "EN",
+        colorGradient: data.colorGradient || "from-emerald-600 via-teal-700 to-black",
+        companyBanner: data.companyBanner || "",
+        companyLogo: data.companyLogo || "",
+        discoverable: true,
+      });
+    },
+    (error) => console.warn("Could not listen to company branding updates:", error),
+  );
 }
 
 export async function loadCreatorCompanies(userUid: string): Promise<Company[]> {
   const local = getSavedCompanies(userUid);
   if (!db || !userUid) return local;
   try {
-    const snapshot = await getDocs(query(collection(db, "companies"), where("ownerUid", "==", userUid)));
+    const snapshot = await getDocs(
+      query(collection(db, "companies"), where("ownerUid", "==", userUid)),
+    );
     const remote = snapshot.docs.map((item) => ({ ...item.data(), id: item.id }) as Company);
-    const localOnly = local.filter((item) => !remote.some((remoteItem) => remoteItem.id === item.id));
+    const localOnly = local.filter(
+      (item) => !remote.some((remoteItem) => remoteItem.id === item.id),
+    );
     for (const company of localOnly) {
       await syncCompanyToFirestore({ ...company, ownerUid: userUid, discoverable: true });
     }
-    const merged = [...remote, ...localOnly.map((company) => ({ ...company, ownerUid: userUid, discoverable: true }))];
+    const merged = [
+      ...remote,
+      ...localOnly.map((company) => ({ ...company, ownerUid: userUid, discoverable: true })),
+    ];
     localStorage.setItem(`${COMPANIES_STORAGE_PREFIX}${userUid}`, JSON.stringify(merged));
     return merged;
   } catch (error) {
-    console.warn("Could not load owned companies from Firestore; using this account's cache:", error);
+    console.warn(
+      "Could not load owned companies from Firestore; using this account's cache:",
+      error,
+    );
     return local;
   }
 }
 
 export async function loadDiscoverableCompanies(): Promise<Company[]> {
-  const toPublicListing = (company: Partial<Company> & { companyId?: string }): Company => ({
-    id: company.id || company.companyId,
-    ownerUid: "",
-    name: company.name || "",
-    description: company.description || "",
-    logoInitials: company.logoInitials || "EN",
-    colorGradient: company.colorGradient || "from-emerald-600 via-teal-700 to-black",
-    companyBanner: company.companyBanner || "",
-    companyLogo: company.companyLogo || "",
-    membersCount: Math.max(
-      company.membersCount || 0,
-      getLocalCompanyMemberCount(company.id || company.companyId || ""),
-    ),
-    discoverable: true,
-  } as Company);
+  const toPublicListing = (company: Partial<Company> & { companyId?: string }): Company =>
+    ({
+      id: company.id || company.companyId,
+      ownerUid: "",
+      name: company.name || "",
+      description: company.description || "",
+      logoInitials: company.logoInitials || "EN",
+      colorGradient: company.colorGradient || "from-emerald-600 via-teal-700 to-black",
+      companyBanner: company.companyBanner || "",
+      companyLogo: company.companyLogo || "",
+      membersCount: Math.max(
+        company.membersCount || 0,
+        getLocalCompanyMemberCount(company.id || company.companyId || ""),
+      ),
+      discoverable: true,
+    }) as Company;
   const readLocalDirectory = (): Company[] => {
     if (typeof window === "undefined") return [];
     const companies: Company[] = [];
-    for (const key of Object.keys(localStorage).filter((item) => item.startsWith(COMPANIES_STORAGE_PREFIX))) {
+    for (const key of Object.keys(localStorage).filter((item) =>
+      item.startsWith(COMPANIES_STORAGE_PREFIX),
+    )) {
       try {
         const parsed = JSON.parse(localStorage.getItem(key) || "[]");
         if (Array.isArray(parsed)) {
@@ -98,7 +172,9 @@ export async function loadDiscoverableCompanies(): Promise<Company[]> {
   };
   if (!db) return readLocalDirectory();
   try {
-    const snapshot = await getDocs(query(collection(db, "discoverableCompanies"), where("discoverable", "==", true)));
+    const snapshot = await getDocs(
+      query(collection(db, "discoverableCompanies"), where("discoverable", "==", true)),
+    );
     return snapshot.docs.map((item) => toPublicListing({ ...item.data(), id: item.id }));
   } catch (error) {
     console.warn("Could not load discoverable companies:", error);
@@ -186,8 +262,11 @@ export function updateCompany(userKey: string = "default", updatedCompany: Compa
     console.error("Error updating company in storage:", err);
   }
 
-  void syncCompanyToFirestore({ ...updatedCompany, ownerUid: updatedCompany.ownerUid || userKey, updatedAt: new Date().toISOString() })
-    .catch((err) => console.warn("Company Firestore update failed:", err));
+  void syncCompanyToFirestore({
+    ...updatedCompany,
+    ownerUid: updatedCompany.ownerUid || userKey,
+    updatedAt: new Date().toISOString(),
+  }).catch((err) => console.warn("Company Firestore update failed:", err));
 
   return updated;
 }
@@ -229,9 +308,11 @@ export function updateCompanyAutoReply(
 
   if (updatedCompany) {
     try {
-      setDoc(doc(db, "companies", companyId), { ...updatedCompany, ownerUid: updatedCompany.ownerUid || userKey }, { merge: true }).catch((err) =>
-        console.warn("Notice: Firestore company auto-reply update:", err),
-      );
+      setDoc(
+        doc(db, "companies", companyId),
+        { ...updatedCompany, ownerUid: updatedCompany.ownerUid || userKey },
+        { merge: true },
+      ).catch((err) => console.warn("Notice: Firestore company auto-reply update:", err));
     } catch (e) {}
   }
 
@@ -248,7 +329,7 @@ export function updateCompanyBranding(
     description?: string;
     socialLinks?: Record<string, string>;
   },
-): { companies: Company[]; updatedCompany: Company | null } {
+): { companies: Company[]; updatedCompany: Company | null; persisted: Promise<void> } {
   const current = getSavedCompanies(userKey);
   let updatedItem: Company | null = null;
   const updated = current.map((c) => {
@@ -273,12 +354,8 @@ export function updateCompanyBranding(
     console.error("Error updating company branding:", err);
   }
 
-  if (updatedItem) {
-    void syncCompanyToFirestore(updatedItem).catch((err) =>
-      console.warn("Company branding Firestore update failed:", err),
-    );
-  }
-  return { companies: updated, updatedCompany: updatedItem };
+  const persisted = updatedItem ? syncCompanyToFirestore(updatedItem) : Promise.resolve();
+  return { companies: updated, updatedCompany: updatedItem, persisted };
 }
 
 export function deleteCompany(userKey: string = "default", companyId: string): Company[] {
@@ -297,11 +374,13 @@ export function deleteCompany(userKey: string = "default", companyId: string): C
       void (async () => {
         await deleteDoc(doc(db, "discoverableCompanies", companyId));
         await deleteDoc(doc(db, "companies", companyId));
-        if (typeof window !== "undefined") window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
+        if (typeof window !== "undefined")
+          window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
       })().catch((err) => console.warn("Company Firestore delete failed:", err));
     }
   } catch (e) {
-    if (typeof window !== "undefined") window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
+    if (typeof window !== "undefined")
+      window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
   }
 
   return updated;

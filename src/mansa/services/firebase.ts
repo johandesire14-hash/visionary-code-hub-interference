@@ -42,7 +42,7 @@ import {
   Timestamp,
   Firestore,
 } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL, getBlob, deleteObject, Storage } from "firebase/storage";
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -76,7 +76,7 @@ export const db: Firestore | null = app
     ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
     : getFirestore(app)
   : null;
-export const storage = app ? getStorage(app) : null;
+export const storage: Storage | null = app && firebaseConfig.storageBucket ? getStorage(app) : null;
 
 export {
   signInWithPopup,
@@ -115,6 +115,8 @@ export {
   ref,
   uploadBytes,
   getDownloadURL,
+  getBlob,
+  deleteObject,
 };
 
 export type { FirebaseUser };

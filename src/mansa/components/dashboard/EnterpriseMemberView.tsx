@@ -86,6 +86,7 @@ import {
   EbookResourceItem,
   CourseResourceItem,
 } from "../../utils/rightsAccessEngine";
+import { downloadDigitalAsset, saveDigitalAsset } from "../../utils/digitalAssetStorage";
 import {
   getPostsForCompany,
   createCompanyPost,
@@ -94,14 +95,20 @@ import {
   saveAllPosts,
   CompanyPost,
 } from "../../utils/companyPostsStorage";
-import { updateCompanyBranding, getSavedCompanies } from "../../utils/companyStorage";
+import {
+  updateCompanyBranding,
+  getSavedCompanies,
+  subscribeToDiscoverableCompany,
+} from "../../utils/companyStorage";
 import {
   appendLocalSupportMessage,
   getLocalSupportConversation,
   LOCAL_SUPPORT_CONVERSATIONS_EVENT,
   LOCAL_SUPPORT_CONVERSATIONS_PREFIX,
+  getLocalCompanyMemberCount,
 } from "../../utils/localCommunityStore";
 import { EnterpriseBrandingModal } from "./EnterpriseBrandingModal";
+import { CourseReaderModal } from "./CourseReaderModal";
 import { ManageMembershipModal } from "./ManageMembershipModal";
 import { ReportEnterpriseModal } from "./ReportEnterpriseModal";
 import logoImg from "../../assets/images/afhub_logo_africa_1787956612844.webp";
@@ -140,44 +147,52 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   onCheckoutOpenChange,
 }) => {
   // Navigation inside the enterprise hub - defaults to "accueil" for company home view
-  const [activeTab, setActiveTab] = useState<"accueil" | "support" | "applications" | "telegram" | "discord">("accueil");
+  const [activeTab, setActiveTab] = useState<
+    "accueil" | "support" | "applications" | "telegram" | "discord"
+  >("accueil");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isMobileCompanyNavOpen, setIsMobileCompanyNavOpen] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
-  );
+  const [isMobileCompanyNavOpen, setIsMobileCompanyNavOpen] = useState(false);
 
   // Dynamic access state based on user's active apps & subscriptions
   const [currentIncludedApps, setCurrentIncludedApps] = useState<string[]>(
-    subscription.includedApps || ["dashboard", "support"]
+    subscription.includedApps || ["dashboard", "support"],
   );
 
-  const isInitiallyPaid = subscription.hasPaidOffer !== undefined
-    ? Boolean(subscription.hasPaidOffer)
-    : (subscription.includedApps || []).some((a) =>
-        ["telegram", "discord", "cours", "vip"].some((kw) => a.toLowerCase().includes(kw))
-      );
+  const isInitiallyPaid =
+    subscription.hasPaidOffer !== undefined
+      ? Boolean(subscription.hasPaidOffer)
+      : (subscription.includedApps || []).some((a) =>
+          ["telegram", "discord", "cours", "vip"].some((kw) => a.toLowerCase().includes(kw)),
+        );
 
   const [hasPaidOffer, setHasPaidOffer] = useState<boolean>(isInitiallyPaid);
   const [unlockedProductIds, setUnlockedProductIds] = useState<string[]>(
-    subscription.unlockedProductIds || []
+    subscription.unlockedProductIds || [],
   );
 
   React.useEffect(() => {
     setCurrentIncludedApps(subscription.includedApps || ["dashboard", "support"]);
-    const isPaid = subscription.hasPaidOffer !== undefined
-      ? Boolean(subscription.hasPaidOffer)
-      : (subscription.includedApps || []).some((a) =>
-          ["telegram", "discord", "cours", "vip"].some((kw) => a.toLowerCase().includes(kw))
-        );
+    const isPaid =
+      subscription.hasPaidOffer !== undefined
+        ? Boolean(subscription.hasPaidOffer)
+        : (subscription.includedApps || []).some((a) =>
+            ["telegram", "discord", "cours", "vip"].some((kw) => a.toLowerCase().includes(kw)),
+          );
     setHasPaidOffer(isPaid);
     setUnlockedProductIds(subscription.unlockedProductIds || []);
-  }, [subscription.id, subscription.includedApps, subscription.hasPaidOffer, subscription.unlockedProductIds]);
+  }, [
+    subscription.id,
+    subscription.includedApps,
+    subscription.hasPaidOffer,
+    subscription.unlockedProductIds,
+  ]);
 
   const [checkoutModalOffer, setCheckoutModalOffer] = useState<CreatorPlatformOffer | null>(null);
   React.useEffect(() => {
     onCheckoutOpenChange?.(Boolean(checkoutModalOffer));
   }, [checkoutModalOffer, onCheckoutOpenChange]);
-  const [selectedProductDetailOffer, setSelectedProductDetailOffer] = useState<CreatorPlatformOffer | null>(null);
+  const [selectedProductDetailOffer, setSelectedProductDetailOffer] =
+    useState<CreatorPlatformOffer | null>(null);
   const [selectedProductPlanId, setSelectedProductPlanId] = useState<string | null>(null);
   const [expandedProductFaqIndex, setExpandedProductFaqIndex] = useState<number | null>(null);
 
@@ -187,7 +202,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
   const [postText, setPostText] = useState("");
   const [selectedMemberProductId, setSelectedMemberProductId] = useState<string | null>(
-    subscription.productId || null
+    subscription.productId || null,
   );
 
   React.useEffect(() => {
@@ -195,6 +210,65 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   }, [subscription]);
 
   const companyId = currentSub.companyId || currentSub.id;
+
+  React.useEffect(() => {
+    return subscribeToDiscoverableCompany(companyId, (company) => {
+      if (!company) return;
+      setCurrentSub((previous) => ({
+        ...previous,
+        companyName: company.name || previous.companyName,
+        description: company.description || previous.description,
+        companyBanner: company.companyBanner || previous.companyBanner,
+        companyLogo: company.companyLogo || previous.companyLogo,
+      }));
+    });
+  }, [companyId]);
+
+  const [, setMemberCountRefreshTrigger] = useState(0);
+  const companyRecord = (creatorCompanies || []).find(
+    (company) => company && (company.id === companyId || company.companyId === companyId),
+  );
+  const savedMemberCount = Number(
+    companyRecord?.membersCount ??
+      (currentSub as EnterpriseSubscription & { membersCount?: number }).membersCount ??
+      0,
+  );
+  const companyMemberCount = Math.max(
+    Number.isFinite(savedMemberCount) ? savedMemberCount : 0,
+    getLocalCompanyMemberCount(companyId),
+  );
+
+  React.useEffect(() => {
+    const refreshMemberCount = (event?: Event) => {
+      const eventCompanyId = (event as CustomEvent | undefined)?.detail?.companyId;
+      if (!eventCompanyId || eventCompanyId === companyId) {
+        setMemberCountRefreshTrigger((previous) => previous + 1);
+      }
+    };
+    window.addEventListener("mansa_local_company_members_updated", refreshMemberCount);
+    window.addEventListener("mansa_community_joined", refreshMemberCount);
+    window.addEventListener("mansa_community_left", refreshMemberCount);
+    window.addEventListener("mansa_subscription_updated", refreshMemberCount);
+    window.addEventListener("storage", refreshMemberCount);
+    return () => {
+      window.removeEventListener("mansa_local_company_members_updated", refreshMemberCount);
+      window.removeEventListener("mansa_community_joined", refreshMemberCount);
+      window.removeEventListener("mansa_community_left", refreshMemberCount);
+      window.removeEventListener("mansa_subscription_updated", refreshMemberCount);
+      window.removeEventListener("storage", refreshMemberCount);
+    };
+  }, [companyId]);
+
+  const handleReturnToCommunity = () => {
+    if (currentSub.isCommunityPreview && onOpenMarketplace) {
+      onOpenMarketplace();
+      return;
+    }
+    setActiveTab("accueil");
+    setCompanyTab("accueil");
+    setIsMobileCompanyNavOpen(true);
+    setIsMobileSidebarOpen(false);
+  };
 
   // Chaque entreprise possède son propre état de navigation et de vérification.
   // Un changement d'entreprise ne doit jamais conserver Telegram, Discord ou un QR/code de l'entreprise précédente.
@@ -207,7 +281,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     setSelectedProductDetailOffer(null);
     setPreviewMode("admin");
     setIsPreviewMenuOpen(false);
-    setIsMobileCompanyNavOpen(typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches);
+    setIsMobileCompanyNavOpen(false);
     setIsPostComposerOpen(false);
     setSelectedMemberProductId(subscription.productId || null);
   }, [companyId, subscription.productId]);
@@ -220,7 +294,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const scopedMemberUnlockedOfferIds = React.useMemo(() => {
     if (!selectedMemberProductId) return memberUnlockedOfferIds;
     return memberUnlockedOfferIds.filter(
-      (offerId) => offerId.toLowerCase() === selectedMemberProductId.toLowerCase()
+      (offerId) => offerId.toLowerCase() === selectedMemberProductId.toLowerCase(),
     );
   }, [memberUnlockedOfferIds, selectedMemberProductId]);
 
@@ -248,7 +322,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const isDiscordUnlocked = authorizedDiscordChannels.length > 0;
   const isEbookUnlocked = authorizedEbooks.length > 0;
   const isCourseUnlocked = authorizedCourses.length > 0;
-  
+
   // Company internal tabs: "Accueil" (default & active with blue underline indicator), "Produits", "Avis"
   const [companyTab, setCompanyTab] = useState<"accueil" | "produits" | "avis">("accueil");
 
@@ -274,7 +348,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             c.id === currentSub.id ||
             (c.name &&
               currentSub.companyName &&
-              c.name.trim().toLowerCase() === currentSub.companyName.trim().toLowerCase()))
+              c.name.trim().toLowerCase() === currentSub.companyName.trim().toLowerCase())),
       );
     }
     return false;
@@ -379,7 +453,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   // Commentaires des posts par utilisateur
   const [expandedCommentsMap, setExpandedCommentsMap] = useState<Record<string, boolean>>({});
   const [commentInputMap, setCommentInputMap] = useState<Record<string, string>>({});
-  const [postCommentsMap, setPostCommentsMap] = useState<Record<string, Array<{ author: string; text: string; time: string }>>>(() => {
+  const [postCommentsMap, setPostCommentsMap] = useState<
+    Record<string, Array<{ author: string; text: string; time: string }>>
+  >(() => {
     try {
       const raw = localStorage.getItem("mansa_post_comments_storage");
       return raw ? JSON.parse(raw) : {};
@@ -460,7 +536,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     };
   }, [currentSub.companyId, currentSub.id]);
 
-  const handleSaveBranding = (branding: {
+  const handleSaveBranding = async (branding: {
     name: string;
     description: string;
     companyBanner: string;
@@ -469,24 +545,31 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   }) => {
     // Strict ownership verification: block non-creators
     if (!isCompanyOwner) {
-      console.warn("Opération interdite : Seul le créateur propriétaire peut modifier son entreprise.");
+      console.warn(
+        "Opération interdite : Seul le créateur propriétaire peut modifier son entreprise.",
+      );
       return;
     }
 
-    const userKey = user?.email || "default";
+    const userKey = user?.uid || user?.email || "default";
     updateSubscriptionBranding(userKey, currentSub.companyId, {
       companyName: branding.name,
       companyBanner: branding.companyBanner,
       companyLogo: branding.companyLogo,
       socialLinks: branding.socialLinks,
     });
-    updateCompanyBranding(userKey, currentSub.companyId, {
+    const result = updateCompanyBranding(userKey, currentSub.companyId, {
       name: branding.name,
       description: branding.description,
       companyBanner: branding.companyBanner,
       companyLogo: branding.companyLogo,
       socialLinks: branding.socialLinks,
     });
+    if (!result.updatedCompany) {
+      throw new Error(
+        "Entreprise introuvable dans votre espace. Rechargez la page puis réessayez.",
+      );
+    }
     setCurrentSub((prev) => ({
       ...prev,
       companyName: branding.name,
@@ -494,10 +577,11 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       companyLogo: branding.companyLogo,
       socialLinks: branding.socialLinks,
     }));
+    await result.persisted;
   };
 
   const [isBookmarked, setIsBookmarked] = useState(false);
-  
+
   // Post likes and interaction states for newsfeed
   const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({
     "post-pinned": false,
@@ -518,19 +602,40 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [expandedCommentPosts, setExpandedCommentPosts] = useState<Record<string, boolean>>({});
   const [isEbookModalOpen, setIsEbookModalOpen] = useState(false);
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseResourceItem | null>(null);
   const optionsMenuRef = React.useRef<HTMLDivElement>(null);
 
   const commentReplies: Record<string, Array<{ author: string; text: string; time: string }>> = {
     "post-pinned": [
-      { author: "Membre Premium", text: "Merci pour la mise à jour, c'est très clair.", time: "Il y a 20 min" },
-      { author: currentSub.companyName, text: "Merci pour votre retour. Nous restons disponibles.", time: "Il y a 12 min" },
+      {
+        author: "Membre Premium",
+        text: "Merci pour la mise à jour, c'est très clair.",
+        time: "Il y a 20 min",
+      },
+      {
+        author: currentSub.companyName,
+        text: "Merci pour votre retour. Nous restons disponibles.",
+        time: "Il y a 12 min",
+      },
     ],
     "post-2": [
-      { author: "Aïcha", text: "La synchronisation est-elle déjà active pour tous les membres ?", time: "Il y a 1 h" },
-      { author: currentSub.companyName, text: "Oui, le déploiement est terminé.", time: "Il y a 45 min" },
+      {
+        author: "Aïcha",
+        text: "La synchronisation est-elle déjà active pour tous les membres ?",
+        time: "Il y a 1 h",
+      },
+      {
+        author: currentSub.companyName,
+        text: "Oui, le déploiement est terminé.",
+        time: "Il y a 45 min",
+      },
     ],
     "post-3": [
-      { author: "Membre Premium", text: "Le fichier est bien téléchargé, merci.", time: "Il y a 2 h" },
+      {
+        author: "Membre Premium",
+        text: "Le fichier est bien téléchargé, merci.",
+        time: "Il y a 2 h",
+      },
       { author: currentSub.companyName, text: "Parfait, bonne lecture !", time: "Il y a 1 h" },
     ],
   };
@@ -547,7 +652,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     return (
       <div className="mt-2 space-y-2 rounded-xl border border-white/5 bg-black/10 p-3">
         {commentReplies[postId].map((reply, index) => (
-          <div key={`${postId}-reply-${index}`} className="border-b border-white/5 pb-2 last:border-0 last:pb-0">
+          <div
+            key={`${postId}-reply-${index}`}
+            className="border-b border-white/5 pb-2 last:border-0 last:pb-0"
+          >
             <div className="flex items-center justify-between gap-2">
               <span className="text-[11px] font-semibold text-white">{reply.author}</span>
               <span className="text-[10px] text-zinc-500">{reply.time}</span>
@@ -603,7 +711,11 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       }
     } catch {}
     const exists = allSubscriptions.some(
-      (s) => (s.id === currentSub.id || s.companyId === currentSub.companyId || s.companyId === currentSub.id) && s.hasJoined !== false
+      (s) =>
+        (s.id === currentSub.id ||
+          s.companyId === currentSub.companyId ||
+          s.companyId === currentSub.id) &&
+        s.hasJoined !== false,
     );
     if (!exists && (currentSub.isCommunityPreview || currentSub.id.startsWith("preview-"))) {
       return false;
@@ -642,12 +754,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     window.dispatchEvent(
       new CustomEvent("mansa_community_joined", {
         detail: { subId: joinedSub.id, companyId: compId },
-      })
+      }),
     );
     window.dispatchEvent(
       new CustomEvent("mansa_subscription_updated", {
         detail: joinedSub,
-      })
+      }),
     );
   };
 
@@ -671,12 +783,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     window.dispatchEvent(
       new CustomEvent("mansa_community_left", {
         detail: { subId: currentSub.id, companyId: compId },
-      })
+      }),
     );
     window.dispatchEvent(
       new CustomEvent("mansa_subscription_updated", {
         detail: { removedId: currentSub.id, companyId: compId },
-      })
+      }),
     );
 
     if (onBackToPersonal) {
@@ -709,7 +821,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       (o) =>
         o.companyId === compId ||
         o.companyId === currentSub.id ||
-        (o.companyName && currentSub.companyName && o.companyName.toLowerCase() === currentSub.companyName.toLowerCase())
+        (o.companyName &&
+          currentSub.companyName &&
+          o.companyName.toLowerCase() === currentSub.companyName.toLowerCase()),
     );
     if (registered.length > 0) {
       return registered;
@@ -720,15 +834,21 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   // Telegram et Discord sont des apps : elles ne doivent être présentes que si au moins un produit existe pour cette entreprise et inclut l'application
   const hasTelegramApp = React.useMemo(() => {
     const configuredApps = [...currentIncludedApps, ...(currentSub.includedApps || [])];
-    return configuredApps.some((app) => app.toLowerCase().includes("telegram")) || enterpriseOffers.some((offer) =>
-      offer.includedApps?.some((a) => a.toLowerCase().includes("telegram"))
+    return (
+      configuredApps.some((app) => app.toLowerCase().includes("telegram")) ||
+      enterpriseOffers.some((offer) =>
+        offer.includedApps?.some((a) => a.toLowerCase().includes("telegram")),
+      )
     );
   }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers]);
 
   const hasDiscordApp = React.useMemo(() => {
     const configuredApps = [...currentIncludedApps, ...(currentSub.includedApps || [])];
-    return configuredApps.some((app) => app.toLowerCase().includes("discord")) || enterpriseOffers.some((offer) =>
-      offer.includedApps?.some((a) => a.toLowerCase().includes("discord"))
+    return (
+      configuredApps.some((app) => app.toLowerCase().includes("discord")) ||
+      enterpriseOffers.some((offer) =>
+        offer.includedApps?.some((a) => a.toLowerCase().includes("discord")),
+      )
     );
   }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers]);
 
@@ -738,18 +858,39 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       ...(currentSub.includedApps || []),
       ...enterpriseOffers.flatMap((offer) => offer.includedApps || []),
     ].map((value) => value.toLowerCase());
-    const hasAny = (keywords: string[]) => appNames.some((value) => keywords.some((keyword) => value.includes(keyword)));
+    const hasAny = (keywords: string[]) =>
+      appNames.some((value) => keywords.some((keyword) => value.includes(keyword)));
     const apps: Array<"telegram" | "discord" | "files" | "courses" | "chat" | "content"> = [];
     if (hasTelegramApp || hasAny(["telegram"])) apps.push("telegram");
     if (hasDiscordApp || hasAny(["discord"])) apps.push("discord");
-    if (hasAny(["fichier", "file", "ebook", "template"]) || enterpriseOffers.some((offer) => (offer.digitalFiles?.length || offer.ebooks?.length || 0) > 0)) apps.push("files");
-    if (hasAny(["cours", "course", "formation", "masterclass"]) || enterpriseOffers.some((offer) => (offer.courses?.length || offer.courseModules?.length || 0) > 0)) apps.push("courses");
+    if (
+      hasAny(["fichier", "file", "ebook", "template"]) ||
+      enterpriseOffers.some(
+        (offer) => (offer.digitalFiles?.length || offer.ebooks?.length || 0) > 0,
+      )
+    )
+      apps.push("files");
+    if (
+      hasAny(["cours", "course", "formation", "masterclass"]) ||
+      enterpriseOffers.some(
+        (offer) => (offer.courses?.length || offer.courseModules?.length || 0) > 0,
+      )
+    )
+      apps.push("courses");
     if (hasAny(["chat", "messagerie", "message"])) apps.push("chat");
     if (hasAny(["content", "contenu"])) apps.push("content");
     return apps;
-  }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers, hasTelegramApp, hasDiscordApp]);
+  }, [
+    currentIncludedApps,
+    currentSub.includedApps,
+    enterpriseOffers,
+    hasTelegramApp,
+    hasDiscordApp,
+  ]);
 
-  const openMobileConfiguredApp = (app: "telegram" | "discord" | "files" | "courses" | "chat" | "content") => {
+  const openMobileConfiguredApp = (
+    app: "telegram" | "discord" | "files" | "courses" | "chat" | "content",
+  ) => {
     setIsMobileCompanyNavOpen(false);
     if (app === "telegram") {
       setActiveTab("telegram");
@@ -770,11 +911,17 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setCompanyTab("accueil");
       return;
     }
-    const keywords = app === "courses" ? ["cours", "course", "formation", "masterclass"] : ["fichier", "file", "ebook", "template"];
-    const offer = enterpriseOffers.find((candidate) =>
-      candidate.includedApps?.some((includedApp) => keywords.some((keyword) => includedApp.toLowerCase().includes(keyword))) ||
-      keywords.some((keyword) => candidate.title.toLowerCase().includes(keyword))
-    ) || enterpriseOffers[0];
+    const keywords =
+      app === "courses"
+        ? ["cours", "course", "formation", "masterclass"]
+        : ["fichier", "file", "ebook", "template"];
+    const offer =
+      enterpriseOffers.find(
+        (candidate) =>
+          candidate.includedApps?.some((includedApp) =>
+            keywords.some((keyword) => includedApp.toLowerCase().includes(keyword)),
+          ) || keywords.some((keyword) => candidate.title.toLowerCase().includes(keyword)),
+      ) || enterpriseOffers[0];
     if (!offer) return;
     setActiveTab("accueil");
     setCompanyTab("produits");
@@ -814,7 +961,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     : undefined;
 
   type CreatorAppId = "telegram" | "discord" | "courses" | "files";
-  const [creatorAppStep, setCreatorAppStep] = useState<"closed" | "choose" | "link" | "content">("closed");
+  const [creatorAppStep, setCreatorAppStep] = useState<"closed" | "choose" | "link" | "content">(
+    "closed",
+  );
   const [selectedCreatorApp, setSelectedCreatorApp] = useState<CreatorAppId | null>(null);
   const [linkedCreatorProductIds, setLinkedCreatorProductIds] = useState<string[]>([]);
   const [creatorWorkflowNotice, setCreatorWorkflowNotice] = useState<string | null>(null);
@@ -824,43 +973,76 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [creatorYoutubeUrl, setCreatorYoutubeUrl] = useState("");
   const [creatorVideoFileName, setCreatorVideoFileName] = useState("");
   const [creatorAttachmentFileName, setCreatorAttachmentFileName] = useState("");
+  const [creatorVideoFile, setCreatorVideoFile] = useState<File | null>(null);
+  const [creatorAttachmentFile, setCreatorAttachmentFile] = useState<File | null>(null);
+  const [creatorVideoStorageKey, setCreatorVideoStorageKey] = useState("");
+  const [creatorAttachmentStorageKey, setCreatorAttachmentStorageKey] = useState("");
   const [creatorChapterNames, setCreatorChapterNames] = useState<string[]>(["Introduction"]);
   const [creatorChapterContents, setCreatorChapterContents] = useState<string[]>([""]);
   const [creatorNewChapterName, setCreatorNewChapterName] = useState("");
   const [creatorFileName, setCreatorFileName] = useState("");
   type CreatorFilesScreen = "library" | "add";
   const [creatorFilesScreen, setCreatorFilesScreen] = useState<CreatorFilesScreen>("library");
-  const [creatorFiles, setCreatorFiles] = useState<Array<{
-    id: string;
-    name: string;
-    size: string;
-    type: string;
-    productIds: string[];
-    updatedAt: string;
-  }>>([]);
+  const [creatorFiles, setCreatorFiles] = useState<
+    Array<{
+      id: string;
+      name: string;
+      size: string;
+      type: string;
+      productIds: string[];
+      storageKey?: string;
+      updatedAt: string;
+    }>
+  >([]);
   const [creatorSelectedFile, setCreatorSelectedFile] = useState<File | null>(null);
-  const [creatorCourses, setCreatorCourses] = useState<Array<{
-    id: string;
-    productIds: string[];
-    title: string;
-    description: string;
-    coverFileName?: string;
-    youtubeUrl?: string;
-    videoFileName?: string;
-    attachmentFileName?: string;
-    chapters: string[];
-    chapterContents?: string[];
-    updatedAt: string;
-  }>>([]);
+  const [creatorSaveError, setCreatorSaveError] = useState<string | null>(null);
+  const [isSavingCreatorContent, setIsSavingCreatorContent] = useState(false);
+  const [creatorCourses, setCreatorCourses] = useState<
+    Array<{
+      id: string;
+      productIds: string[];
+      title: string;
+      description: string;
+      coverFileName?: string;
+      youtubeUrl?: string;
+      videoFileName?: string;
+      videoStorageKey?: string;
+      attachmentFileName?: string;
+      attachmentStorageKey?: string;
+      courseModules?: any[];
+      chapters: string[];
+      chapterContents?: string[];
+      updatedAt: string;
+    }>
+  >([]);
   const [editingCreatorCourseId, setEditingCreatorCourseId] = useState<string | null>(null);
-  const [courseCreationStep, setCourseCreationStep] = useState<"library" | "details" | "content">("library");
+  const [courseCreationStep, setCourseCreationStep] = useState<"library" | "details" | "content">(
+    "library",
+  );
 
-  const creatorAppMeta: Record<CreatorAppId, { title: string; description: string; icon: string }> = {
-    telegram: { title: "Telegram", description: "Canal ou groupe Telegram lié à un ou plusieurs produits.", icon: "✈️" },
-    discord: { title: "Discord", description: "Serveur Discord et accès membres par produit.", icon: "🎮" },
-    courses: { title: "Cours & vidéos", description: "Cours, coaching et formations avec chapitres.", icon: "🎓" },
-    files: { title: "Fichier", description: "Fichiers, téléchargements instantanés et e-books.", icon: "📁" },
-  };
+  const creatorAppMeta: Record<CreatorAppId, { title: string; description: string; icon: string }> =
+    {
+      telegram: {
+        title: "Telegram",
+        description: "Canal ou groupe Telegram lié à un ou plusieurs produits.",
+        icon: "✈️",
+      },
+      discord: {
+        title: "Discord",
+        description: "Serveur Discord et accès membres par produit.",
+        icon: "🎮",
+      },
+      courses: {
+        title: "Cours & vidéos",
+        description: "Cours, coaching et formations avec chapitres.",
+        icon: "🎓",
+      },
+      files: {
+        title: "Fichier",
+        description: "Fichiers, téléchargements instantanés et e-books.",
+        icon: "📁",
+      },
+    };
 
   const openCreatorAppWorkflow = () => {
     setSelectedCreatorApp(null);
@@ -878,8 +1060,14 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     if (selectedCreatorApp === "telegram" || selectedCreatorApp === "discord") {
       const linksKey = `mansa_creator_app_links_${companyId}`;
       const savedLinks = JSON.parse(localStorage.getItem(linksKey) || "[]");
-      const nextLink = { appId: selectedCreatorApp, productIds: linkedCreatorProductIds, updatedAt: new Date().toISOString() };
-      const withoutCurrent = Array.isArray(savedLinks) ? savedLinks.filter((item: { appId?: string }) => item.appId !== selectedCreatorApp) : [];
+      const nextLink = {
+        appId: selectedCreatorApp,
+        productIds: linkedCreatorProductIds,
+        updatedAt: new Date().toISOString(),
+      };
+      const withoutCurrent = Array.isArray(savedLinks)
+        ? savedLinks.filter((item: { appId?: string }) => item.appId !== selectedCreatorApp)
+        : [];
       localStorage.setItem(linksKey, JSON.stringify([...withoutCurrent, nextLink]));
       setCreatorAppStep("closed");
       if (selectedCreatorApp === "telegram") {
@@ -900,14 +1088,17 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     if (selectedCreatorApp === "files") {
       const linkedFiles = enterpriseOffers
         .filter((offer) => linkedCreatorProductIds.includes(offer.id))
-        .flatMap((offer) => ((offer as any).digitalFiles || []).map((file: any) => ({
-          id: file.id,
-          name: file.name || file.title || "Fichier sans nom",
-          size: file.size || "Taille inconnue",
-          type: file.type || "application/octet-stream",
-          productIds: linkedCreatorProductIds,
-          updatedAt: file.updatedAt || new Date().toISOString(),
-        })));
+        .flatMap((offer) =>
+          ((offer as any).digitalFiles || []).map((file: any) => ({
+            id: file.id,
+            name: file.name || file.title || "Fichier sans nom",
+            size: file.size || "Taille inconnue",
+            type: file.type || "application/octet-stream",
+            productIds: linkedCreatorProductIds,
+            storageKey: file.storageKey,
+            updatedAt: file.updatedAt || new Date().toISOString(),
+          })),
+        );
       setCreatorFiles(linkedFiles);
       setCreatorFilesScreen("library");
       setCreatorSelectedFile(null);
@@ -924,6 +1115,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     setCreatorYoutubeUrl("");
     setCreatorVideoFileName("");
     setCreatorAttachmentFileName("");
+    setCreatorVideoFile(null);
+    setCreatorAttachmentFile(null);
+    setCreatorVideoStorageKey("");
+    setCreatorAttachmentStorageKey("");
     setCreatorChapterNames(["Introduction"]);
     setCreatorChapterContents([""]);
     setCreatorNewChapterName("");
@@ -938,8 +1133,16 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     setCreatorYoutubeUrl(course.youtubeUrl || "");
     setCreatorVideoFileName(course.videoFileName || "");
     setCreatorAttachmentFileName(course.attachmentFileName || "");
+    setCreatorVideoFile(null);
+    setCreatorAttachmentFile(null);
+    setCreatorVideoStorageKey(course.videoStorageKey || "");
+    setCreatorAttachmentStorageKey(course.attachmentStorageKey || "");
     setCreatorChapterNames(course.chapters.length > 0 ? course.chapters : ["Introduction"]);
-    setCreatorChapterContents(course.chapterContents?.length === course.chapters.length ? course.chapterContents : course.chapters.map(() => ""));
+    setCreatorChapterContents(
+      course.chapterContents?.length === course.chapters.length
+        ? course.chapterContents
+        : course.chapters.map(() => ""),
+    );
     setCourseCreationStep("details");
   };
 
@@ -948,140 +1151,183 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     setCourseCreationStep("content");
   };
 
-  const finishCreatorAppWorkflow = () => {
-    if (!selectedCreatorApp) return;
-    if (selectedCreatorApp === "courses") {
-      if (!creatorCourseName.trim()) return;
-      const courseId = editingCreatorCourseId && editingCreatorCourseId !== "new" ? editingCreatorCourseId : `course-${Date.now()}`;
-      const course = {
-        id: courseId,
-        productIds: linkedCreatorProductIds,
-        title: creatorCourseName.trim(),
-        description: creatorCourseDescription.trim(),
-        coverFileName: creatorCourseCoverFileName,
-        youtubeUrl: creatorYoutubeUrl.trim(),
-        videoFileName: creatorVideoFileName,
-        attachmentFileName: creatorAttachmentFileName,
-        chapters: creatorChapterNames.filter(Boolean),
-        chapterContents: creatorChapterNames.map((_, index) => creatorChapterContents[index] || ""),
-        updatedAt: new Date().toISOString(),
-      };
-      const nextCourses = [...creatorCourses.filter((item) => item.id !== course.id), course];
-      setCreatorCourses(nextCourses);
-      localStorage.setItem(`mansa_creator_courses_${companyId}`, JSON.stringify(nextCourses));
-
-      // Synchroniser immédiatement les cours & modules avec les offres liées de l'entreprise
-      const updatedOffers = enterpriseOffers.map((off) => {
-        if (linkedCreatorProductIds.includes(off.id)) {
-          const existingCourses = off.courses || [];
-          const filteredCourses = existingCourses.filter((c: any) => c.id !== course.id);
-          const newCourseModules = course.chapters.map((ch, idx) => ({
-            id: `mod-${idx + 1}`,
-            title: ch,
-            duration: "25 min",
-          }));
-          return {
-            ...off,
-            courses: [...filteredCourses, course],
-            courseModules: newCourseModules,
-            includedApps: Array.from(new Set([...(off.includedApps || []), "Cours & formations"])),
-          };
-        }
-        return off;
-      });
-      try {
-        localStorage.setItem(`mansa_creator_offers_${companyId}`, JSON.stringify(updatedOffers));
-        setProductsRefreshTrigger((prev) => prev + 1);
-      } catch {}
-
-      setEditingCreatorCourseId(null);
-      setCourseCreationStep("library");
-      setCreatorAppStep("closed");
-      setSelectedCreatorApp(null);
+  const finishCreatorAppWorkflow = async () => {
+    if (!selectedCreatorApp || isSavingCreatorContent) return;
+    setCreatorSaveError(null);
+    if (
+      (selectedCreatorApp === "courses" || selectedCreatorApp === "files") &&
+      linkedCreatorProductIds.length === 0
+    ) {
+      setCreatorSaveError("Associez ce contenu à au moins une offre avant de l’enregistrer.");
       return;
     }
+    setIsSavingCreatorContent(true);
+    try {
+      if (selectedCreatorApp === "courses") {
+        if (!creatorCourseName.trim()) return;
+        const courseId =
+          editingCreatorCourseId && editingCreatorCourseId !== "new"
+            ? editingCreatorCourseId
+            : `course-${Date.now()}`;
+        let videoStorageKey = creatorVideoStorageKey;
+        let attachmentStorageKey = creatorAttachmentStorageKey;
+        if (creatorVideoFile) {
+          videoStorageKey = (
+            await saveDigitalAsset(companyId, `${courseId}-video`, creatorVideoFile)
+          ).storageKey;
+        }
+        if (creatorAttachmentFile) {
+          attachmentStorageKey = (
+            await saveDigitalAsset(companyId, `${courseId}-attachment`, creatorAttachmentFile)
+          ).storageKey;
+        }
+        const course = {
+          id: courseId,
+          productIds: linkedCreatorProductIds,
+          title: creatorCourseName.trim(),
+          description: creatorCourseDescription.trim(),
+          coverFileName: creatorCourseCoverFileName,
+          youtubeUrl: creatorYoutubeUrl.trim(),
+          videoFileName: creatorVideoFile?.name || creatorVideoFileName,
+          videoStorageKey,
+          videoType: creatorVideoFile?.type || "video/mp4",
+          attachmentFileName: creatorAttachmentFile?.name || creatorAttachmentFileName,
+          attachmentStorageKey,
+          chapters: creatorChapterNames.filter(Boolean),
+          chapterContents: creatorChapterNames.map(
+            (_, index) => creatorChapterContents[index] || "",
+          ),
+          courseModules: creatorChapterNames.filter(Boolean).map((title, index) => ({
+            id: `${courseId}-chapter-${index + 1}`,
+            title,
+            duration: "",
+            content: creatorChapterContents[index] || "",
+          })),
+          updatedAt: new Date().toISOString(),
+        };
+        const nextCourses = [...creatorCourses.filter((item) => item.id !== course.id), course];
+        const updatedOffers = enterpriseOffers.map((off) => {
+          const oldCourse = creatorCourses.find((item) => item.id === course.id);
+          const wasLinked = oldCourse?.productIds?.includes(off.id);
+          const isLinked = linkedCreatorProductIds.includes(off.id);
+          if (!wasLinked && !isLinked) return off;
+          const existingCourses = (off.courses || []).filter((item: any) => item.id !== course.id);
+          const modules = (off.courseModules || []).filter(
+            (item: any) => !String(item.id || "").startsWith(`${course.id}-chapter-`),
+          );
+          return {
+            ...off,
+            courses: isLinked ? [...existingCourses, course] : existingCourses,
+            courseModules: isLinked ? [...modules, ...course.courseModules] : modules,
+            includedApps: isLinked
+              ? Array.from(new Set([...(off.includedApps || []), "Cours & formations"]))
+              : off.includedApps,
+          };
+        });
+        localStorage.setItem(`mansa_creator_offers_${companyId}`, JSON.stringify(updatedOffers));
+        localStorage.setItem(`mansa_creator_courses_${companyId}`, JSON.stringify(nextCourses));
+        setCreatorCourses(nextCourses);
+        setProductsRefreshTrigger((prev) => prev + 1);
+        setEditingCreatorCourseId(null);
+        setCourseCreationStep("library");
+        setCreatorAppStep("closed");
+        setSelectedCreatorApp(null);
+        return;
+      }
 
-    if (selectedCreatorApp === "files") {
-      const fileName = creatorSelectedFile?.name || creatorFileName.trim() || "Fichier_Ressource.pdf";
-      const fileSize = creatorSelectedFile
-        ? `${(creatorSelectedFile.size / (1024 * 1024)).toFixed(1)} MB`
-        : "12.4 MB";
-      const fileType = creatorSelectedFile?.type || "application/pdf";
-      const newFile = {
-        id: `file-${Date.now()}`,
-        name: fileName,
-        size: fileSize,
-        type: fileType,
-        isFreePreview: false,
-        updatedAt: new Date().toISOString(),
-      };
-      const updatedOffers = enterpriseOffers.map((off) => {
-        if (linkedCreatorProductIds.includes(off.id)) {
+      if (selectedCreatorApp === "files") {
+        if (!creatorSelectedFile) {
+          setCreatorSaveError(
+            "Sélectionnez un fichier avant de l’ajouter : aucun fichier vide ne sera publié.",
+          );
+          return;
+        }
+        const id = `file-${Date.now()}`;
+        const stored = await saveDigitalAsset(companyId, id, creatorSelectedFile);
+        const newFile = {
+          id,
+          name: creatorFileName.trim() || creatorSelectedFile.name,
+          size: `${(creatorSelectedFile.size / (1024 * 1024)).toFixed(1)} MB`,
+          type: creatorSelectedFile.type || "application/octet-stream",
+          storageKey: stored.storageKey,
+          isFreePreview: false,
+          updatedAt: stored.updatedAt,
+        };
+        const updatedOffers = enterpriseOffers.map((off) => {
+          if (!linkedCreatorProductIds.includes(off.id)) return off;
           const existingFiles = (off as any).digitalFiles || [];
           const existingEbooks = off.ebooks || [];
           return {
             ...off,
-            digitalFiles: [...existingFiles, newFile],
-            ebooks: [...existingEbooks, { id: newFile.id, title: newFile.name, size: newFile.size }],
+            digitalFiles: [...existingFiles.filter((file: any) => file.id !== id), newFile],
+            ebooks: [
+              ...existingEbooks.filter((ebook: any) => ebook.id !== id),
+              {
+                id,
+                title: newFile.name,
+                size: newFile.size,
+                fileSize: newFile.size,
+                storageKey: newFile.storageKey,
+                fileId: id,
+              },
+            ],
             includedApps: Array.from(new Set([...(off.includedApps || []), "Fichiers"])),
           };
-        }
-        return off;
-      });
-      try {
+        });
         localStorage.setItem(`mansa_creator_offers_${companyId}`, JSON.stringify(updatedOffers));
+        const storageKey = `mansa_creator_apps_${companyId}`;
+        const currentApps = JSON.parse(localStorage.getItem(storageKey) || "[]");
+        const others = Array.isArray(currentApps)
+          ? currentApps.filter((app: { appId?: string }) => app.appId !== "files")
+          : [];
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify([
+            ...others,
+            {
+              appId: "files",
+              productIds: linkedCreatorProductIds,
+              files: [newFile],
+              updatedAt: new Date().toISOString(),
+            },
+          ]),
+        );
+        setCreatorFiles((files) => [...files, { ...newFile, productIds: linkedCreatorProductIds }]);
         setProductsRefreshTrigger((prev) => prev + 1);
-      } catch {}
+        setCreatorFilesScreen("library");
+        setCreatorSelectedFile(null);
+        setCreatorFileName("");
+        return;
+      }
 
       const storageKey = `mansa_creator_apps_${companyId}`;
       const currentApps = JSON.parse(localStorage.getItem(storageKey) || "[]");
       const nextApp = {
         appId: selectedCreatorApp,
         productIds: linkedCreatorProductIds,
-        title: fileName,
-        description: "Fichier téléchargeable lié à cette offre.",
-        files: [newFile],
+        title: creatorFileName,
+        description: creatorCourseDescription,
+        chapters: creatorChapterNames,
         updatedAt: new Date().toISOString(),
       };
       const withoutCurrent = Array.isArray(currentApps)
         ? currentApps.filter((app: { appId?: string }) => app.appId !== selectedCreatorApp)
         : [];
       localStorage.setItem(storageKey, JSON.stringify([...withoutCurrent, nextApp]));
-      setCreatorFiles((files) => [...files, {
-        id: newFile.id,
-        name: newFile.name,
-        size: newFile.size,
-        type: newFile.type,
-        productIds: linkedCreatorProductIds,
-        updatedAt: newFile.updatedAt,
-      }]);
-      setCreatorFilesScreen("library");
-      setCreatorSelectedFile(null);
-      setCreatorFileName("");
-      return;
+      setCreatorAppStep("closed");
+      setSelectedCreatorApp(null);
+    } catch (error) {
+      setCreatorSaveError(
+        error instanceof Error ? error.message : "Le contenu n’a pas pu être enregistré.",
+      );
+    } finally {
+      setIsSavingCreatorContent(false);
     }
-
-    const storageKey = `mansa_creator_apps_${companyId}`;
-    const currentApps = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const nextApp = {
-      appId: selectedCreatorApp,
-      productIds: linkedCreatorProductIds,
-      title: creatorFileName,
-      description: creatorCourseDescription,
-      chapters: creatorChapterNames,
-      updatedAt: new Date().toISOString(),
-    };
-    const withoutCurrent = Array.isArray(currentApps)
-      ? currentApps.filter((app: { appId?: string }) => app.appId !== selectedCreatorApp)
-      : [];
-    localStorage.setItem(storageKey, JSON.stringify([...withoutCurrent, nextApp]));
-    setCreatorAppStep("closed");
-    setSelectedCreatorApp(null);
   };
 
   // Le mode compact est automatique sur les écrans étroits et complet sur desktop.
   const [isCompact, setIsCompact] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 1023px)").matches : false,
   );
 
   React.useEffect(() => {
@@ -1099,36 +1345,44 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       (o) =>
         o.includedApps?.some((a) => a.toLowerCase().includes(featureKey)) ||
         o.type === featureKey ||
-        o.title.toLowerCase().includes(featureKey)
+        o.title.toLowerCase().includes(featureKey),
     );
     if (matched) return matched;
-    return enterpriseOffers[0] || {
-      id: `offer-${featureKey}-${currentSub.companyId || currentSub.id}`,
-      title: `Offre ${currentSub.companyName}`,
-      companyId: currentSub.companyId || currentSub.id,
-      companyName: currentSub.companyName,
-      companyInitials: currentSub.companyInitials,
-      category: "membership",
-      type: "membership",
-      priceDisplay: currentSub.priceDisplay || "19 000 FCFA / mois",
-      priceAmount: 19000,
-      currency: "XOF",
-      pricingType: "paid",
-      billingCycle: "monthly",
-      description: `Accédez aux services officiels proposés par ${currentSub.companyName}.`,
-      imageUrl: currentSub.companyBanner || "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80",
-      includedApps: ["dashboard", "support", featureKey],
-    };
+    return (
+      enterpriseOffers[0] || {
+        id: `offer-${featureKey}-${currentSub.companyId || currentSub.id}`,
+        title: `Offre ${currentSub.companyName}`,
+        companyId: currentSub.companyId || currentSub.id,
+        companyName: currentSub.companyName,
+        companyInitials: currentSub.companyInitials,
+        category: "membership",
+        type: "membership",
+        priceDisplay: currentSub.priceDisplay || "19 000 FCFA / mois",
+        priceAmount: 19000,
+        currency: "XOF",
+        pricingType: "paid",
+        billingCycle: "monthly",
+        description: `Accédez aux services officiels proposés par ${currentSub.companyName}.`,
+        imageUrl:
+          currentSub.companyBanner ||
+          "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80",
+        includedApps: ["dashboard", "support", featureKey],
+      }
+    );
   };
 
   // Telegram multi-step access architecture
   // Step 1: Channels list with Top Header & Central Content Card
   // Step 2: Claim access & QR Code
   // Step 3: Verified Gateway & Join channel
-  const [telegramFlowStep, setTelegramFlowStep] = useState<"channels_list" | "claim_qr" | "telegram_gateway">("channels_list");
-  
+  const [telegramFlowStep, setTelegramFlowStep] = useState<
+    "channels_list" | "claim_qr" | "telegram_gateway"
+  >("channels_list");
+
   // Discord multi-step access architecture
-  const [discordFlowStep, setDiscordFlowStep] = useState<"channels_list" | "claim_qr" | "discord_gateway">("channels_list");
+  const [discordFlowStep, setDiscordFlowStep] = useState<
+    "channels_list" | "claim_qr" | "discord_gateway"
+  >("channels_list");
 
   // Canaux Telegram STRICTEMENT autorisés pour ce membre selon son offre achetée
   const channelsList: TelegramChannelItem[] = authorizedTelegramChannels;
@@ -1138,7 +1392,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
   // Canaux Telegram d'autres offres de la même entreprise (non débloqués par ce membre)
   const otherCompanyTelegramChannels = React.useMemo(() => {
-    const allChannels: Array<{ channel: TelegramChannelItem; requiredOffer: CreatorPlatformOffer }> = [];
+    const allChannels: Array<{
+      channel: TelegramChannelItem;
+      requiredOffer: CreatorPlatformOffer;
+    }> = [];
     enterpriseOffers.forEach((offer) => {
       if (!memberUnlockedOfferIds.includes(offer.id)) {
         (offer.telegramChannels || []).forEach((ch) => {
@@ -1153,7 +1410,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
   // Serveurs / Salons Discord d'autres offres de la même entreprise (non débloqués par ce membre)
   const otherCompanyDiscordChannels = React.useMemo(() => {
-    const allChannels: Array<{ channel: DiscordChannelItem; requiredOffer: CreatorPlatformOffer }> = [];
+    const allChannels: Array<{ channel: DiscordChannelItem; requiredOffer: CreatorPlatformOffer }> =
+      [];
     enterpriseOffers.forEach((offer) => {
       if (!memberUnlockedOfferIds.includes(offer.id)) {
         (offer.discordChannels || []).forEach((ch) => {
@@ -1197,77 +1455,100 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   }, [enterpriseOffers, memberUnlockedOfferIds, authorizedCourses]);
 
   const [ebookDownloadToast, setEbookDownloadToast] = useState<string | null>(null);
-  const [courseAccessToast, setCourseAccessToast] = useState<string | null>(null);
 
   const handleDownloadEbook = async (ebook: EbookResourceItem) => {
     try {
-      const res = await fetch("/api/ebooks/request-download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyId,
-          ebookId: ebook.id,
-          unlockedOfferIds: scopedMemberUnlockedOfferIds,
-          userEmail: user?.email,
-        }),
+      const access = verifyMemberResourceAccess({
+        companyId,
+        unlockedOfferIds: scopedMemberUnlockedOfferIds,
+        resourceType: "ebook",
+        resourceId: ebook.id,
       });
-      const data = await res.json();
-      if (res.ok && data.authorized) {
-        setEbookDownloadToast(`Téléchargement autorisé : ${ebook.title}`);
-        setTimeout(() => setEbookDownloadToast(null), 3500);
+      if (!access.isAuthorized) throw new Error(access.error || "Accès refusé à ce fichier.");
+      const file = access.resource || ebook;
+      if (file.storageKey) {
+        await downloadDigitalAsset(file.storageKey, file.name || file.title || ebook.title);
+      } else if (file.downloadUrl) {
+        const anchor = document.createElement("a");
+        anchor.href = file.downloadUrl;
+        anchor.download = file.name || file.title || ebook.title;
+        anchor.rel = "noopener noreferrer";
+        if (/^https?:\/\//i.test(file.downloadUrl)) anchor.target = "_blank";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
       } else {
-        setAccessDeniedToast(
-          data.error ||
-            `Accès refusé. Vous devez posséder l'offre associée pour télécharger cet e-book.`
-        );
-        setTimeout(() => setAccessDeniedToast(null), 4000);
+        throw new Error("Le créateur n’a pas téléversé le fichier associé à cette ressource.");
       }
-    } catch {
-      setEbookDownloadToast(`Téléchargement de ${ebook.title} démarré.`);
+      setEbookDownloadToast(`Téléchargement lancé : ${ebook.title}`);
       setTimeout(() => setEbookDownloadToast(null), 3500);
+    } catch (error) {
+      setAccessDeniedToast(error instanceof Error ? error.message : "Le téléchargement a échoué.");
+      setTimeout(() => setAccessDeniedToast(null), 4500);
     }
   };
 
-  const handleAccessCourse = async (course: CourseResourceItem) => {
+  const handleAccessCourse = (course: CourseResourceItem) => {
+    const access = verifyMemberResourceAccess({
+      companyId,
+      unlockedOfferIds: scopedMemberUnlockedOfferIds,
+      resourceType: "course",
+      resourceId: course.id,
+    });
+    if (!access.isAuthorized) {
+      setAccessDeniedToast(
+        access.error || "Vous ne possédez pas l’offre donnant accès à ce cours.",
+      );
+      setTimeout(() => setAccessDeniedToast(null), 4500);
+      return;
+    }
+    setSelectedCourse(access.resource || course);
+  };
+
+  const handleDownloadCourseAttachment = async (course: CourseResourceItem) => {
+    const access = verifyMemberResourceAccess({
+      companyId,
+      unlockedOfferIds: scopedMemberUnlockedOfferIds,
+      resourceType: "course",
+      resourceId: course.id,
+    });
+    if (!access.isAuthorized) {
+      setAccessDeniedToast(access.error || "Vous n’avez pas accès à cette pièce jointe.");
+      setTimeout(() => setAccessDeniedToast(null), 4500);
+      return;
+    }
     try {
-      const res = await fetch("/api/courses/request-access", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          companyId,
-          courseId: course.id,
-          unlockedOfferIds: scopedMemberUnlockedOfferIds,
-          userEmail: user?.email,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.authorized) {
-        setCourseAccessToast(`Module débloqué : ${course.title}`);
-        setTimeout(() => setCourseAccessToast(null), 3500);
-      } else {
-        setAccessDeniedToast(
-          data.error ||
-            `Accès refusé. Vous devez posséder l'offre associée pour suivre cette formation.`
-        );
-        setTimeout(() => setAccessDeniedToast(null), 4000);
-      }
-    } catch {
-      setCourseAccessToast(`Accès validé : ${course.title}`);
-      setTimeout(() => setCourseAccessToast(null), 3500);
+      const authorizedCourse: any = access.resource || course;
+      if (!authorizedCourse.attachmentStorageKey)
+        throw new Error("La pièce jointe du cours n’est pas disponible.");
+      await downloadDigitalAsset(
+        authorizedCourse.attachmentStorageKey,
+        authorizedCourse.attachmentFileName || `${authorizedCourse.title}.pdf`,
+      );
+    } catch (error) {
+      setAccessDeniedToast(
+        error instanceof Error ? error.message : "Le téléchargement de la pièce jointe a échoué.",
+      );
+      setTimeout(() => setAccessDeniedToast(null), 4500);
     }
   };
 
   const [selectedChannel, setSelectedChannel] = useState<TelegramChannelItem | null>(() => {
     return authorizedTelegramChannels[0] || null;
   });
-  const [selectedDiscordChannel, setSelectedDiscordChannel] = useState<DiscordChannelItem | null>(() => {
-    return authorizedDiscordChannels[0] || null;
-  });
+  const [selectedDiscordChannel, setSelectedDiscordChannel] = useState<DiscordChannelItem | null>(
+    () => {
+      return authorizedDiscordChannels[0] || null;
+    },
+  );
 
   React.useEffect(() => {
     if (!selectedChannel && authorizedTelegramChannels.length > 0) {
       setSelectedChannel(authorizedTelegramChannels[0]);
-    } else if (selectedChannel && !authorizedTelegramChannels.some((c) => c.id === selectedChannel.id)) {
+    } else if (
+      selectedChannel &&
+      !authorizedTelegramChannels.some((c) => c.id === selectedChannel.id)
+    ) {
       setSelectedChannel(authorizedTelegramChannels[0] || null);
     }
   }, [authorizedTelegramChannels]);
@@ -1275,7 +1556,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   React.useEffect(() => {
     if (!selectedDiscordChannel && authorizedDiscordChannels.length > 0) {
       setSelectedDiscordChannel(authorizedDiscordChannels[0]);
-    } else if (selectedDiscordChannel && !authorizedDiscordChannels.some((c) => c.id === selectedDiscordChannel.id)) {
+    } else if (
+      selectedDiscordChannel &&
+      !authorizedDiscordChannels.some((c) => c.id === selectedDiscordChannel.id)
+    ) {
       setSelectedDiscordChannel(authorizedDiscordChannels[0] || null);
     }
   }, [authorizedDiscordChannels]);
@@ -1295,12 +1579,14 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [accessDeniedToast, setAccessDeniedToast] = useState<string | null>(null);
 
   const [supportMessage, setSupportMessage] = useState("");
-  const [supportChatList, setSupportChatList] = useState<Array<{
-    id: string;
-    sender: "user" | "creator";
-    text: string;
-    time: string;
-  }>>([
+  const [supportChatList, setSupportChatList] = useState<
+    Array<{
+      id: string;
+      sender: "user" | "creator";
+      text: string;
+      time: string;
+    }>
+  >([
     {
       id: "msg-1",
       sender: "creator",
@@ -1389,7 +1675,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       });
       const data = await resp.json();
       if (!resp.ok || !data.authorized) {
-        setAccessDeniedToast(data.error || "Accès non autorisé : ce canal Telegram requiert l'offre correspondante.");
+        setAccessDeniedToast(
+          data.error || "Accès non autorisé : ce canal Telegram requiert l'offre correspondante.",
+        );
         setTimeout(() => setAccessDeniedToast(null), 5000);
         return;
       }
@@ -1465,7 +1753,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       });
       const data = await resp.json();
       if (!resp.ok || !data.authorized) {
-        setAccessDeniedToast(data.error || "Accès non autorisé : ce serveur Discord requiert l'offre correspondante.");
+        setAccessDeniedToast(
+          data.error || "Accès non autorisé : ce serveur Discord requiert l'offre correspondante.",
+        );
         setTimeout(() => setAccessDeniedToast(null), 5000);
         return;
       }
@@ -1516,7 +1806,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
     // Auto-reply acknowledgment from support if configured by creator
     setTimeout(() => {
-      const compId = currentSub.companyId || currentSub.id || subscription.companyId || subscription.id;
+      const compId =
+        currentSub.companyId || currentSub.id || subscription.companyId || subscription.id;
       const userKey = user?.email || "default";
       const allCompanies = getSavedCompanies(userKey);
       const comp =
@@ -1525,7 +1816,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             c.id === compId ||
             (c.name &&
               currentSub.companyName &&
-              c.name.toLowerCase() === currentSub.companyName.toLowerCase())
+              c.name.toLowerCase() === currentSub.companyName.toLowerCase()),
         ) || allCompanies.find((c) => c.id === "comp-cadre-financier");
 
       const autoReplyEnabled = comp?.supportAutoReplyEnabled ?? true;
@@ -1570,13 +1861,22 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative size-9 rounded-xl bg-gradient-to-br from-indigo-950 via-purple-900 to-black border border-white/15 flex items-center justify-center text-xs font-black text-white shrink-0 overflow-hidden shadow-inner">
               {subscription.companyLogo ? (
-                <img src={subscription.companyLogo} alt={subscription.companyName} className="size-full object-cover" />
+                <img
+                  src={subscription.companyLogo}
+                  alt={subscription.companyName}
+                  className="size-full object-cover"
+                />
               ) : (
-                <span>{subscription.companyInitials || subscription.companyName.substring(0, 2).toUpperCase()}</span>
+                <span>
+                  {subscription.companyInitials ||
+                    subscription.companyName.substring(0, 2).toUpperCase()}
+                </span>
               )}
             </div>
             <div className="min-w-0">
-              <h2 className="text-xs font-bold text-white truncate tracking-tight">{subscription.companyName}</h2>
+              <h2 className="text-xs font-bold text-white truncate tracking-tight">
+                {subscription.companyName}
+              </h2>
               <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-medium">
                 <span className="size-1.5 rounded-full bg-emerald-400" />
                 <span>en ligne</span>
@@ -1597,7 +1897,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         {isCompanyOwner && !canManageCompany && (
           <button
             type="button"
-            onClick={() => { setPreviewMode("admin"); setIsPreviewMenuOpen(false); }}
+            onClick={() => {
+              setPreviewMode("admin");
+              setIsPreviewMenuOpen(false);
+            }}
             className="w-full flex items-center justify-center gap-2 rounded-xl border border-blue-400/30 bg-blue-500/10 px-3.5 py-2.5 text-xs font-semibold text-blue-200 hover:bg-blue-500/20 transition-colors"
           >
             <Eye className="size-3.5" />
@@ -1614,52 +1917,73 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               aria-haspopup="menu"
             >
               <div className="min-w-0">
-                <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Aperçu en tant que</div>
+                <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  Aperçu en tant que
+                </div>
                 <div className="mt-1 flex items-center gap-2 text-xs font-semibold text-white truncate">
                   {previewMode === "admin" && <Eye className="size-3.5 text-blue-400 shrink-0" />}
-                  {previewMode === "public" && <Users className="size-3.5 text-emerald-400 shrink-0" />}
-                  {previewMode === "hidden" && <EyeOff className="size-3.5 text-zinc-400 shrink-0" />}
-                  {previewMode.startsWith("product:") && <Package className="size-3.5 text-amber-400 shrink-0" />}
+                  {previewMode === "public" && (
+                    <Users className="size-3.5 text-emerald-400 shrink-0" />
+                  )}
+                  {previewMode === "hidden" && (
+                    <EyeOff className="size-3.5 text-zinc-400 shrink-0" />
+                  )}
+                  {previewMode.startsWith("product:") && (
+                    <Package className="size-3.5 text-amber-400 shrink-0" />
+                  )}
                   <span className="truncate">
                     {previewMode === "admin"
                       ? "Administrateur"
                       : previewMode === "public"
-                      ? "Public"
-                      : previewMode === "hidden"
-                      ? "Masqué"
-                      : selectedPreviewOffer?.title || "Produit"}
+                        ? "Public"
+                        : previewMode === "hidden"
+                          ? "Masqué"
+                          : selectedPreviewOffer?.title || "Produit"}
                   </span>
                 </div>
               </div>
-              <ChevronDown className={`size-4 text-zinc-400 transition-transform ${isPreviewMenuOpen ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`size-4 text-zinc-400 transition-transform ${isPreviewMenuOpen ? "rotate-180" : ""}`}
+              />
             </button>
 
             {isPreviewMenuOpen && (
               <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#17191e] p-1.5 shadow-2xl">
                 <button
                   type="button"
-                  onClick={() => { setPreviewMode("admin"); setIsPreviewMenuOpen(false); }}
+                  onClick={() => {
+                    setPreviewMode("admin");
+                    setIsPreviewMenuOpen(false);
+                  }}
                   className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-left transition-colors ${previewMode === "admin" ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5"}`}
                 >
                   <Eye className="size-3.5 text-blue-400" /> Administrateur
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setPreviewMode("public"); setIsPreviewMenuOpen(false); }}
+                  onClick={() => {
+                    setPreviewMode("public");
+                    setIsPreviewMenuOpen(false);
+                  }}
                   className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-left transition-colors ${previewMode === "public" ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5"}`}
                 >
                   <Users className="size-3.5 text-emerald-400" /> Public
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setPreviewMode("hidden"); setIsPreviewMenuOpen(false); }}
+                  onClick={() => {
+                    setPreviewMode("hidden");
+                    setIsPreviewMenuOpen(false);
+                  }}
                   className={`w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-left transition-colors ${previewMode === "hidden" ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5"}`}
                 >
                   <EyeOff className="size-3.5 text-zinc-400" /> Masqué
                 </button>
 
                 <div className="my-1.5 border-t border-white/10 pt-1.5">
-                  <div className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Produits</div>
+                  <div className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                    Produits
+                  </div>
                   {enterpriseOffers.length === 0 ? (
                     <div className="px-2.5 py-2 text-[11px] text-zinc-500">Aucun produit créé</div>
                   ) : (
@@ -1667,20 +1991,28 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       <button
                         type="button"
                         key={offer.id}
-                        onClick={() => { setPreviewMode(`product:${offer.id}`); setIsPreviewMenuOpen(false); }}
+                        onClick={() => {
+                          setPreviewMode(`product:${offer.id}`);
+                          setIsPreviewMenuOpen(false);
+                        }}
                         className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs text-left transition-colors ${selectedPreviewOfferId === offer.id ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5"}`}
                       >
                         <span className="flex min-w-0 items-center gap-2">
                           <Package className="size-3.5 shrink-0 text-amber-400" />
                           <span className="truncate">{offer.title}</span>
                         </span>
-                        <span className="shrink-0 text-[10px] text-zinc-500">{offer.subscribersCount || "0"}</span>
+                        <span className="shrink-0 text-[10px] text-zinc-500">
+                          {offer.subscribersCount || "0"}
+                        </span>
                       </button>
                     ))
                   )}
                   <button
                     type="button"
-                    onClick={() => { setIsPreviewMenuOpen(false); onCreateProduct?.(); }}
+                    onClick={() => {
+                      setIsPreviewMenuOpen(false);
+                      onCreateProduct?.();
+                    }}
                     className="mt-1 flex w-full items-center gap-2 rounded-lg border-t border-white/10 px-2.5 pt-2 text-xs text-zinc-300 hover:text-white"
                   >
                     <Plus className="size-3.5" /> Nouveau produit
@@ -1704,12 +2036,16 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 <Package className="size-3.5 text-amber-400" />
                 Produits
               </span>
-              <ChevronDown className={`size-3.5 text-zinc-400 transition-transform ${isPreviewMenuOpen ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`size-3.5 text-zinc-400 transition-transform ${isPreviewMenuOpen ? "rotate-180" : ""}`}
+              />
             </button>
             {isPreviewMenuOpen && (
               <div className="mt-1 border-t border-white/10 pt-1">
                 {enterpriseOffers.length === 0 ? (
-                  <div className="px-2.5 py-2 text-[11px] text-zinc-500">Aucun produit disponible</div>
+                  <div className="px-2.5 py-2 text-[11px] text-zinc-500">
+                    Aucun produit disponible
+                  </div>
                 ) : (
                   enterpriseOffers.map((offer) => (
                     <button
@@ -1717,7 +2053,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       key={offer.id}
                       onClick={() => {
                         const hasProductAccess = memberUnlockedOfferIds.some(
-                          (offerId) => offerId.toLowerCase() === offer.id.toLowerCase()
+                          (offerId) => offerId.toLowerCase() === offer.id.toLowerCase(),
                         );
                         if (hasProductAccess) {
                           setSelectedMemberProductId(offer.id);
@@ -1737,7 +2073,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs transition-colors ${selectedMemberProductId === offer.id ? "bg-white/10 text-white" : "text-zinc-300 hover:bg-white/5 hover:text-white"}`}
                     >
                       <span className="truncate">{offer.title}</span>
-                      <span className="shrink-0 text-[10px] text-zinc-500">{offer.subscribersCount || "0"}</span>
+                      <span className="shrink-0 text-[10px] text-zinc-500">
+                        {offer.subscribersCount || "0"}
+                      </span>
                     </button>
                   ))
                 )}
@@ -1829,15 +2167,44 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               }`}
             >
               <Plus className="size-4 text-blue-400" />
-              <span className={activeTab === "applications" ? "text-white font-bold" : "text-zinc-300"}>Ajouter une application</span>
+              <span
+                className={activeTab === "applications" ? "text-white font-bold" : "text-zinc-300"}
+              >
+                Ajouter une application
+              </span>
             </button>
           )}
 
           {/* Applications réellement configurées : aucune entrée par défaut, aucun doublon. */}
           {configuredCompanyApps.map((app) => {
-            const appLabel = app === "telegram" ? "Telegram" : app === "discord" ? "Discord" : app === "files" ? "Fichiers" : app === "courses" ? "Courses" : app === "chat" ? "Chat" : "Content";
-            const appIcon = app === "telegram" ? <TelegramIcon className="size-4" /> : app === "discord" ? <DiscordIcon className="size-4" /> : app === "courses" ? <GraduationCap className="size-4 text-indigo-400" /> : app === "files" ? <FileText className="size-4 text-blue-400" /> : <MessageSquare className="size-4 text-orange-400" />;
-            const isActive = (app === "telegram" && activeTab === "telegram") || (app === "discord" && activeTab === "discord") || (app === "chat" && activeTab === "support");
+            const appLabel =
+              app === "telegram"
+                ? "Telegram"
+                : app === "discord"
+                  ? "Discord"
+                  : app === "files"
+                    ? "Fichiers"
+                    : app === "courses"
+                      ? "Courses"
+                      : app === "chat"
+                        ? "Chat"
+                        : "Content";
+            const appIcon =
+              app === "telegram" ? (
+                <TelegramIcon className="size-4" />
+              ) : app === "discord" ? (
+                <DiscordIcon className="size-4" />
+              ) : app === "courses" ? (
+                <GraduationCap className="size-4 text-indigo-400" />
+              ) : app === "files" ? (
+                <FileText className="size-4 text-blue-400" />
+              ) : (
+                <MessageSquare className="size-4 text-orange-400" />
+              );
+            const isActive =
+              (app === "telegram" && activeTab === "telegram") ||
+              (app === "discord" && activeTab === "discord") ||
+              (app === "chat" && activeTab === "support");
             return (
               <button
                 key={`configured-app-${app}`}
@@ -1889,7 +2256,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         seen.has(companyId) ||
         leftIds.includes(companyId) ||
         leftIds.includes(item.id)
-      ) return;
+      )
+        return;
 
       seen.add(companyId);
       unique.push({
@@ -1928,142 +2296,162 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   return (
     <div className="mansa-viewport mansa-safe-bottom flex h-full w-full flex-1 overflow-hidden relative select-none bg-[#08090b] text-[#eeeeee] font-sans antialiased">
       {/* 1. LEFTMOST RAIL: Enterprise Squares ("les cases entreprise sur le cote comme sur l'image") */}
-      <div className={`${isMobileCompanyNavOpen ? "flex" : "hidden"} lg:flex w-[72px] shrink-0 bg-[#08090a] border-r border-white/5 flex-col items-center py-3 gap-2 overflow-y-auto no-scrollbar select-none z-10`}>
-          
-          {/* 1. User / Personal Workspace */}
-          {onBackToPersonal && (
-            <div className="relative group flex items-center justify-center w-full px-2">
-              <button
-                onClick={onBackToPersonal}
-                aria-label="Passer à l’espace personnel"
-                className="size-11 rounded-2xl bg-[#16171b] hover:bg-white/10 hover:text-white text-zinc-400 border border-white/10 flex items-center justify-center transition-all cursor-pointer overflow-hidden"
-                title="Espace Personnel"
-              >
-                <div className="size-full bg-gradient-to-br from-zinc-700 to-zinc-950 flex items-center justify-center text-[11px] font-black text-white font-mono">
-                  <User className="size-5" />
-                </div>
-              </button>
-              <div className="absolute left-[72px] z-50 px-2.5 py-1 rounded-lg bg-[#181a22] text-xs font-semibold text-white border border-white/10 shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
-                {user.name || "Espace Personnel"}
-              </div>
-            </div>
-          )}
-
-          {/* Unified company list: created and joined companies, one entry per company ID. */}
-          <div className="w-full flex flex-col items-center gap-1.5 pt-1 flex-1">
-            {railItems.map((item: any) => {
-              const isActive = item.companyId === subscription.companyId || item.id === subscription.id;
-              return (
-                <div key={`rail-${item.companyId}`} className="relative group flex items-center justify-center w-full px-2">
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-blue-500 rounded-r-full shadow-sm shadow-blue-500/50" />
-                  )}
-
-                  <button
-                    onClick={() => handleRailCompanySelect(item)}
-                    className={`size-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer relative overflow-hidden select-none ${
-                      isActive
-                        ? "ring-2 ring-blue-500 scale-105 shadow-lg shadow-blue-500/20"
-                        : "border border-white/10 hover:border-blue-400/50 hover:scale-105 opacity-85 hover:opacity-100"
-                    }`}
-                    title={item.companyName || item.name}
-                  >
-                    {item.companyLogo || item.logo ? (
-                      <img src={item.companyLogo || item.logo} alt={item.companyName || item.name} className="size-full object-cover" />
-                    ) : item.type === "whop_yellow" ? (
-                      <div className="size-full bg-[#D8FF3F] text-black font-black text-lg flex items-center justify-center">W</div>
-                    ) : item.type === "green_stripes" ? (
-                      <div className="size-full bg-[#0b1712] border border-emerald-500/30 text-emerald-400 flex flex-col items-center justify-center gap-0.5">
-                        <span className="w-5 h-1 bg-emerald-400 rounded-full" />
-                        <span className="w-3.5 h-1 bg-emerald-400/70 rounded-full" />
-                      </div>
-                    ) : item.type === "purple_shield" ? (
-                      <div className="size-full bg-[#13111f] border border-purple-500/30 text-purple-400 flex items-center justify-center">
-                        <ShieldCheck className="size-5" />
-                      </div>
-                    ) : (
-                      <div
-                        className={`size-full bg-gradient-to-br ${
-                          item.companyGradient || "from-blue-950 via-indigo-950 to-black"
-                        } flex items-center justify-center text-[10px] font-black text-white font-mono`}
-                      >
-                        <span>{item.companyInitials || item.initials || (item.companyName || item.name || "EM").substring(0, 2).toUpperCase()}</span>
-                      </div>
-                    )}
-                  </button>
-
-                  <div className="absolute left-[72px] z-50 px-2.5 py-1 rounded-lg bg-[#181a22] text-xs font-semibold text-white border border-white/10 shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
-                    {item.companyName || item.name}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Plus button to discover more */}
-          <div className="relative group flex items-center justify-center w-full px-2 pt-2 shrink-0">
+      <div
+        className={`${isMobileCompanyNavOpen ? "flex" : "hidden"} lg:flex w-[72px] shrink-0 bg-[#08090a] border-r border-white/5 flex-col items-center py-3 gap-2 overflow-y-auto no-scrollbar select-none z-10`}
+      >
+        {/* 1. User / Personal Workspace */}
+        {onBackToPersonal && (
+          <div className="relative group flex items-center justify-center w-full px-2">
             <button
-              onClick={onOpenMarketplace}
-              className="size-11 rounded-2xl bg-white/5 hover:bg-white/10 hover:text-emerald-400 text-zinc-400 border border-dashed border-white/20 hover:border-emerald-400 flex items-center justify-center transition-all cursor-pointer"
-              title="Découvrir d'autres entreprises"
+              onClick={onBackToPersonal}
+              aria-label="Passer à l’espace personnel"
+              className="size-11 rounded-2xl bg-[#16171b] hover:bg-white/10 hover:text-white text-zinc-400 border border-white/10 flex items-center justify-center transition-all cursor-pointer overflow-hidden"
+              title="Espace Personnel"
             >
-              <Plus className="size-5" />
+              <div className="size-full bg-gradient-to-br from-zinc-700 to-zinc-950 flex items-center justify-center text-[11px] font-black text-white font-mono">
+                <User className="size-5" />
+              </div>
             </button>
             <div className="absolute left-[72px] z-50 px-2.5 py-1 rounded-lg bg-[#181a22] text-xs font-semibold text-white border border-white/10 shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
-              Découvrir de nouvelles offres
+              {user.name || "Espace Personnel"}
             </div>
-          </div>
-        </div>
-
-        {/* SECONDARY ENTERPRISE SIDEBAR (Desktop Fixed) */}
-        <aside className="hidden lg:flex w-64 shrink-0 border-r border-white/[0.08] bg-[#0e1014] flex-col justify-between select-none">
-          {renderSidebarContent(false)}
-        </aside>
-
-        {/* MOBILE / TABLET SLIDING DRAWER */}
-        {isMobileSidebarOpen && (
-          <div className="fixed inset-0 z-50 lg:hidden flex">
-            <div
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
-              onClick={() => setIsMobileSidebarOpen(false)}
-            />
-            <aside
-              onClick={(e) => e.stopPropagation()}
-              className="relative w-72 max-w-[85vw] bg-[#0c0d10] border-r border-white/10 shadow-2xl flex flex-col justify-between select-none z-10 animate-in slide-in-from-left duration-200 overflow-y-auto"
-            >
-              {renderSidebarContent(true)}
-            </aside>
           </div>
         )}
 
-        {/* Écran mobile de la communauté : la barre des entreprises reste à gauche et
+        {/* Unified company list: created and joined companies, one entry per company ID. */}
+        <div className="w-full flex flex-col items-center gap-1.5 pt-1 flex-1">
+          {railItems.map((item: any) => {
+            const isActive =
+              item.companyId === subscription.companyId || item.id === subscription.id;
+            return (
+              <div
+                key={`rail-${item.companyId}`}
+                className="relative group flex items-center justify-center w-full px-2"
+              >
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-7 bg-blue-500 rounded-r-full shadow-sm shadow-blue-500/50" />
+                )}
+
+                <button
+                  onClick={() => handleRailCompanySelect(item)}
+                  className={`size-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer relative overflow-hidden select-none ${
+                    isActive
+                      ? "ring-2 ring-blue-500 scale-105 shadow-lg shadow-blue-500/20"
+                      : "border border-white/10 hover:border-blue-400/50 hover:scale-105 opacity-85 hover:opacity-100"
+                  }`}
+                  title={item.companyName || item.name}
+                >
+                  {item.companyLogo || item.logo ? (
+                    <img
+                      src={item.companyLogo || item.logo}
+                      alt={item.companyName || item.name}
+                      className="size-full object-cover"
+                    />
+                  ) : item.type === "whop_yellow" ? (
+                    <div className="size-full bg-[#D8FF3F] text-black font-black text-lg flex items-center justify-center">
+                      W
+                    </div>
+                  ) : item.type === "green_stripes" ? (
+                    <div className="size-full bg-[#0b1712] border border-emerald-500/30 text-emerald-400 flex flex-col items-center justify-center gap-0.5">
+                      <span className="w-5 h-1 bg-emerald-400 rounded-full" />
+                      <span className="w-3.5 h-1 bg-emerald-400/70 rounded-full" />
+                    </div>
+                  ) : item.type === "purple_shield" ? (
+                    <div className="size-full bg-[#13111f] border border-purple-500/30 text-purple-400 flex items-center justify-center">
+                      <ShieldCheck className="size-5" />
+                    </div>
+                  ) : (
+                    <div
+                      className={`size-full bg-gradient-to-br ${
+                        item.companyGradient || "from-blue-950 via-indigo-950 to-black"
+                      } flex items-center justify-center text-[10px] font-black text-white font-mono`}
+                    >
+                      <span>
+                        {item.companyInitials ||
+                          item.initials ||
+                          (item.companyName || item.name || "EM").substring(0, 2).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </button>
+
+                <div className="absolute left-[72px] z-50 px-2.5 py-1 rounded-lg bg-[#181a22] text-xs font-semibold text-white border border-white/10 shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
+                  {item.companyName || item.name}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Plus button to discover more */}
+        <div className="relative group flex items-center justify-center w-full px-2 pt-2 shrink-0">
+          <button
+            onClick={onOpenMarketplace}
+            className="size-11 rounded-2xl bg-white/5 hover:bg-white/10 hover:text-emerald-400 text-zinc-400 border border-dashed border-white/20 hover:border-emerald-400 flex items-center justify-center transition-all cursor-pointer"
+            title="Découvrir d'autres entreprises"
+          >
+            <Plus className="size-5" />
+          </button>
+          <div className="absolute left-[72px] z-50 px-2.5 py-1 rounded-lg bg-[#181a22] text-xs font-semibold text-white border border-white/10 shadow-xl whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150">
+            Découvrir de nouvelles offres
+          </div>
+        </div>
+      </div>
+
+      {/* SECONDARY ENTERPRISE SIDEBAR (Desktop Fixed) */}
+      <aside className="hidden lg:flex w-64 shrink-0 border-r border-white/[0.08] bg-[#0e1014] flex-col justify-between select-none">
+        {renderSidebarContent(false)}
+      </aside>
+
+      {/* MOBILE / TABLET SLIDING DRAWER */}
+      {isMobileSidebarOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in duration-200"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+          <aside
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-72 max-w-[85vw] bg-[#0c0d10] border-r border-white/10 shadow-2xl flex flex-col justify-between select-none z-10 animate-in slide-in-from-left duration-200 overflow-y-auto"
+          >
+            {renderSidebarContent(true)}
+          </aside>
+        </div>
+      )}
+
+      {/* Écran mobile de la communauté : la barre des entreprises reste à gauche et
             la zone principale reprend directement la navigation réelle de l'entreprise. */}
-        {isCompact && isMobileCompanyNavOpen && activeTab === "accueil" && companyTab === "accueil" && (
+      {isCompact &&
+        isMobileCompanyNavOpen &&
+        activeTab === "accueil" &&
+        companyTab === "accueil" && (
           <div className="flex-1 min-w-0 lg:hidden overflow-y-auto bg-[#08090b] select-text">
             {renderSidebarContent(false)}
           </div>
         )}
 
-        {/* MAIN WORKSPACE CONTENT */}
-        <div className={`${isCompact && isMobileCompanyNavOpen && activeTab === "accueil" && companyTab === "accueil" ? "hidden lg:flex" : "flex"} flex-1 min-w-0 flex-col overflow-y-auto bg-[#08090b] select-text`}>
-        
+      {/* MAIN WORKSPACE CONTENT */}
+      <div
+        className={`${isCompact && isMobileCompanyNavOpen && activeTab === "accueil" && companyTab === "accueil" ? "hidden lg:flex" : "flex"} flex-1 min-w-0 flex-col overflow-y-auto bg-[#08090b] select-text`}
+      >
         {/* ============================================================ */}
         {/* VIEW 1: VUE D'ACCUEIL DE L'ENTREPRISE (DARK MODE HAUT DE GAMME) */}
         {/* ============================================================ */}
         {activeTab === "accueil" && (
           <div className="w-full flex-1 flex flex-col pb-16 animate-in fade-in duration-150">
-            
             {/* En-tête de la page d’entreprise avec bannière */}
-            {<>
+            {
+              <>
                 <div className="flex lg:hidden items-center gap-3 border-b border-white/[0.08] bg-[#0a0b0d] px-4 py-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsMobileCompanyNavOpen(true);
-                      setIsMobileSidebarOpen(false);
-                    }}
+                    onClick={handleReturnToCommunity}
                     className="flex size-9 items-center justify-center rounded-xl text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
-                    aria-label="Retour à la navigation de l’entreprise"
+                    aria-label={
+                      currentSub.isCommunityPreview
+                        ? "Retour à Découvrir"
+                        : "Retour à la communauté"
+                    }
                   >
                     <ChevronLeft className="size-5" />
                   </button>
@@ -2071,12 +2459,23 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 </div>
                 <div className="relative w-full h-44 sm:h-64 md:h-72 lg:h-80 overflow-hidden bg-[#111216] select-none group">
                   <img
-                    src={currentSub.companyBanner || "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80"}
+                    src={
+                      currentSub.companyBanner ||
+                      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80"
+                    }
                     alt={`Bannière ${currentSub.companyName}`}
                     className="w-full h-full object-cover object-center"
                   />
                   {/* Subtle gradient vignette to seamlessly transition to the dark canvas */}
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b0d] via-[#0a0b0d]/30 to-transparent pointer-events-none" />
+                  {canManageCompany && (
+                    <button
+                      type="button"
+                      onClick={() => setIsBrandingModalOpen(true)}
+                      className="absolute inset-0 z-10 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-400"
+                      aria-label="Modifier la bannière de l’entreprise"
+                    />
+                  )}
 
                   {/* Bouton de configuration de la bannière */}
                   <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
@@ -2093,202 +2492,222 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                     )}
                   </div>
 
-              {/* Toast for profile link sharing */}
-              {copiedProfileShare && (
-                <div className="absolute top-14 right-3 z-20 px-3.5 py-2 rounded-xl bg-[#14151a] border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2 shadow-xl animate-in fade-in slide-in-from-top-2">
-                  <Check className="size-3.5 text-emerald-400" />
-                  <span>Lien copié !</span>
-                </div>
-              )}
-            </div>
-
-            {/* 2. BLOC D'INFORMATIONS */}
-            <div className="px-4 sm:px-8 lg:px-10 relative">
-              {/* Photo de profil carrée aux coins arrondis superposée sur le coin inférieur gauche de la bannière */}
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 -mt-12 sm:-mt-18 md:-mt-22 mb-4">
-                <div className="flex items-end gap-3 sm:gap-5">
-                  <div
-                    onClick={() => canManageCompany && setIsBrandingModalOpen(true)}
-                    className={`relative size-24 sm:size-36 md:size-40 rounded-2xl sm:rounded-3xl border-4 border-[#0a0b0d] bg-[#14161f] shadow-2xl overflow-hidden shrink-0 ${
-                      canManageCompany ? "group cursor-pointer" : "cursor-default select-none"
-                    }`}
-                    title={canManageCompany ? "Cliquer pour configurer la photo de profil / logo et la bannière" : currentSub.companyName}
-                  >
-                    {currentSub.companyLogo ? (
-                      <img
-                        src={currentSub.companyLogo}
-                        alt={currentSub.companyName}
-                        className={`size-full object-cover ${canManageCompany ? "group-hover:scale-105" : ""} transition-transform duration-300`}
-                      />
-                    ) : (
-                      <div className="size-full bg-gradient-to-br from-indigo-950 via-slate-900 to-black flex items-center justify-center text-3xl sm:text-4xl font-black text-white">
-                        {currentSub.companyInitials || currentSub.companyName.substring(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                    {/* Hover overlay with Camera to edit - Uniquement pour le créateur propriétaire */}
-                    {canManageCompany && (
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1 select-none">
-                        <Camera className="size-6 text-emerald-400" />
-                        <span className="text-[11px] font-bold text-center px-1">Modifier logo</span>
-                      </div>
-                    )}
-                    {/* Online status indicator */}
-                    <span
-                      className="absolute bottom-2 sm:bottom-2.5 right-2 sm:right-2.5 size-3 sm:size-4 rounded-full bg-emerald-400 ring-4 ring-[#0a0b0d]"
-                      title="Espace d'entreprise actif"
-                    />
-                  </div>
-                </div>
-
-                {/* Des icônes d'action et de gestion alignées à l'extrême droite */}
-                <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 self-start sm:self-end pt-1 sm:pt-0">
-                  {/* Bouton Rejoindre (vert cohérent avec le site, disparaît une fois rejoint) */}
-                  {!isEnterpriseJoined && (
-                    <button
-                      onClick={handleJoinEnterprise}
-                      className="px-4 py-2.5 rounded-xl bg-[#00D26A] hover:bg-[#00B85C] active:scale-[0.98] text-black text-xs font-bold tracking-wide transition-all cursor-pointer shadow-md shadow-emerald-500/20"
-                    >
-                      Rejoindre
-                    </button>
+                  {/* Toast for profile link sharing */}
+                  {copiedProfileShare && (
+                    <div className="absolute top-14 right-3 z-20 px-3.5 py-2 rounded-xl bg-[#14151a] border border-emerald-500/30 text-emerald-400 text-xs font-semibold flex items-center gap-2 shadow-xl animate-in fade-in slide-in-from-top-2">
+                      <Check className="size-3.5 text-emerald-400" />
+                      <span>Lien copié !</span>
+                    </div>
                   )}
-
-                  {/* Menu « ⋮ » de la page d'accueil de l'entreprise */}
-                  <div className="relative" ref={optionsMenuRef}>
-                    <button
-                      onClick={() => setOptionsDropdownOpen(!optionsDropdownOpen)}
-                      className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer shadow-sm"
-                      title="Options de l'entreprise"
-                    >
-                      <MoreVertical className="size-4" />
-                    </button>
-
-                    {optionsDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-[#14161f] border border-white/10 shadow-2xl p-1.5 z-30 space-y-0.5 animate-in fade-in duration-150">
-                        {/* Action 1 : COPIER LE LIEN */}
-                        <button
-                          onClick={() => {
-                            const publicUrl = window.location.href;
-                            navigator.clipboard.writeText(publicUrl);
-                            setCopiedLinkToast(true);
-                            setOptionsDropdownOpen(false);
-                            setTimeout(() => setCopiedLinkToast(false), 3000);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-200 hover:bg-white/10 hover:text-white transition-colors text-left cursor-pointer"
-                        >
-                          <Share2 className="size-3.5 text-zinc-400" />
-                          <span>COPIER LE LIEN</span>
-                        </button>
-
-                        {/* Action 2 : SIGNALER */}
-                        <button
-                          onClick={() => {
-                            setIsReportModalOpen(true);
-                            setOptionsDropdownOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-200 hover:bg-rose-500/10 hover:text-rose-300 transition-colors text-left cursor-pointer"
-                        >
-                          <Flag className="size-3.5 text-rose-400" />
-                          <span>SIGNALER</span>
-                        </button>
-
-                        {/* Action 3 : GÉRER L'ADHÉSION */}
-                        <button
-                          onClick={() => {
-                            setIsManageMembershipModalOpen(true);
-                            setOptionsDropdownOpen(false);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-200 hover:bg-white/10 hover:text-white transition-colors text-left cursor-pointer"
-                        >
-                          <ShieldCheck className="size-3.5 text-indigo-400" />
-                          <span>GÉRER L’ADHÉSION</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Informations textuelles & Métadonnées */}
-              <div className="space-y-3 pt-1">
-                {/* Le nom de l'entreprise affiché en gros caractères */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-                    {currentSub.companyName}
-                  </h1>
                 </div>
 
-                {currentSub.description && (
-                  <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">{currentSub.description}</p>
-                )}
-
-                {/* Métadonnées uniquement lorsqu’elles existent réellement. */}
-                {(currentSub.creatorName || currentSub.subscribedAt) && (
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs sm:text-sm text-zinc-400">
-                    {currentSub.creatorName && (
-                      <div className="flex items-center gap-1.5">
-                        <User className="size-3.5 text-zinc-500 shrink-0" />
-                        <span>Créé par <strong className="font-semibold text-zinc-200">{currentSub.creatorName}</strong></span>
-                      </div>
-                    )}
-                    {currentSub.subscribedAt && (
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="size-3.5 text-zinc-500 shrink-0" />
-                        <span>Membre depuis {currentSub.subscribedAt}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {currentSub.subscribersCount && (
-                  <div className="flex items-center gap-2 pt-1 text-xs sm:text-sm text-zinc-300">
-                    <Users className="size-4 text-zinc-500" />
-                    <span>{currentSub.subscribersCount}</span>
-                  </div>
-                )}
-
-                {/* Preview vs Joined Notice Banner */}
-                {subscription.isCommunityPreview && !subscription.hasJoined ? (
-                  <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-500/15 via-zinc-900/70 to-transparent border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in duration-150">
-                    <div className="flex items-start sm:items-center gap-3">
-                      <div className="size-10 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shrink-0">
-                        <Users className="size-5" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="text-xs font-bold text-white">
-                          <span>Visite de l'entreprise {subscription.companyName}</span>
-                        </div>
-                        <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
-                          Vous explorez cette entreprise depuis l'onglet Découvrir. Si vous quittez sans rejoindre, elle disparaîtra de votre Communauté.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => {
-                          const userKey = user?.email || "default";
-                          const joinedSub: EnterpriseSubscription = {
-                            ...subscription,
-                            hasJoined: true,
-                            isCommunityPreview: false,
-                            productName: "Membre Officiel",
-                          };
-                          saveSubscription(userKey, joinedSub);
-                          window.dispatchEvent(new CustomEvent("mansa_subscription_updated"));
-                          window.dispatchEvent(
-                            new CustomEvent("mansa_community_joined", { detail: { subId: subscription.id } })
-                          );
-                        }}
-                        className="ui-btn-primary px-4 py-2 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                {/* 2. BLOC D'INFORMATIONS */}
+                <div className="px-4 sm:px-8 lg:px-10 relative">
+                  {/* Photo de profil carrée aux coins arrondis superposée sur le coin inférieur gauche de la bannière */}
+                  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4 -mt-12 sm:-mt-18 md:-mt-22 mb-4">
+                    <div className="flex items-end gap-3 sm:gap-5">
+                      <div
+                        onClick={() => canManageCompany && setIsBrandingModalOpen(true)}
+                        className={`relative size-24 sm:size-36 md:size-40 rounded-2xl sm:rounded-3xl border-4 border-[#0a0b0d] bg-[#14161f] shadow-2xl overflow-hidden shrink-0 ${
+                          canManageCompany ? "group cursor-pointer" : "cursor-default select-none"
+                        }`}
+                        title={
+                          canManageCompany
+                            ? "Cliquer pour configurer la photo de profil / logo et la bannière"
+                            : currentSub.companyName
+                        }
                       >
-                        <CheckCircle2 className="size-3.5" />
-                        <span>Rejoindre gratuitement</span>
-                      </button>
+                        {currentSub.companyLogo ? (
+                          <img
+                            src={currentSub.companyLogo}
+                            alt={currentSub.companyName}
+                            className={`size-full object-cover ${canManageCompany ? "group-hover:scale-105" : ""} transition-transform duration-300`}
+                          />
+                        ) : (
+                          <div className="size-full bg-gradient-to-br from-indigo-950 via-slate-900 to-black flex items-center justify-center text-3xl sm:text-4xl font-black text-white">
+                            {currentSub.companyInitials ||
+                              currentSub.companyName.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        {/* Hover overlay with Camera to edit - Uniquement pour le créateur propriétaire */}
+                        {canManageCompany && (
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-1 select-none">
+                            <Camera className="size-6 text-emerald-400" />
+                            <span className="text-[11px] font-bold text-center px-1">
+                              Modifier logo
+                            </span>
+                          </div>
+                        )}
+                        {/* Online status indicator */}
+                        <span
+                          className="absolute bottom-2 sm:bottom-2.5 right-2 sm:right-2.5 size-3 sm:size-4 rounded-full bg-emerald-400 ring-4 ring-[#0a0b0d]"
+                          title="Espace d'entreprise actif"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Des icônes d'action et de gestion alignées à l'extrême droite */}
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 self-end pt-1 sm:pt-0">
+                      {/* Bouton Rejoindre (vert cohérent avec le site, disparaît une fois rejoint) */}
+                      {!isEnterpriseJoined && (
+                        <button
+                          onClick={handleJoinEnterprise}
+                          className="px-4 py-2.5 rounded-xl bg-[#00D26A] hover:bg-[#00B85C] active:scale-[0.98] text-black text-xs font-bold tracking-wide transition-all cursor-pointer shadow-md shadow-emerald-500/20"
+                        >
+                          Rejoindre
+                        </button>
+                      )}
+
+                      {/* Menu « ⋮ » de la page d'accueil de l'entreprise */}
+                      <div className="relative" ref={optionsMenuRef}>
+                        <button
+                          onClick={() => setOptionsDropdownOpen(!optionsDropdownOpen)}
+                          className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-zinc-300 hover:text-white transition-all cursor-pointer shadow-sm"
+                          title="Options de l'entreprise"
+                        >
+                          <MoreVertical className="size-4" />
+                        </button>
+
+                        {optionsDropdownOpen && (
+                          <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-[#14161f] border border-white/10 shadow-2xl p-1.5 z-30 space-y-0.5 animate-in fade-in duration-150">
+                            {/* Action 1 : COPIER LE LIEN */}
+                            <button
+                              onClick={() => {
+                                const publicUrl = window.location.href;
+                                navigator.clipboard.writeText(publicUrl);
+                                setCopiedLinkToast(true);
+                                setOptionsDropdownOpen(false);
+                                setTimeout(() => setCopiedLinkToast(false), 3000);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-200 hover:bg-white/10 hover:text-white transition-colors text-left cursor-pointer"
+                            >
+                              <Share2 className="size-3.5 text-zinc-400" />
+                              <span>COPIER LE LIEN</span>
+                            </button>
+
+                            {/* Action 2 : SIGNALER */}
+                            <button
+                              onClick={() => {
+                                setIsReportModalOpen(true);
+                                setOptionsDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-200 hover:bg-rose-500/10 hover:text-rose-300 transition-colors text-left cursor-pointer"
+                            >
+                              <Flag className="size-3.5 text-rose-400" />
+                              <span>SIGNALER</span>
+                            </button>
+
+                            {/* Action 3 : GÉRER L'ADHÉSION */}
+                            <button
+                              onClick={() => {
+                                setIsManageMembershipModalOpen(true);
+                                setOptionsDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-zinc-200 hover:bg-white/10 hover:text-white transition-colors text-left cursor-pointer"
+                            >
+                              <ShieldCheck className="size-3.5 text-indigo-400" />
+                              <span>GÉRER L’ADHÉSION</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                ) : null}
-              </div>
-            </div>
-            </>}
+
+                  {/* Informations textuelles & Métadonnées */}
+                  <div className="space-y-3 pt-1">
+                    {/* Le nom de l'entreprise affiché en gros caractères */}
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                        {currentSub.companyName}
+                      </h1>
+                    </div>
+
+                    {currentSub.description && (
+                      <p className="max-w-2xl text-sm leading-relaxed text-zinc-300">
+                        {currentSub.description}
+                      </p>
+                    )}
+
+                    {/* Métadonnées uniquement lorsqu’elles existent réellement. */}
+                    {(currentSub.creatorName || currentSub.subscribedAt) && (
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs sm:text-sm text-zinc-400">
+                        {currentSub.creatorName && (
+                          <div className="flex items-center gap-1.5">
+                            <User className="size-3.5 text-zinc-500 shrink-0" />
+                            <span>
+                              Créé par{" "}
+                              <strong className="font-semibold text-zinc-200">
+                                {currentSub.creatorName}
+                              </strong>
+                            </span>
+                          </div>
+                        )}
+                        {currentSub.subscribedAt && (
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="size-3.5 text-zinc-500 shrink-0" />
+                            <span>Membre depuis {currentSub.subscribedAt}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1 text-xs sm:text-sm text-zinc-300">
+                      <Users className="size-4 text-zinc-400" />
+                      <span>
+                        {companyMemberCount.toLocaleString(lang === "fr" ? "fr-FR" : "en-US")}{" "}
+                        {lang === "fr" ? "membre" : "member"}
+                        {companyMemberCount === 1 ? "" : "s"}
+                      </span>
+                    </div>
+
+                    {/* Preview vs Joined Notice Banner */}
+                    {subscription.isCommunityPreview && !subscription.hasJoined ? (
+                      <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-500/15 via-zinc-900/70 to-transparent border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in duration-150">
+                        <div className="flex items-start sm:items-center gap-3">
+                          <div className="size-10 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shrink-0">
+                            <Users className="size-5" />
+                          </div>
+                          <div className="space-y-0.5">
+                            <div className="text-xs font-bold text-white">
+                              <span>Visite de l'entreprise {subscription.companyName}</span>
+                            </div>
+                            <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
+                              Vous explorez cette entreprise depuis l'onglet Découvrir. Si vous
+                              quittez sans rejoindre, elle disparaîtra de votre Communauté.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => {
+                              const userKey = user?.email || "default";
+                              const joinedSub: EnterpriseSubscription = {
+                                ...subscription,
+                                hasJoined: true,
+                                isCommunityPreview: false,
+                                productName: "Membre Officiel",
+                              };
+                              saveSubscription(userKey, joinedSub);
+                              window.dispatchEvent(new CustomEvent("mansa_subscription_updated"));
+                              window.dispatchEvent(
+                                new CustomEvent("mansa_community_joined", {
+                                  detail: { subId: subscription.id },
+                                }),
+                              );
+                            }}
+                            className="ui-btn-primary px-4 py-2 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
+                          >
+                            <CheckCircle2 className="size-3.5" />
+                            <span>Rejoindre gratuitement</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </>
+            }
 
             {/* 3. NAVIGATION INTERNE : BARRE D'ONGLETS HORIZONTALE */}
             {/* Comprenant "Accueil" (actif avec indicateur souligné en bleu), "Produits" et "Avis" */}
@@ -2335,7 +2754,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                   <Star className="size-4 text-amber-400 fill-amber-400/20" />
                   <span>Avis</span>
                   {currentSub.reviewsCount ? (
-                    <span className="text-[11px] text-zinc-400 font-medium">({currentSub.reviewsCount})</span>
+                    <span className="text-[11px] text-zinc-400 font-medium">
+                      ({currentSub.reviewsCount})
+                    </span>
                   ) : null}
                 </button>
               </nav>
@@ -2343,17 +2764,35 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
             {/* 4. ZONE DE CONTENU */}
             <div className="px-4 sm:px-8 lg:px-10 py-5 sm:py-8">
-              
               {/* VUE CONTENU : ONGLET ACCUEIL (Flux de publications ou d'actualités propre à l'entreprise) */}
               {companyTab === "accueil" && (
                 <div className="max-w-4xl space-y-6 animate-in fade-in duration-150">
                   {Object.values(currentSub.socialLinks || {}).some(Boolean) && (
                     <div className="rounded-2xl border border-white/[0.09] bg-[#111318] p-4 shadow-lg">
-                      <div className="flex items-center gap-2 mb-3"><ExternalLink className="size-4 text-emerald-400" /><span className="text-xs font-bold text-white">Retrouvez-nous en ligne</span></div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <ExternalLink className="size-4 text-emerald-400" />
+                        <span className="text-xs font-bold text-white">
+                          Retrouvez-nous en ligne
+                        </span>
+                      </div>
                       <div className="flex flex-wrap gap-2">
-                        {Object.entries(currentSub.socialLinks || {}).filter(([, url]) => url).map(([key, url]) => (
-                          <a key={key} href={url} target="_blank" rel="noreferrer" className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-emerald-400/50 hover:text-emerald-300 transition-colors">{key === "website" ? "Site web" : key === "twitter" ? "X / Twitter" : key[0].toUpperCase() + key.slice(1)}</a>
-                        ))}
+                        {Object.entries(currentSub.socialLinks || {})
+                          .filter(([, url]) => url)
+                          .map(([key, url]) => (
+                            <a
+                              key={key}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-emerald-400/50 hover:text-emerald-300 transition-colors"
+                            >
+                              {key === "website"
+                                ? "Site web"
+                                : key === "twitter"
+                                  ? "X / Twitter"
+                                  : key[0].toUpperCase() + key.slice(1)}
+                            </a>
+                          ))}
                       </div>
                     </div>
                   )}
@@ -2454,9 +2893,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                   {/* Flux des actualités propres à l'entreprise */}
                   {companyPosts.length === 0 ? (
                     <div className="rounded-2xl border border-white/[0.08] bg-[#111318] p-8 text-center space-y-2">
-                      <p className="text-sm font-semibold text-white">Aucune actualité publiée pour le moment</p>
+                      <p className="text-sm font-semibold text-white">
+                        Aucune actualité publiée pour le moment
+                      </p>
                       <p className="text-xs text-zinc-400">
-                        Les actualités et annonces officielles publiées par {subscription.companyName} s'afficheront ici.
+                        Les actualités et annonces officielles publiées par{" "}
+                        {subscription.companyName} s'afficheront ici.
                       </p>
                     </div>
                   ) : (
@@ -2522,9 +2964,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                             <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                               {post.title}
                             </h3>
-                            <p className="whitespace-pre-line text-zinc-300">
-                              {post.content}
-                            </p>
+                            <p className="whitespace-pre-line text-zinc-300">{post.content}</p>
                           </div>
 
                           {/* Métriques éventuelles */}
@@ -2549,12 +2989,18 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                                   {post.attachment.name.endsWith(".pdf") ? "PDF" : "DOC"}
                                 </div>
                                 <div>
-                                  <div className="font-semibold text-white">{post.attachment.name}</div>
-                                  <div className="text-[10px] text-zinc-500">{post.attachment.size} · Téléchargement</div>
+                                  <div className="font-semibold text-white">
+                                    {post.attachment.name}
+                                  </div>
+                                  <div className="text-[10px] text-zinc-500">
+                                    {post.attachment.size} · Téléchargement
+                                  </div>
                                 </div>
                               </div>
                               <button
-                                onClick={() => alert(`Téléchargement de ${post.attachment?.name}...`)}
+                                onClick={() =>
+                                  alert(`Téléchargement de ${post.attachment?.name}...`)
+                                }
                                 className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                               >
                                 <Download className="size-3" />
@@ -2590,7 +3036,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                               >
                                 <MessageCircle className="size-3.5" />
                                 <span>
-                                  {commentsList.length} commentaire{commentsList.length > 1 ? "s" : ""}
+                                  {commentsList.length} commentaire
+                                  {commentsList.length > 1 ? "s" : ""}
                                 </span>
                               </button>
                             </div>
@@ -2622,7 +3069,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                                         <span className="text-[11px] font-semibold text-white">
                                           {reply.author}
                                         </span>
-                                        <span className="text-[10px] text-zinc-500">{reply.time}</span>
+                                        <span className="text-[10px] text-zinc-500">
+                                          {reply.time}
+                                        </span>
                                       </div>
                                       <p className="mt-1 text-[11px] leading-relaxed text-zinc-300">
                                         {reply.text}
@@ -2672,20 +3121,25 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               {/* VUE CONTENU : ONGLET PRODUITS */}
               {companyTab === "produits" && (
                 <div className="space-y-6 animate-in fade-in duration-150 max-w-5xl">
-                      <div className="grid grid-cols-2 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-2 gap-4 sm:gap-5">
                     {enterpriseOffers.length === 0 ? (
                       <div className="col-span-1 md:col-span-2 py-12 px-6 rounded-2xl border border-white/10 bg-[#111318] text-center space-y-3">
                         <ShoppingBag className="size-10 text-zinc-500 mx-auto" />
-                        <h4 className="text-base font-bold text-white">Aucune autre offre disponible</h4>
+                        <h4 className="text-base font-bold text-white">
+                          Aucune autre offre disponible
+                        </h4>
                         <p className="text-xs text-zinc-400 max-w-md mx-auto">
-                          {subscription.companyName} n'a pas d'autres produits ou abonnements configurés pour le moment.
+                          {subscription.companyName} n'a pas d'autres produits ou abonnements
+                          configurés pour le moment.
                         </p>
                       </div>
                     ) : (
                       enterpriseOffers.map((offer) => {
                         const visual = offer.imageUrl || offer.bannerUrl;
                         const priceOrStatus =
-                          offer.pricingType === "free" ? "Gratuit" : offer.priceDisplay || "Gratuit";
+                          offer.pricingType === "free"
+                            ? "Gratuit"
+                            : offer.priceDisplay || "Gratuit";
 
                         return (
                           <button
@@ -2734,21 +3188,25 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                           <span>{currentSub.rating.toFixed(1)}</span>
                           <Star className="size-6 fill-amber-400 text-amber-400" />
                         </div>
-                        <p className="text-xs text-zinc-400">Basé sur {currentSub.reviewsCount} avis vérifiés</p>
+                        <p className="text-xs text-zinc-400">
+                          Basé sur {currentSub.reviewsCount} avis vérifiés
+                        </p>
                       </div>
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-white/[0.08] bg-[#111318] p-8 text-center">
                       <Star className="mx-auto size-8 text-zinc-600" />
-                      <p className="mt-3 text-sm font-semibold text-white">Aucun avis pour le moment</p>
-                      <p className="mt-1 text-xs text-zinc-400">Les avis réels des membres apparaîtront ici.</p>
+                      <p className="mt-3 text-sm font-semibold text-white">
+                        Aucun avis pour le moment
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        Les avis réels des membres apparaîtront ici.
+                      </p>
                     </div>
                   )}
                 </div>
               )}
-
             </div>
-
           </div>
         )}
 
@@ -2760,7 +3218,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
                 <button
-                  onClick={() => { setActiveTab("accueil"); setCompanyTab("accueil"); setIsMobileCompanyNavOpen(true); setIsMobileSidebarOpen(false); }}
+                  onClick={() => {
+                    setActiveTab("accueil");
+                    setCompanyTab("accueil");
+                    setIsMobileCompanyNavOpen(true);
+                    setIsMobileSidebarOpen(false);
+                  }}
                   className="lg:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
                   title="Retour à la navigation de l’entreprise"
                   aria-label="Retour à la navigation de l’entreprise"
@@ -2768,13 +3231,19 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                   <ChevronLeft className="size-4" />
                 </button>
                 <div>
-                  <h1 className="text-base sm:text-lg font-bold text-white">Assistance {subscription.companyName}</h1>
-                  <p className="text-xs text-zinc-400">Échangez en direct avec l'équipe pour toute question ou aide</p>
+                  <h1 className="text-base sm:text-lg font-bold text-white">
+                    Assistance {subscription.companyName}
+                  </h1>
+                  <p className="text-xs text-zinc-400">
+                    Échangez en direct avec l'équipe pour toute question ou aide
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="size-2 rounded-full bg-emerald-400" />
-                <span className="text-xs text-emerald-400 font-mono font-medium hidden sm:inline">En ligne</span>
+                <span className="text-xs text-emerald-400 font-mono font-medium hidden sm:inline">
+                  En ligne
+                </span>
               </div>
             </div>
 
@@ -2827,7 +3296,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             {/* Top header on mobile for opening sidebar if on small screen */}
             <div className="lg:hidden w-full h-12 px-3 border-b border-white/[0.08] bg-[#0c0d11] flex items-center justify-between shrink-0 select-none">
               <button
-                onClick={() => { setActiveTab("accueil"); setCompanyTab("accueil"); setIsMobileCompanyNavOpen(true); setIsMobileSidebarOpen(false); }}
+                onClick={() => {
+                  setActiveTab("accueil");
+                  setCompanyTab("accueil");
+                  setIsMobileCompanyNavOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
                 className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                 title="Retour à la navigation de l’entreprise"
                 aria-label="Retour à la navigation de l’entreprise"
@@ -2859,17 +3333,44 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               ) : (
                 <div className="max-w-3xl mx-auto w-full space-y-4">
                   <div className="rounded-2xl border border-[#229ED9]/30 bg-[#11151b] p-5">
-                    <h2 className="text-base font-bold text-white flex items-center gap-2"><TelegramIcon className="size-5" /> Vos accès Telegram</h2>
-                    <p className="mt-1 text-xs text-zinc-400">Seuls les canaux inclus dans vos offres sont visibles ici.</p>
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <TelegramIcon className="size-5" /> Vos accès Telegram
+                    </h2>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Seuls les canaux inclus dans vos offres sont visibles ici.
+                    </p>
                   </div>
                   {authorizedTelegramChannels.length === 0 ? (
-                    <div className="rounded-2xl border border-white/10 bg-[#111318] p-6 text-center text-xs text-zinc-400">Aucun canal Telegram n’est débloqué avec votre offre actuelle.</div>
-                  ) : authorizedTelegramChannels.map((channel) => (
-                    <div key={channel.id} className="rounded-2xl border border-white/10 bg-[#111318] p-4 flex items-center justify-between gap-3">
-                      <div><div className="text-sm font-bold text-white">{channel.name}</div><div className="text-[11px] text-zinc-400">{channel.description || "Canal Telegram privé"}</div></div>
-                      {channel.inviteLink ? <a href={channel.inviteLink} target="_blank" rel="noreferrer" className="rounded-lg bg-[#229ED9] px-3 py-2 text-xs font-bold text-white">Ouvrir</a> : <span className="text-[11px] text-zinc-500">Lien indisponible</span>}
+                    <div className="rounded-2xl border border-white/10 bg-[#111318] p-6 text-center text-xs text-zinc-400">
+                      Aucun canal Telegram n’est débloqué avec votre offre actuelle.
                     </div>
-                  ))}
+                  ) : (
+                    authorizedTelegramChannels.map((channel) => (
+                      <div
+                        key={channel.id}
+                        className="rounded-2xl border border-white/10 bg-[#111318] p-4 flex items-center justify-between gap-3"
+                      >
+                        <div>
+                          <div className="text-sm font-bold text-white">{channel.name}</div>
+                          <div className="text-[11px] text-zinc-400">
+                            {channel.description || "Canal Telegram privé"}
+                          </div>
+                        </div>
+                        {channel.inviteLink ? (
+                          <a
+                            href={channel.inviteLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg bg-[#229ED9] px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Ouvrir
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">Lien indisponible</span>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -2884,7 +3385,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             {/* Top header on mobile for opening sidebar if on small screen */}
             <div className="lg:hidden w-full h-12 px-3 border-b border-white/[0.08] bg-[#0c0d11] flex items-center justify-between shrink-0 select-none">
               <button
-                onClick={() => { setActiveTab("accueil"); setCompanyTab("accueil"); setIsMobileCompanyNavOpen(true); setIsMobileSidebarOpen(false); }}
+                onClick={() => {
+                  setActiveTab("accueil");
+                  setCompanyTab("accueil");
+                  setIsMobileCompanyNavOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
                 className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                 title="Retour à la navigation de l’entreprise"
                 aria-label="Retour à la navigation de l’entreprise"
@@ -2913,8 +3419,16 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 onOpenCoursesWorkflow={(productIds) => {
                   setActiveTab("applications");
                   setSelectedCreatorApp("courses");
-                  setLinkedCreatorProductIds(productIds.length > 0 ? productIds : (selectedPreviewOfferId ? [selectedPreviewOfferId] : []));
-                  const saved = JSON.parse(localStorage.getItem(`mansa_creator_courses_${companyId}`) || "[]");
+                  setLinkedCreatorProductIds(
+                    productIds.length > 0
+                      ? productIds
+                      : selectedPreviewOfferId
+                        ? [selectedPreviewOfferId]
+                        : [],
+                  );
+                  const saved = JSON.parse(
+                    localStorage.getItem(`mansa_creator_courses_${companyId}`) || "[]",
+                  );
                   setCreatorCourses(Array.isArray(saved) ? saved : []);
                   setEditingCreatorCourseId(null);
                   setCourseCreationStep("library");
@@ -2924,7 +3438,13 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 onOpenFilesWorkflow={(productIds) => {
                   setActiveTab("applications");
                   setSelectedCreatorApp("files");
-                  setLinkedCreatorProductIds(productIds.length > 0 ? productIds : (selectedPreviewOfferId ? [selectedPreviewOfferId] : []));
+                  setLinkedCreatorProductIds(
+                    productIds.length > 0
+                      ? productIds
+                      : selectedPreviewOfferId
+                        ? [selectedPreviewOfferId]
+                        : [],
+                  );
                   setCreatorFileName("");
                   setCreatorWorkflowNotice("Fichiers a bien été lié à l’offre sélectionnée.");
                   setCreatorAppStep("content");
@@ -2943,7 +3463,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             {/* Top header on mobile for opening sidebar if on small screen */}
             <div className="lg:hidden w-full h-12 px-3 border-b border-white/[0.08] bg-[#0c0d11] flex items-center justify-between shrink-0 select-none">
               <button
-                onClick={() => { setActiveTab("accueil"); setCompanyTab("accueil"); setIsMobileCompanyNavOpen(true); setIsMobileSidebarOpen(false); }}
+                onClick={() => {
+                  setActiveTab("accueil");
+                  setCompanyTab("accueil");
+                  setIsMobileCompanyNavOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
                 className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
                 title="Retour à la navigation de l’entreprise"
                 aria-label="Retour à la navigation de l’entreprise"
@@ -2975,23 +3500,49 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               ) : (
                 <div className="max-w-3xl mx-auto w-full space-y-4">
                   <div className="rounded-2xl border border-[#5865F2]/30 bg-[#11151b] p-5">
-                    <h2 className="text-base font-bold text-white flex items-center gap-2"><DiscordIcon className="size-5" /> Vos accès Discord</h2>
-                    <p className="mt-1 text-xs text-zinc-400">Seuls les serveurs inclus dans vos offres sont visibles ici.</p>
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <DiscordIcon className="size-5" /> Vos accès Discord
+                    </h2>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Seuls les serveurs inclus dans vos offres sont visibles ici.
+                    </p>
                   </div>
                   {authorizedDiscordChannels.length === 0 ? (
-                    <div className="rounded-2xl border border-white/10 bg-[#111318] p-6 text-center text-xs text-zinc-400">Aucun serveur Discord n’est débloqué avec votre offre actuelle.</div>
-                  ) : authorizedDiscordChannels.map((channel) => (
-                    <div key={channel.id} className="rounded-2xl border border-white/10 bg-[#111318] p-4 flex items-center justify-between gap-3">
-                      <div><div className="text-sm font-bold text-white">{channel.name}</div><div className="text-[11px] text-zinc-400">{channel.description || "Serveur Discord privé"}</div></div>
-                      {channel.inviteLink ? <a href={channel.inviteLink} target="_blank" rel="noreferrer" className="rounded-lg bg-[#5865F2] px-3 py-2 text-xs font-bold text-white">Ouvrir</a> : <span className="text-[11px] text-zinc-500">Lien indisponible</span>}
+                    <div className="rounded-2xl border border-white/10 bg-[#111318] p-6 text-center text-xs text-zinc-400">
+                      Aucun serveur Discord n’est débloqué avec votre offre actuelle.
                     </div>
-                  ))}
+                  ) : (
+                    authorizedDiscordChannels.map((channel) => (
+                      <div
+                        key={channel.id}
+                        className="rounded-2xl border border-white/10 bg-[#111318] p-4 flex items-center justify-between gap-3"
+                      >
+                        <div>
+                          <div className="text-sm font-bold text-white">{channel.name}</div>
+                          <div className="text-[11px] text-zinc-400">
+                            {channel.description || "Serveur Discord privé"}
+                          </div>
+                        </div>
+                        {channel.inviteLink ? (
+                          <a
+                            href={channel.inviteLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg bg-[#5865F2] px-3 py-2 text-xs font-bold text-white"
+                          >
+                            Ouvrir
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-zinc-500">Lien indisponible</span>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           </div>
         )}
-
       </div>
 
       {/* Creator-only publication composer */}
@@ -3021,8 +3572,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       {user.avatarInitials || currentSub.companyInitials || "JO"}
                     </div>
                     <div>
-                      <h2 id="post-composer-title" className="text-sm font-bold text-white">Créer une publication</h2>
-                      <p className="text-[11px] text-zinc-500">Publication officielle de {currentSub.companyName}</p>
+                      <h2 id="post-composer-title" className="text-sm font-bold text-white">
+                        Créer une publication
+                      </h2>
+                      <p className="text-[11px] text-zinc-500">
+                        Publication officielle de {currentSub.companyName}
+                      </p>
                     </div>
                   </div>
                   <button
@@ -3047,19 +3602,44 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-5 py-4">
-                  <button type="button" title="Ajouter une image" aria-label="Ajouter une image" className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer">
+                  <button
+                    type="button"
+                    title="Ajouter une image"
+                    aria-label="Ajouter une image"
+                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
+                  >
                     <ImageIcon className="size-5" />
                   </button>
-                  <button type="button" title="Ajouter un GIF" aria-label="Ajouter un GIF" className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer">
+                  <button
+                    type="button"
+                    title="Ajouter un GIF"
+                    aria-label="Ajouter un GIF"
+                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
+                  >
                     <span className="text-xs font-black">GIF</span>
                   </button>
-                  <button type="button" title="Ajouter un emoji" aria-label="Ajouter un emoji" className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer">
+                  <button
+                    type="button"
+                    title="Ajouter un emoji"
+                    aria-label="Ajouter un emoji"
+                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
+                  >
                     <Smile className="size-5" />
                   </button>
-                  <button type="button" title="Ajouter un sondage ou des statistiques" aria-label="Ajouter un sondage ou des statistiques" className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer">
+                  <button
+                    type="button"
+                    title="Ajouter un sondage ou des statistiques"
+                    aria-label="Ajouter un sondage ou des statistiques"
+                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
+                  >
                     <BarChart3 className="size-5" />
                   </button>
-                  <button type="button" title="Ajouter une contribution payante" aria-label="Ajouter une contribution payante" className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer">
+                  <button
+                    type="button"
+                    title="Ajouter une contribution payante"
+                    aria-label="Ajouter une contribution payante"
+                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
+                  >
                     <DollarSign className="size-5" />
                   </button>
 
@@ -3087,68 +3667,218 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         </>
       )}
 
-      {selectedProductDetailOffer && (() => {
-        const offer = selectedProductDetailOffer;
-        const plans = offer.pricingOptions && offer.pricingOptions.length > 0
-          ? offer.pricingOptions
-          : [{ id: "default", name: offer.priceDisplay, price: offer.priceAmount, billing: offer.billingCycle }];
-        const selectedPlan = plans.find((plan) => plan.id === selectedProductPlanId) || plans[0];
-        const faqs = offer.faqs && offer.faqs.length > 0 ? offer.faqs : [
-          { q: "Comment puis-je accéder à mon contenu après l'achat ?", a: "Dès la confirmation du paiement, votre accès est activé immédiatement." },
-          { q: "Quand mon accès est-il disponible ?", a: "La livraison et l'accès sont automatiques après validation du paiement." },
-        ];
-        return (
-          <div className="fixed inset-0 z-40 overflow-y-auto bg-black/85 p-2 backdrop-blur-md sm:p-4">
-            <div className="mx-auto my-2 w-full max-w-5xl rounded-3xl border border-white/15 bg-[#0e1015] text-white shadow-2xl sm:my-6">
-              <div className="flex items-center justify-between border-b border-white/10 bg-[#14161d] px-4 py-3.5 sm:px-6">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                    {offer.companyLogo ? <img src={offer.companyLogo} alt="" className="size-full object-cover" /> : <span className="flex size-full items-center justify-center text-xs font-bold">{(offer.companyName || "MP").slice(0, 2).toUpperCase()}</span>}
-                  </div>
-                  <div className="min-w-0"><p className="truncate text-xs font-semibold text-zinc-300">{offer.companyName}</p><h2 className="truncate text-sm font-bold text-white">{offer.title}</h2></div>
-                </div>
-                <button type="button" onClick={() => setSelectedProductDetailOffer(null)} aria-label="Fermer la fiche produit" className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"><X className="size-4" /></button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 p-4 sm:p-8 lg:grid-cols-12 lg:gap-8">
-                <div className="order-2 space-y-6 lg:order-none lg:col-span-7">
-                  <div className="relative hidden overflow-hidden rounded-2xl border border-white/10 bg-[#151720] sm:block">
-                    <div className="relative h-56 w-full sm:h-72">
-                      {offer.imageUrl ? <img src={offer.imageUrl} alt={offer.title} className="size-full object-cover" /> : <div className="flex size-full items-center justify-center text-sm text-zinc-500">Ajouter une image</div>}
-                      <div className="absolute left-3 top-3 rounded-lg border border-white/10 bg-black/70 px-2.5 py-1 text-[10px] font-bold text-emerald-400">Accès instantané 24/7</div>
+      {selectedProductDetailOffer &&
+        (() => {
+          const offer = selectedProductDetailOffer;
+          const plans =
+            offer.pricingOptions && offer.pricingOptions.length > 0
+              ? offer.pricingOptions
+              : [
+                  {
+                    id: "default",
+                    name: offer.priceDisplay,
+                    price: offer.priceAmount,
+                    billing: offer.billingCycle,
+                  },
+                ];
+          const selectedPlan = plans.find((plan) => plan.id === selectedProductPlanId) || plans[0];
+          const faqs =
+            offer.faqs && offer.faqs.length > 0
+              ? offer.faqs
+              : [
+                  {
+                    q: "Comment puis-je accéder à mon contenu après l'achat ?",
+                    a: "Dès la confirmation du paiement, votre accès est activé immédiatement.",
+                  },
+                  {
+                    q: "Quand mon accès est-il disponible ?",
+                    a: "La livraison et l'accès sont automatiques après validation du paiement.",
+                  },
+                ];
+          return (
+            <div className="fixed inset-0 z-40 overflow-y-auto bg-black/85 p-2 backdrop-blur-md sm:p-4">
+              <div className="mx-auto my-2 w-full max-w-5xl rounded-3xl border border-white/15 bg-[#0e1015] text-white shadow-2xl sm:my-6">
+                <div className="flex items-center justify-between border-b border-white/10 bg-[#14161d] px-4 py-3.5 sm:px-6">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="size-9 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                      {offer.companyLogo ? (
+                        <img src={offer.companyLogo} alt="" className="size-full object-cover" />
+                      ) : (
+                        <span className="flex size-full items-center justify-center text-xs font-bold">
+                          {(offer.companyName || "MP").slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-zinc-300">
+                        {offer.companyName}
+                      </p>
+                      <h2 className="truncate text-sm font-bold text-white">{offer.title}</h2>
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-white">À propos de cette offre</h3>
-                    <div className="whitespace-pre-wrap rounded-2xl border border-white/10 bg-[#14161f] p-5 text-xs leading-relaxed text-zinc-300">{offer.description || "Description détaillée de l'offre."}</div>
-                  </div>
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-bold uppercase tracking-wider text-white">Questions fréquemment posées</h3>
-                    <div className="space-y-2">{faqs.map((faq, index) => {
-                      const expanded = expandedProductFaqIndex === index;
-                      return <div key={index} className="space-y-2 rounded-2xl border border-white/10 bg-[#14161f] p-4"><button type="button" onClick={() => setExpandedProductFaqIndex(expanded ? null : index)} className="flex w-full items-center justify-between text-left text-xs font-bold text-white"><span>{faq.q}</span><span className="text-emerald-400">{expanded ? "−" : "+"}</span></button>{expanded && <p className="border-t border-white/5 pt-2 text-xs leading-relaxed text-zinc-400">{faq.a}</p>}</div>;
-                    })}</div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProductDetailOffer(null)}
+                    aria-label="Fermer la fiche produit"
+                    className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                  >
+                    <X className="size-4" />
+                  </button>
                 </div>
 
-                <div className="order-1 space-y-5 lg:order-none lg:col-span-5">
-                  <div className="space-y-5 rounded-3xl border border-white/15 bg-[#14161f] p-4 shadow-2xl sm:p-6">
-                    <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">Rappel du produit</span>
-                    <div className="relative aspect-[16/7] overflow-hidden rounded-2xl border border-white/10 bg-[#0d0e12]">
-                      {offer.bannerUrl || offer.imageUrl ? <img src={offer.bannerUrl || offer.imageUrl} alt={offer.title} className="size-full object-cover" /> : <div className="flex size-full items-center justify-center text-xs text-zinc-500">Ajouter une image de rappel produit</div>}
+                <div className="grid grid-cols-1 gap-6 p-4 sm:p-8 lg:grid-cols-12 lg:gap-8">
+                  <div className="order-2 space-y-6 lg:order-none lg:col-span-7">
+                    <div className="relative hidden overflow-hidden rounded-2xl border border-white/10 bg-[#151720] sm:block">
+                      <div className="relative h-56 w-full sm:h-72">
+                        {offer.imageUrl ? (
+                          <img
+                            src={offer.imageUrl}
+                            alt={offer.title}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-full items-center justify-center text-sm text-zinc-500">
+                            Ajouter une image
+                          </div>
+                        )}
+                        <div className="absolute left-3 top-3 rounded-lg border border-white/10 bg-black/70 px-2.5 py-1 text-[10px] font-bold text-emerald-400">
+                          Accès instantané 24/7
+                        </div>
+                      </div>
                     </div>
-                    <h2 className="text-base font-bold leading-snug text-white">{offer.title}</h2>
-                    <div className="space-y-1 border-b border-white/10 pb-3"><span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">{offer.pricingType === "free" ? "Accès Libre" : "Tarif Officiel"}</span><div className="flex items-baseline gap-2"><span className="font-mono text-3xl font-black text-white">{offer.pricingType === "free" ? "Gratuit" : `${selectedPlan.price} ${offer.currency === "EUR" ? "€" : offer.currency}`}</span>{offer.pricingType === "paid" && <span className="font-mono text-xs text-zinc-400">/ {selectedPlan.billing === "yearly" ? "an" : selectedPlan.billing === "one_time" ? "paiement unique" : "mois"}</span>}</div></div>
-                    {offer.pricingType === "paid" && <div className="space-y-2"><label className="block text-[11px] font-bold text-zinc-300">Choisissez votre formule :</label>{plans.map((plan) => <button type="button" key={plan.id} onClick={() => setSelectedProductPlanId(plan.id)} className={`flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs font-semibold ${selectedProductPlanId === plan.id ? "border-emerald-400 bg-emerald-500/10 text-white" : "border-white/10 bg-[#1b1e2a] text-zinc-300"}`}><span>{plan.name}</span><span className="font-mono font-bold text-white">{plan.price} {offer.currency === "EUR" ? "€" : offer.currency}</span></button>)}</div>}
-                    <button type="button" onClick={() => { setCheckoutModalOffer(offer); setSelectedProductDetailOffer(null); }} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0066FF] py-4 text-base font-black text-white shadow-xl hover:bg-[#0055EE]"><span>{offer.ctaText || "Rejoindre maintenant"}</span><ArrowRight className="size-4" /></button>
-                    <div className="space-y-2 border-t border-white/5 pt-2 text-xs text-zinc-300"><div className="flex items-center gap-2"><ShieldCheck className="size-4 shrink-0 text-emerald-400" /><span>Paiement sécurisé par carte & Mobile Money</span></div><div className="flex items-center gap-2"><Zap className="size-4 shrink-0 text-emerald-400" /><span>Livraison automatique et accès immédiat</span></div><div className="flex items-center gap-2"><Lock className="size-4 shrink-0 text-emerald-400" /><span>Annulation en 1-clic sans engagement</span></div></div>
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                        À propos de cette offre
+                      </h3>
+                      <div className="whitespace-pre-wrap rounded-2xl border border-white/10 bg-[#14161f] p-5 text-xs leading-relaxed text-zinc-300">
+                        {offer.description || "Description détaillée de l'offre."}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                        Questions fréquemment posées
+                      </h3>
+                      <div className="space-y-2">
+                        {faqs.map((faq, index) => {
+                          const expanded = expandedProductFaqIndex === index;
+                          return (
+                            <div
+                              key={index}
+                              className="space-y-2 rounded-2xl border border-white/10 bg-[#14161f] p-4"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => setExpandedProductFaqIndex(expanded ? null : index)}
+                                className="flex w-full items-center justify-between text-left text-xs font-bold text-white"
+                              >
+                                <span>{faq.q}</span>
+                                <span className="text-emerald-400">{expanded ? "−" : "+"}</span>
+                              </button>
+                              {expanded && (
+                                <p className="border-t border-white/5 pt-2 text-xs leading-relaxed text-zinc-400">
+                                  {faq.a}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="order-1 space-y-5 lg:order-none lg:col-span-5">
+                    <div className="space-y-5 rounded-3xl border border-white/15 bg-[#14161f] p-4 shadow-2xl sm:p-6">
+                      <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                        Rappel du produit
+                      </span>
+                      <div className="relative aspect-[16/7] overflow-hidden rounded-2xl border border-white/10 bg-[#0d0e12]">
+                        {offer.bannerUrl || offer.imageUrl ? (
+                          <img
+                            src={offer.bannerUrl || offer.imageUrl}
+                            alt={offer.title}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-full items-center justify-center text-xs text-zinc-500">
+                            Ajouter une image de rappel produit
+                          </div>
+                        )}
+                      </div>
+                      <h2 className="text-base font-bold leading-snug text-white">{offer.title}</h2>
+                      <div className="space-y-1 border-b border-white/10 pb-3">
+                        <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                          {offer.pricingType === "free" ? "Accès Libre" : "Tarif Officiel"}
+                        </span>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-mono text-3xl font-black text-white">
+                            {offer.pricingType === "free"
+                              ? "Gratuit"
+                              : `${selectedPlan.price} ${offer.currency === "EUR" ? "€" : offer.currency}`}
+                          </span>
+                          {offer.pricingType === "paid" && (
+                            <span className="font-mono text-xs text-zinc-400">
+                              /{" "}
+                              {selectedPlan.billing === "yearly"
+                                ? "an"
+                                : selectedPlan.billing === "one_time"
+                                  ? "paiement unique"
+                                  : "mois"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {offer.pricingType === "paid" && (
+                        <div className="space-y-2">
+                          <label className="block text-[11px] font-bold text-zinc-300">
+                            Choisissez votre formule :
+                          </label>
+                          {plans.map((plan) => (
+                            <button
+                              type="button"
+                              key={plan.id}
+                              onClick={() => setSelectedProductPlanId(plan.id)}
+                              className={`flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs font-semibold ${selectedProductPlanId === plan.id ? "border-emerald-400 bg-emerald-500/10 text-white" : "border-white/10 bg-[#1b1e2a] text-zinc-300"}`}
+                            >
+                              <span>{plan.name}</span>
+                              <span className="font-mono font-bold text-white">
+                                {plan.price} {offer.currency === "EUR" ? "€" : offer.currency}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCheckoutModalOffer(offer);
+                          setSelectedProductDetailOffer(null);
+                        }}
+                        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0066FF] py-4 text-base font-black text-white shadow-xl hover:bg-[#0055EE]"
+                      >
+                        <span>{offer.ctaText || "Rejoindre maintenant"}</span>
+                        <ArrowRight className="size-4" />
+                      </button>
+                      <div className="space-y-2 border-t border-white/5 pt-2 text-xs text-zinc-300">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="size-4 shrink-0 text-emerald-400" />
+                          <span>Paiement sécurisé par carte & Mobile Money</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Zap className="size-4 shrink-0 text-emerald-400" />
+                          <span>Livraison automatique et accès immédiat</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Lock className="size-4 shrink-0 text-emerald-400" />
+                          <span>Annulation en 1-clic sans engagement</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
-      })()}
+          );
+        })()}
 
       {/* Checkout Modal after the product CTA */}
       {checkoutModalOffer && (
@@ -3158,18 +3888,27 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           onClose={() => setCheckoutModalOffer(null)}
           isCompanyOwner={isCompanyOwner}
           isAlreadyPurchased={
-            !isCompanyOwner && (
-              unlockedProductIds.includes(checkoutModalOffer.id) ||
+            !isCompanyOwner &&
+            (unlockedProductIds.includes(checkoutModalOffer.id) ||
               (currentSub?.purchasedOfferIds || []).includes(checkoutModalOffer.id) ||
               (currentSub?.unlockedProductIds || []).includes(checkoutModalOffer.id) ||
-              currentSub?.productId === checkoutModalOffer.id
-            )
+              currentSub?.productId === checkoutModalOffer.id)
           }
           onAccessContent={(off) => {
-            const isOfferTg = off.includedApps?.includes("Telegram") || (off.telegramChannels && off.telegramChannels.length > 0);
-            const isOfferDc = off.includedApps?.includes("Discord") || (off.discordChannels && off.discordChannels.length > 0);
-            const isOfferEb = off.type === "ebook" || (off.ebooks && off.ebooks.length > 0) || Boolean((off as any).digitalFiles?.length);
-            const isOfferCo = off.type === "course" || (off.courses && off.courses.length > 0) || Boolean((off as any).courseModules?.length);
+            const isOfferTg =
+              off.includedApps?.includes("Telegram") ||
+              (off.telegramChannels && off.telegramChannels.length > 0);
+            const isOfferDc =
+              off.includedApps?.includes("Discord") ||
+              (off.discordChannels && off.discordChannels.length > 0);
+            const isOfferEb =
+              off.type === "ebook" ||
+              (off.ebooks && off.ebooks.length > 0) ||
+              Boolean((off as any).digitalFiles?.length);
+            const isOfferCo =
+              off.type === "course" ||
+              (off.courses && off.courses.length > 0) ||
+              Boolean((off as any).courseModules?.length);
 
             if (isOfferTg) {
               setActiveTab("telegram");
@@ -3187,17 +3926,18 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           }}
           onPaymentSuccess={(newSub) => {
             // Update includedApps and unlockedProductIds for current enterprise
-            const updatedApps = Array.from(new Set([...currentIncludedApps, ...(newSub.includedApps || [])]));
+            const updatedApps = Array.from(
+              new Set([...currentIncludedApps, ...(newSub.includedApps || [])]),
+            );
             const newOfferIds = [
               ...(newSub.unlockedProductIds || []),
               ...(newSub.purchasedOfferIds || []),
               ...(newSub.productId && !newSub.productId.includes("free") ? [newSub.productId] : []),
             ];
-            const updatedUnlockedIds = Array.from(
-              new Set([...unlockedProductIds, ...newOfferIds])
-            );
+            const updatedUnlockedIds = Array.from(new Set([...unlockedProductIds, ...newOfferIds]));
             setCurrentIncludedApps(updatedApps);
             setUnlockedProductIds(updatedUnlockedIds);
+            setSelectedMemberProductId(checkoutModalOffer.id);
             const hasPaidMembership = Boolean(currentSub.hasPaidOffer || newSub.hasPaidOffer);
             setHasPaidOffer(hasPaidMembership);
             const userKey = user?.email || "default";
@@ -3209,16 +3949,19 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               includedApps: updatedApps,
               unlockedProductIds: updatedUnlockedIds,
               purchasedOfferIds: updatedUnlockedIds,
-              productName: currentSub.hasPaidOffer && currentSub.productName !== newSub.productName
-                ? `${currentSub.productName} + ${newSub.productName}`
-                : newSub.productName,
+              productName:
+                currentSub.hasPaidOffer && currentSub.productName !== newSub.productName
+                  ? `${currentSub.productName} + ${newSub.productName}`
+                  : newSub.productName,
               priceDisplay: newSub.priceDisplay || currentSub.priceDisplay,
-              telegramChannels: (newSub.telegramChannels && newSub.telegramChannels.length > 0)
-                ? newSub.telegramChannels
-                : currentSub.telegramChannels,
-              discordChannels: (newSub.discordChannels && newSub.discordChannels.length > 0)
-                ? newSub.discordChannels
-                : currentSub.discordChannels,
+              telegramChannels:
+                newSub.telegramChannels && newSub.telegramChannels.length > 0
+                  ? newSub.telegramChannels
+                  : currentSub.telegramChannels,
+              discordChannels:
+                newSub.discordChannels && newSub.discordChannels.length > 0
+                  ? newSub.discordChannels
+                  : currentSub.discordChannels,
               discordInvite: newSub.discordInvite || currentSub.discordInvite,
             };
             saveSubscription(userKey, updatedSubscription);
@@ -3289,15 +4032,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         </div>
       )}
 
-      {courseAccessToast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-none">
-          <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-900 border border-indigo-500/40 text-indigo-300 shadow-2xl shadow-black/80">
-            <GraduationCap className="size-4 text-indigo-400" />
-            <span className="text-sm font-semibold">{courseAccessToast}</span>
-          </div>
-        </div>
-      )}
-
       {/* Modal Consultation E-book (ressources strictement rattachées aux offres débloquées) */}
       {isEbookModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
@@ -3309,7 +4043,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">E-books & Guides Inclus</h3>
-                  <p className="text-xs text-zinc-400">{currentSub.companyName} · Accès selon votre offre</p>
+                  <p className="text-xs text-zinc-400">
+                    {currentSub.companyName} · Accès selon votre offre
+                  </p>
                 </div>
               </div>
               <button
@@ -3324,7 +4060,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               {/* E-books débloqués par l'offre achetée */}
               {authorizedEbooks.length > 0 ? (
                 authorizedEbooks.map((eb) => (
-                  <div key={eb.id} className="p-4 rounded-xl bg-[#161822] border border-emerald-500/30 flex items-center justify-between gap-3">
+                  <div
+                    key={eb.id}
+                    className="p-4 rounded-xl bg-[#161822] border border-emerald-500/30 flex items-center justify-between gap-3"
+                  >
                     <div className="min-w-0">
                       <div className="text-sm font-bold text-white truncate">{eb.title}</div>
                       <div className="text-xs text-zinc-400 mt-0.5">
@@ -3346,9 +4085,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 ))
               ) : (
                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1.5">
-                  <div className="text-xs font-bold text-amber-300">Aucun e-book débloqué avec votre offre actuelle</div>
+                  <div className="text-xs font-bold text-amber-300">
+                    Aucun e-book débloqué avec votre offre actuelle
+                  </div>
                   <p className="text-[11px] text-zinc-400">
-                    Cette ressource requiert une offre spécifique incluant les guides téléchargeables.
+                    Cette ressource requiert une offre spécifique incluant les guides
+                    téléchargeables.
                   </p>
                 </div>
               )}
@@ -3361,12 +4103,19 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                     <span>Autres e-books de l'entreprise</span>
                   </div>
                   {otherCompanyEbooks.map(({ ebook, requiredOffer }) => (
-                    <div key={ebook.id} className="p-3.5 rounded-xl bg-[#0e1017] border border-white/5 flex items-center justify-between gap-3">
+                    <div
+                      key={ebook.id}
+                      className="p-3.5 rounded-xl bg-[#0e1017] border border-white/5 flex items-center justify-between gap-3"
+                    >
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-zinc-300 truncate">{ebook.title}</div>
+                        <div className="text-xs font-semibold text-zinc-300 truncate">
+                          {ebook.title}
+                        </div>
                         <div className="text-[10px] text-amber-400/90 font-medium mt-0.5 flex items-center gap-1">
                           <Lock className="size-2.5" />
-                          <span>Requis : {requiredOffer.title} ({requiredOffer.priceDisplay})</span>
+                          <span>
+                            Requis : {requiredOffer.title} ({requiredOffer.priceDisplay})
+                          </span>
                         </div>
                       </div>
                       <button
@@ -3399,16 +4148,42 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       )}
 
       {creatorAppStep !== "closed" && (
-        <div className={creatorAppStep === "content" && selectedCreatorApp === "courses" ? "fixed inset-0 z-[70] overflow-y-auto bg-[#0a0b0e]" : "fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"}>
-          <div className={creatorAppStep === "content" && selectedCreatorApp === "courses" ? "min-h-full w-full bg-[#0a0b0e]" : "w-full max-w-2xl rounded-2xl border border-white/10 bg-[#12141c] shadow-2xl"}>
+        <div
+          className={
+            creatorAppStep === "content" && selectedCreatorApp === "courses"
+              ? "fixed inset-0 z-[70] overflow-y-auto bg-[#0a0b0e]"
+              : "fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          }
+        >
+          <div
+            className={
+              creatorAppStep === "content" && selectedCreatorApp === "courses"
+                ? "min-h-full w-full bg-[#0a0b0e]"
+                : "w-full max-w-2xl rounded-2xl border border-white/10 bg-[#12141c] shadow-2xl"
+            }
+          >
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">{currentSub.companyName}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+                  {currentSub.companyName}
+                </div>
                 <h2 className="mt-1 text-lg font-bold text-white">
-                  {creatorAppStep === "choose" ? "Ajouter une application" : creatorAppStep === "link" ? "Accès à l’application" : selectedCreatorApp === "courses" ? "Courses" : `Configurer ${selectedCreatorApp ? creatorAppMeta[selectedCreatorApp].title : "l’application"}`}
+                  {creatorAppStep === "choose"
+                    ? "Ajouter une application"
+                    : creatorAppStep === "link"
+                      ? "Accès à l’application"
+                      : selectedCreatorApp === "courses"
+                        ? "Courses"
+                        : `Configurer ${selectedCreatorApp ? creatorAppMeta[selectedCreatorApp].title : "l’application"}`}
                 </h2>
                 <p className="mt-1 text-xs text-zinc-400">
-                  {creatorAppStep === "choose" ? "Choisissez l’application à ajouter à cette entreprise." : creatorAppStep === "link" ? "Définissez quels produits peuvent accéder à cette application." : selectedCreatorApp === "courses" ? "Créez, organisez et publiez les cours liés aux offres sélectionnées." : "Ajoutez ou modifiez le contenu sans quitter la Communauté."}
+                  {creatorAppStep === "choose"
+                    ? "Choisissez l’application à ajouter à cette entreprise."
+                    : creatorAppStep === "link"
+                      ? "Définissez quels produits peuvent accéder à cette application."
+                      : selectedCreatorApp === "courses"
+                        ? "Créez, organisez et publiez les cours liés aux offres sélectionnées."
+                        : "Ajoutez ou modifiez le contenu sans quitter la Communauté."}
                 </p>
                 {creatorWorkflowNotice && creatorAppStep === "content" && (
                   <div className="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300">
@@ -3436,10 +4211,16 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                     className="rounded-xl border border-white/10 bg-[#0c0d0e] p-4 text-left transition-colors hover:border-blue-500/50 hover:bg-white/[0.04]"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="flex size-10 items-center justify-center rounded-xl bg-white/5 text-2xl">{creatorAppMeta[appId].icon}</span>
+                      <span className="flex size-10 items-center justify-center rounded-xl bg-white/5 text-2xl">
+                        {creatorAppMeta[appId].icon}
+                      </span>
                       <div>
-                        <div className="text-sm font-bold text-white">{creatorAppMeta[appId].title}</div>
-                        <div className="mt-1 text-[11px] leading-relaxed text-zinc-400">{creatorAppMeta[appId].description}</div>
+                        <div className="text-sm font-bold text-white">
+                          {creatorAppMeta[appId].title}
+                        </div>
+                        <div className="mt-1 text-[11px] leading-relaxed text-zinc-400">
+                          {creatorAppMeta[appId].description}
+                        </div>
                       </div>
                     </div>
                   </button>
@@ -3450,52 +4231,117 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             {creatorAppStep === "link" && selectedCreatorApp && (
               <div className="space-y-4 p-5">
                 <div className="rounded-xl border border-white/10 bg-[#0c0d0e] p-3 text-xs text-zinc-300">
-                  Application sélectionnée : <strong className="text-white">{creatorAppMeta[selectedCreatorApp].title}</strong>
+                  Application sélectionnée :{" "}
+                  <strong className="text-white">{creatorAppMeta[selectedCreatorApp].title}</strong>
                 </div>
                 <div className="space-y-2">
                   {enterpriseOffers.length === 0 ? (
-                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-300">Créez d’abord un produit pour lier cette application.</div>
-                  ) : enterpriseOffers.map((offer) => {
-                    const checked = linkedCreatorProductIds.includes(offer.id);
-                    return (
-                      <label key={offer.id} className="flex cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-[#0c0d0e] px-4 py-3 hover:border-white/20">
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold text-white">{offer.title}</span>
-                          <span className="mt-1 block text-[11px] text-zinc-500">{offer.subscribersCount || 0} actif(s) · {offer.priceDisplay || "Gratuit"}</span>
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => setLinkedCreatorProductIds((ids) => checked ? ids.filter((id) => id !== offer.id) : [...ids, offer.id])}
-                          className="size-4 accent-blue-500"
-                        />
-                      </label>
-                    );
-                  })}
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-amber-300">
+                      Créez d’abord un produit pour lier cette application.
+                    </div>
+                  ) : (
+                    enterpriseOffers.map((offer) => {
+                      const checked = linkedCreatorProductIds.includes(offer.id);
+                      return (
+                        <label
+                          key={offer.id}
+                          className="flex cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-[#0c0d0e] px-4 py-3 hover:border-white/20"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-semibold text-white">
+                              {offer.title}
+                            </span>
+                            <span className="mt-1 block text-[11px] text-zinc-500">
+                              {offer.subscribersCount || 0} actif(s) ·{" "}
+                              {offer.priceDisplay || "Gratuit"}
+                            </span>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              setLinkedCreatorProductIds((ids) =>
+                                checked ? ids.filter((id) => id !== offer.id) : [...ids, offer.id],
+                              )
+                            }
+                            className="size-4 accent-blue-500"
+                          />
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
                 <div className="flex items-center justify-between border-t border-white/10 pt-4">
-                  <button type="button" onClick={() => setCreatorAppStep("choose")} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Retour</button>
-                  <button type="button" disabled={linkedCreatorProductIds.length === 0} onClick={continueCreatorAppContent} className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40">{selectedCreatorApp === "courses" || selectedCreatorApp === "files" ? "Fait · Ajouter le contenu" : `Continuer vers ${selectedCreatorApp === "telegram" ? "Telegram" : "Discord"}`}</button>
+                  <button
+                    type="button"
+                    onClick={() => setCreatorAppStep("choose")}
+                    className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white"
+                  >
+                    Retour
+                  </button>
+                  <button
+                    type="button"
+                    disabled={linkedCreatorProductIds.length === 0}
+                    onClick={continueCreatorAppContent}
+                    className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {selectedCreatorApp === "courses" || selectedCreatorApp === "files"
+                      ? "Fait · Ajouter le contenu"
+                      : `Continuer vers ${selectedCreatorApp === "telegram" ? "Telegram" : "Discord"}`}
+                  </button>
                 </div>
               </div>
             )}
 
             {creatorAppStep === "content" && selectedCreatorApp && (
               <div className="space-y-4 p-5">
+                {creatorSaveError && (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-xs text-red-200"
+                  >
+                    {creatorSaveError}
+                  </div>
+                )}
                 {selectedCreatorApp === "courses" && courseCreationStep === "content" && (
                   <div className="rounded-xl border border-white/10 bg-[#0c0d0e] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Cours</div>
-                        <h3 className="mt-1 text-lg font-bold text-white">{creatorCourseName || "Nouveau cours"}</h3>
+                        <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                          Cours
+                        </div>
+                        <h3 className="mt-1 text-lg font-bold text-white">
+                          {creatorCourseName || "Nouveau cours"}
+                        </h3>
                       </div>
-                      <button type="button" onClick={() => setCourseCreationStep("library")} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/5">← Retour aux cours</button>
+                      <button
+                        type="button"
+                        onClick={() => setCourseCreationStep("library")}
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/5"
+                      >
+                        ← Retour aux cours
+                      </button>
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                      <span className="rounded-lg bg-blue-500/10 px-3 py-2 text-blue-300">Chapitre 1</span>
+                      <span className="rounded-lg bg-blue-500/10 px-3 py-2 text-blue-300">
+                        Chapitre 1
+                      </span>
                       <span className="text-zinc-600">›</span>
-                      <span className="rounded-lg border border-white/10 px-3 py-2 text-white">Lesson 1</span>
-                      <button type="button" onClick={() => setCreatorChapterNames((chapters) => [...chapters, `Chapitre ${chapters.length + 1}`])} className="rounded-lg border border-dashed border-white/20 px-3 py-2 text-zinc-400 hover:border-blue-500/60 hover:text-white">+ Ajouter un nouveau chapitre</button>
+                      <span className="rounded-lg border border-white/10 px-3 py-2 text-white">
+                        Lesson 1
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCreatorChapterNames((chapters) => [
+                            ...chapters,
+                            `Chapitre ${chapters.length + 1}`,
+                          ])
+                        }
+                        className="rounded-lg border border-dashed border-white/20 px-3 py-2 text-zinc-400 hover:border-blue-500/60 hover:text-white"
+                      >
+                        + Ajouter un nouveau chapitre
+                      </button>
                     </div>
                   </div>
                 )}
@@ -3506,83 +4352,319 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="text-sm font-bold text-white">Cours du produit</h3>
-                            <p className="mt-1 text-[11px] text-zinc-500">Créez plusieurs cours et rattachez chacun aux produits concernés.</p>
+                            <p className="mt-1 text-[11px] text-zinc-500">
+                              Créez plusieurs cours et rattachez chacun aux produits concernés.
+                            </p>
                           </div>
-                          <span className="text-[11px] text-zinc-500">{creatorCourses.filter((course) => course.productIds.some((id) => linkedCreatorProductIds.includes(id))).length} cours</span>
+                          <span className="text-[11px] text-zinc-500">
+                            {
+                              creatorCourses.filter((course) =>
+                                course.productIds.some((id) =>
+                                  linkedCreatorProductIds.includes(id),
+                                ),
+                              ).length
+                            }{" "}
+                            cours
+                          </span>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <button type="button" onClick={startNewCreatorCourse} className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-blue-500/60 hover:bg-blue-500/5 hover:text-white">
-                            <span className="mb-2 flex size-10 items-center justify-center rounded-full border border-white/15 text-2xl">+</span>
+                          <button
+                            type="button"
+                            onClick={startNewCreatorCourse}
+                            className="flex min-h-36 flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] text-zinc-400 transition-colors hover:border-blue-500/60 hover:bg-blue-500/5 hover:text-white"
+                          >
+                            <span className="mb-2 flex size-10 items-center justify-center rounded-full border border-white/15 text-2xl">
+                              +
+                            </span>
                             <span className="text-sm font-semibold">Ajouter un cours</span>
                           </button>
-                          {creatorCourses.filter((course) => course.productIds.some((id) => linkedCreatorProductIds.includes(id))).map((course) => (
-                            <button type="button" key={course.id} onClick={() => editCreatorCourse(course)} className={`min-h-36 rounded-xl border p-4 text-left transition-colors ${editingCreatorCourseId === course.id ? "border-blue-500/60 bg-blue-500/10" : "border-white/10 bg-[#0c0d0e] hover:border-white/25"}`}>
-                              <div className="flex items-start justify-between gap-2"><span className="flex size-9 items-center justify-center rounded-lg bg-purple-500/15 text-lg">🎓</span><PenLine className="size-3.5 text-zinc-500" /></div>
-                              <div className="mt-4 line-clamp-2 text-sm font-bold text-white">{course.title || "Cours sans titre"}</div>
-                              <div className="mt-1 text-[11px] text-zinc-500">{course.chapters.length} chapitre(s) · Modifier</div>
-                            </button>
-                          ))}
+                          {creatorCourses
+                            .filter((course) =>
+                              course.productIds.some((id) => linkedCreatorProductIds.includes(id)),
+                            )
+                            .map((course) => (
+                              <button
+                                type="button"
+                                key={course.id}
+                                onClick={() => editCreatorCourse(course)}
+                                className={`min-h-36 rounded-xl border p-4 text-left transition-colors ${editingCreatorCourseId === course.id ? "border-blue-500/60 bg-blue-500/10" : "border-white/10 bg-[#0c0d0e] hover:border-white/25"}`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <span className="flex size-9 items-center justify-center rounded-lg bg-purple-500/15 text-lg">
+                                    🎓
+                                  </span>
+                                  <PenLine className="size-3.5 text-zinc-500" />
+                                </div>
+                                <div className="mt-4 line-clamp-2 text-sm font-bold text-white">
+                                  {course.title || "Cours sans titre"}
+                                </div>
+                                <div className="mt-1 text-[11px] text-zinc-500">
+                                  {course.chapters.length} chapitre(s) · Modifier
+                                </div>
+                              </button>
+                            ))}
                         </div>
-                        {!editingCreatorCourseId && <div className="rounded-xl border border-white/10 bg-[#0c0d0e] px-4 py-3 text-xs text-zinc-400">Sélectionnez un cours existant ou cliquez sur <strong className="text-white">Ajouter un cours</strong> pour ouvrir son éditeur.</div>}
+                        {!editingCreatorCourseId && (
+                          <div className="rounded-xl border border-white/10 bg-[#0c0d0e] px-4 py-3 text-xs text-zinc-400">
+                            Sélectionnez un cours existant ou cliquez sur{" "}
+                            <strong className="text-white">Ajouter un cours</strong> pour ouvrir son
+                            éditeur.
+                          </div>
+                        )}
                       </div>
                     )}
                     {selectedCreatorApp === "courses" && courseCreationStep === "details" && (
                       <div className="space-y-4 rounded-xl border border-white/10 bg-[#0c0d0e] p-4">
                         <div>
                           <h3 className="text-sm font-bold text-white">Informations du cours</h3>
-                          <p className="mt-1 text-[11px] text-zinc-500">Définissez les informations principales avant d’ajouter les vidéos et les chapitres.</p>
+                          <p className="mt-1 text-[11px] text-zinc-500">
+                            Définissez les informations principales avant d’ajouter les vidéos et
+                            les chapitres.
+                          </p>
                         </div>
-                        <label className="block space-y-1.5"><span className="text-xs font-semibold text-zinc-300">Nom du cours</span><input value={creatorCourseName} onChange={(event) => setCreatorCourseName(event.target.value)} placeholder="Ex. Formation Trading débutant" className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500" /></label>
-                        <label className="block space-y-1.5"><span className="text-xs font-semibold text-zinc-300">Description</span><textarea value={creatorCourseDescription} onChange={(event) => setCreatorCourseDescription(event.target.value)} rows={4} placeholder="Présentez le contenu et les objectifs du cours" className="w-full resize-none rounded-xl border border-white/10 bg-[#161822] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500" /></label>
-                        <label className="block space-y-1.5"><span className="text-xs font-semibold text-zinc-300">Miniature ou couverture</span><input type="file" accept="image/*" onChange={(event) => setCreatorCourseCoverFileName(event.target.files?.[0]?.name || "")} className="block w-full rounded-xl border border-dashed border-white/20 bg-[#161822] px-3 py-4 text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white" />{creatorCourseCoverFileName && <span className="block truncate text-[10px] text-emerald-400">{creatorCourseCoverFileName}</span>}</label>
-                        <div className="flex items-center justify-between border-t border-white/10 pt-4"><button type="button" onClick={() => setCourseCreationStep("library")} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Retour aux cours</button><button type="button" disabled={!creatorCourseName.trim() || !creatorCourseDescription.trim()} onClick={continueCourseDetails} className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Valider et continuer</button></div>
-                      </div>
-                    )}
-                    {selectedCreatorApp !== "courses" || (editingCreatorCourseId && courseCreationStep === "content") ? (
-                    <>
-                    {selectedCreatorApp !== "courses" && <label className="block space-y-1.5">
-                      <span className="text-xs font-semibold text-zinc-300">Nom du fichier</span>
-                      <input value={creatorFileName} onChange={(event) => setCreatorFileName(event.target.value)} placeholder="Ex. Guide PDF premium" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500" />
-                    </label>}
-                    {selectedCreatorApp === "courses" ? (
-                      <>
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <label className="block space-y-1.5 md:col-span-2"><span className="text-xs font-semibold text-zinc-300">Intégrer une vidéo YouTube</span><input type="url" value={creatorYoutubeUrl} onChange={(event) => setCreatorYoutubeUrl(event.target.value)} placeholder="Collez un lien YouTube" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500" /></label>
-                          <label className="block space-y-1.5"><span className="text-xs font-semibold text-zinc-300">Uploader une vidéo</span><input type="file" accept="video/*" onChange={(event) => setCreatorVideoFileName(event.target.files?.[0]?.name || "")} className="block w-full rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] px-3 py-3 text-xs text-zinc-400 file:mr-2 file:rounded-lg file:border-0 file:bg-purple-600 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-white" />{creatorVideoFileName && <span className="block truncate text-[10px] text-emerald-400">{creatorVideoFileName}</span>}</label>
-                          <label className="block space-y-1.5"><span className="text-xs font-semibold text-zinc-300">Uploader une pièce jointe</span><input type="file" onChange={(event) => setCreatorAttachmentFileName(event.target.files?.[0]?.name || "")} className="block w-full rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] px-3 py-3 text-xs text-zinc-400 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-600 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-white" />{creatorAttachmentFileName && <span className="block truncate text-[10px] text-emerald-400">{creatorAttachmentFileName}</span>}</label>
-                        </div>
-                        <div className="rounded-xl border border-white/10 bg-[#0c0d0e] p-4">
-                          <div className="mb-3 flex items-center justify-between"><span className="text-xs font-semibold text-white">Chapitres</span><span className="text-[10px] text-zinc-500">YouTube · vidéo · pièces jointes · texte</span></div>
-                          <div className="space-y-3">{creatorChapterNames.map((chapter, index) => <div key={`${chapter}-${index}`} className="rounded-xl border border-white/10 bg-[#161822] p-3"><div className="flex items-center gap-2"><input value={chapter} onChange={(event) => setCreatorChapterNames((chapters) => chapters.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder="Nom du chapitre" className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0c0d0e] px-3 py-2 text-xs text-white outline-none" /><button type="button" onClick={() => { setCreatorChapterNames((chapters) => chapters.filter((_, itemIndex) => itemIndex !== index)); setCreatorChapterContents((contents) => contents.filter((_, itemIndex) => itemIndex !== index)); }} className="rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-red-300"><X className="size-3.5" /></button></div><textarea value={creatorChapterContents[index] || ""} onChange={(event) => setCreatorChapterContents((contents) => contents.map((content, contentIndex) => contentIndex === index ? event.target.value : content))} rows={5} placeholder="Écrivez le contenu texte de ce chapitre..." className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-xs leading-relaxed text-white outline-none focus:border-blue-500" /></div>)}</div>
-                          <div className="mt-3 flex gap-2"><input value={creatorNewChapterName} onChange={(event) => setCreatorNewChapterName(event.target.value)} placeholder="Nom du nouveau chapitre" className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#161822] px-3 py-2 text-xs text-white outline-none" /><button type="button" onClick={() => { if (creatorNewChapterName.trim()) { setCreatorChapterNames((chapters) => [...chapters, creatorNewChapterName.trim()]); setCreatorChapterContents((contents) => [...contents, ""]); setCreatorNewChapterName(""); } }} className="rounded-lg bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/15">+ Chapitre</button></div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="space-y-2">
                         <label className="block space-y-1.5">
-                          <span className="text-xs font-semibold text-zinc-300">Contenu du fichier</span>
+                          <span className="text-xs font-semibold text-zinc-300">Nom du cours</span>
                           <input
-                            type="file"
-                            onChange={(event) => {
-                              const f = event.target.files?.[0];
-                              if (f) {
-                                if (!creatorFileName.trim()) {
-                                  setCreatorFileName(f.name);
-                                }
-                              }
-                            }}
-                            className="block w-full rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] px-3 py-5 text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white cursor-pointer"
+                            value={creatorCourseName}
+                            onChange={(event) => setCreatorCourseName(event.target.value)}
+                            placeholder="Ex. Formation Trading débutant"
+                            className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500"
                           />
                         </label>
-                        {creatorFileName && (
-                          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-400 flex items-center justify-between">
-                            <span className="truncate">✓ Fichier associé : {creatorFileName}</span>
-                            <span className="text-[10px] font-mono text-zinc-400 shrink-0">Prêt</span>
-                          </div>
-                        )}
+                        <label className="block space-y-1.5">
+                          <span className="text-xs font-semibold text-zinc-300">Description</span>
+                          <textarea
+                            value={creatorCourseDescription}
+                            onChange={(event) => setCreatorCourseDescription(event.target.value)}
+                            rows={4}
+                            placeholder="Présentez le contenu et les objectifs du cours"
+                            className="w-full resize-none rounded-xl border border-white/10 bg-[#161822] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                          />
+                        </label>
+                        <label className="block space-y-1.5">
+                          <span className="text-xs font-semibold text-zinc-300">
+                            Miniature ou couverture
+                          </span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(event) =>
+                              setCreatorCourseCoverFileName(event.target.files?.[0]?.name || "")
+                            }
+                            className="block w-full rounded-xl border border-dashed border-white/20 bg-[#161822] px-3 py-4 text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
+                          />
+                          {creatorCourseCoverFileName && (
+                            <span className="block truncate text-[10px] text-emerald-400">
+                              {creatorCourseCoverFileName}
+                            </span>
+                          )}
+                        </label>
+                        <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => setCourseCreationStep("library")}
+                            className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white"
+                          >
+                            Retour aux cours
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!creatorCourseName.trim() || !creatorCourseDescription.trim()}
+                            onClick={continueCourseDetails}
+                            className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Valider et continuer
+                          </button>
+                        </div>
                       </div>
                     )}
-                    </>
+                    {selectedCreatorApp !== "courses" ||
+                    (editingCreatorCourseId && courseCreationStep === "content") ? (
+                      <>
+                        {selectedCreatorApp !== "courses" && (
+                          <label className="block space-y-1.5">
+                            <span className="text-xs font-semibold text-zinc-300">
+                              Nom du fichier
+                            </span>
+                            <input
+                              value={creatorFileName}
+                              onChange={(event) => setCreatorFileName(event.target.value)}
+                              placeholder="Ex. Guide PDF premium"
+                              className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                            />
+                          </label>
+                        )}
+                        {selectedCreatorApp === "courses" ? (
+                          <>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <label className="block space-y-1.5 md:col-span-2">
+                                <span className="text-xs font-semibold text-zinc-300">
+                                  Intégrer une vidéo YouTube
+                                </span>
+                                <input
+                                  type="url"
+                                  value={creatorYoutubeUrl}
+                                  onChange={(event) => setCreatorYoutubeUrl(event.target.value)}
+                                  placeholder="Collez un lien YouTube"
+                                  className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                                />
+                              </label>
+                              <label className="block space-y-1.5 md:col-span-2">
+                                <span className="text-xs font-semibold text-zinc-300">
+                                  Uploader une vidéo
+                                </span>
+                                <input
+                                  type="file"
+                                  accept="video/*"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] || null;
+                                    setCreatorVideoFile(file);
+                                    setCreatorVideoFileName(file?.name || "");
+                                  }}
+                                  className="block w-full rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] px-3 py-3 text-xs text-zinc-400 file:mr-2 file:rounded-lg file:border-0 file:bg-purple-600 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                                />
+                                {creatorVideoFileName && (
+                                  <span className="block truncate text-[10px] text-emerald-400">
+                                    {creatorVideoFileName}
+                                  </span>
+                                )}
+                              </label>
+                              <label className="block space-y-1.5 md:col-span-2">
+                                <span className="text-xs font-semibold text-zinc-300">
+                                  Uploader une pièce jointe
+                                </span>
+                                <input
+                                  type="file"
+                                  onChange={(event) => {
+                                    const file = event.target.files?.[0] || null;
+                                    setCreatorAttachmentFile(file);
+                                    setCreatorAttachmentFileName(file?.name || "");
+                                  }}
+                                  className="block w-full rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] px-3 py-3 text-xs text-zinc-400 file:mr-2 file:rounded-lg file:border-0 file:bg-blue-600 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                                />
+                                {creatorAttachmentFileName && (
+                                  <span className="block truncate text-[10px] text-emerald-400">
+                                    {creatorAttachmentFileName}
+                                  </span>
+                                )}
+                              </label>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-[#0c0d0e] p-4">
+                              <div className="mb-3 flex items-center justify-between">
+                                <span className="text-xs font-semibold text-white">Chapitres</span>
+                                <span className="text-[10px] text-zinc-500">
+                                  YouTube · vidéo · pièces jointes · texte
+                                </span>
+                              </div>
+                              <div className="space-y-3">
+                                {creatorChapterNames.map((chapter, index) => (
+                                  <div
+                                    key={`${chapter}-${index}`}
+                                    className="rounded-xl border border-white/10 bg-[#161822] p-3"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        value={chapter}
+                                        onChange={(event) =>
+                                          setCreatorChapterNames((chapters) =>
+                                            chapters.map((item, itemIndex) =>
+                                              itemIndex === index ? event.target.value : item,
+                                            ),
+                                          )
+                                        }
+                                        placeholder="Nom du chapitre"
+                                        className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0c0d0e] px-3 py-2 text-xs text-white outline-none"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setCreatorChapterNames((chapters) =>
+                                            chapters.filter((_, itemIndex) => itemIndex !== index),
+                                          );
+                                          setCreatorChapterContents((contents) =>
+                                            contents.filter((_, itemIndex) => itemIndex !== index),
+                                          );
+                                        }}
+                                        className="rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-red-300"
+                                      >
+                                        <X className="size-3.5" />
+                                      </button>
+                                    </div>
+                                    <textarea
+                                      value={creatorChapterContents[index] || ""}
+                                      onChange={(event) =>
+                                        setCreatorChapterContents((contents) =>
+                                          contents.map((content, contentIndex) =>
+                                            contentIndex === index ? event.target.value : content,
+                                          ),
+                                        )
+                                      }
+                                      rows={5}
+                                      placeholder="Écrivez le contenu texte de ce chapitre..."
+                                      className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-xs leading-relaxed text-white outline-none focus:border-blue-500"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="mt-3 flex gap-2">
+                                <input
+                                  value={creatorNewChapterName}
+                                  onChange={(event) => setCreatorNewChapterName(event.target.value)}
+                                  placeholder="Nom du nouveau chapitre"
+                                  className="min-w-0 flex-1 rounded-lg border border-white/10 bg-[#161822] px-3 py-2 text-xs text-white outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (creatorNewChapterName.trim()) {
+                                      setCreatorChapterNames((chapters) => [
+                                        ...chapters,
+                                        creatorNewChapterName.trim(),
+                                      ]);
+                                      setCreatorChapterContents((contents) => [...contents, ""]);
+                                      setCreatorNewChapterName("");
+                                    }
+                                  }}
+                                  className="rounded-lg bg-white/10 px-3 text-xs font-semibold text-white hover:bg-white/15"
+                                >
+                                  + Chapitre
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="space-y-2">
+                            <label className="block space-y-1.5">
+                              <span className="text-xs font-semibold text-zinc-300">
+                                Contenu du fichier
+                              </span>
+                              <input
+                                type="file"
+                                onChange={(event) => {
+                                  const f = event.target.files?.[0];
+                                  if (f) {
+                                    setCreatorSelectedFile(f);
+                                    if (!creatorFileName.trim()) {
+                                      setCreatorFileName(f.name);
+                                    }
+                                  }
+                                }}
+                                className="block w-full rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] px-3 py-5 text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white cursor-pointer"
+                              />
+                            </label>
+                            {creatorFileName && (
+                              <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-400 flex items-center justify-between">
+                                <span className="truncate">
+                                  ✓ Fichier associé : {creatorFileName}
+                                </span>
+                                <span className="text-[10px] font-mono text-zinc-400 shrink-0">
+                                  Prêt
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     ) : null}
                   </>
                 )}
@@ -3592,39 +4674,83 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       <>
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Fichiers</div>
-                            <h3 className="mt-1 text-lg font-bold text-white">Fichiers du produit</h3>
-                            <p className="mt-1 text-xs text-zinc-400">Ajoutez et gérez les ressources téléchargeables liées aux offres sélectionnées.</p>
+                            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                              Fichiers
+                            </div>
+                            <h3 className="mt-1 text-lg font-bold text-white">
+                              Fichiers du produit
+                            </h3>
+                            <p className="mt-1 text-xs text-zinc-400">
+                              Ajoutez et gérez les ressources téléchargeables liées aux offres
+                              sélectionnées.
+                            </p>
                           </div>
-                          <button type="button" onClick={() => { setCreatorFilesScreen("add"); setCreatorSelectedFile(null); setCreatorFileName(""); }} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-blue-500">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCreatorFilesScreen("add");
+                              setCreatorSelectedFile(null);
+                              setCreatorFileName("");
+                            }}
+                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-colors hover:bg-blue-500"
+                          >
                             <Plus className="size-4" /> Ajouter un fichier
                           </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {linkedCreatorProductIds.map((productId) => {
                             const offer = enterpriseOffers.find((item) => item.id === productId);
-                            return <span key={productId} className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-[11px] font-semibold text-blue-300">Lié à {offer?.title || "l’offre sélectionnée"}</span>;
+                            return (
+                              <span
+                                key={productId}
+                                className="rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 text-[11px] font-semibold text-blue-300"
+                              >
+                                Lié à {offer?.title || "l’offre sélectionnée"}
+                              </span>
+                            );
                           })}
                         </div>
                         {creatorFiles.length === 0 ? (
                           <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-[#0c0d0e] px-6 text-center">
-                            <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl">📁</div>
+                            <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-blue-500/10 text-3xl">
+                              📁
+                            </div>
                             <h4 className="text-sm font-bold text-white">Aucun fichier ajouté</h4>
-                            <p className="mt-1 max-w-sm text-xs leading-relaxed text-zinc-500">Ajoutez un PDF, un ebook, un template, un logiciel ou une archive à distribuer avec cette offre.</p>
-                            <button type="button" onClick={() => setCreatorFilesScreen("add")} className="mt-4 rounded-xl border border-blue-500/40 px-4 py-2 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/10">Ajouter le premier fichier</button>
+                            <p className="mt-1 max-w-sm text-xs leading-relaxed text-zinc-500">
+                              Ajoutez un PDF, un ebook, un template, un logiciel ou une archive à
+                              distribuer avec cette offre.
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setCreatorFilesScreen("add")}
+                              className="mt-4 rounded-xl border border-blue-500/40 px-4 py-2 text-xs font-bold text-blue-300 transition-colors hover:bg-blue-500/10"
+                            >
+                              Ajouter le premier fichier
+                            </button>
                           </div>
                         ) : (
                           <div className="space-y-2">
                             {creatorFiles.map((file) => (
-                              <div key={file.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0c0d0e] px-4 py-3">
+                              <div
+                                key={file.id}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0c0d0e] px-4 py-3"
+                              >
                                 <div className="flex min-w-0 items-center gap-3">
-                                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-xl">📄</div>
+                                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-xl">
+                                    📄
+                                  </div>
                                   <div className="min-w-0">
-                                    <div className="truncate text-sm font-semibold text-white">{file.name}</div>
-                                    <div className="mt-1 text-[11px] text-zinc-500">{file.size} · {file.type || "Fichier"}</div>
+                                    <div className="truncate text-sm font-semibold text-white">
+                                      {file.name}
+                                    </div>
+                                    <div className="mt-1 text-[11px] text-zinc-500">
+                                      {file.size} · {file.type || "Fichier"}
+                                    </div>
                                   </div>
                                 </div>
-                                <span className="rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">Prêt au téléchargement</span>
+                                <span className="rounded-lg bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
+                                  Prêt au téléchargement
+                                </span>
                               </div>
                             ))}
                           </div>
@@ -3633,20 +4759,76 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                     )}
                     {creatorFilesScreen === "add" && (
                       <div className="space-y-4">
-                        <button type="button" onClick={() => setCreatorFilesScreen("library")} className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-400 transition-colors hover:text-white"><ChevronLeft className="size-4" /> Retour aux fichiers</button>
+                        <button
+                          type="button"
+                          onClick={() => setCreatorFilesScreen("library")}
+                          className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-400 transition-colors hover:text-white"
+                        >
+                          <ChevronLeft className="size-4" /> Retour aux fichiers
+                        </button>
                         <div>
                           <h3 className="text-lg font-bold text-white">Ajouter un fichier</h3>
-                          <p className="mt-1 text-xs text-zinc-400">Sélectionnez la ressource qui sera disponible après l’achat de l’offre.</p>
+                          <p className="mt-1 text-xs text-zinc-400">
+                            Sélectionnez la ressource qui sera disponible après l’achat de l’offre.
+                          </p>
                         </div>
                         <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-blue-500/40 bg-blue-500/5 px-6 text-center transition-colors hover:bg-blue-500/10">
-                          <input type="file" className="sr-only" onChange={(event) => { const file = event.target.files?.[0] || null; setCreatorSelectedFile(file); if (file) setCreatorFileName(file.name); }} />
-                          <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl">↑</div>
-                          <span className="text-sm font-bold text-white">Cliquez pour sélectionner un fichier</span>
-                          <span className="mt-1 text-[11px] text-zinc-500">PDF, ePub, ZIP, DOCX, MP3, logiciels et templates</span>
+                          <input
+                            type="file"
+                            className="sr-only"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] || null;
+                              setCreatorSelectedFile(file);
+                              setCreatorSaveError(null);
+                              if (file) setCreatorFileName(file.name);
+                            }}
+                          />
+                          <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-blue-500/15 text-2xl">
+                            ↑
+                          </div>
+                          <span className="text-sm font-bold text-white">
+                            Cliquez pour sélectionner un fichier
+                          </span>
+                          <span className="mt-1 text-[11px] text-zinc-500">
+                            PDF, ePub, ZIP, DOCX, MP3, logiciels et templates
+                          </span>
                         </label>
-                        <label className="block space-y-1.5"><span className="text-xs font-semibold text-zinc-300">Nom du fichier</span><input value={creatorFileName} onChange={(event) => setCreatorFileName(event.target.value)} placeholder="Ex. Guide PDF premium" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500" /></label>
-                        {creatorSelectedFile && <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-xs text-emerald-300"><span className="truncate">✓ {creatorSelectedFile.name}</span><span className="ml-3 shrink-0 text-[10px]">{(creatorSelectedFile.size / (1024 * 1024)).toFixed(1)} MB</span></div>}
-                        <div className="flex items-center justify-between border-t border-white/10 pt-4"><button type="button" onClick={() => setCreatorFilesScreen("library")} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Annuler</button><button type="button" disabled={!creatorFileName.trim()} onClick={finishCreatorAppWorkflow} className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40">Ajouter le fichier</button></div>
+                        <label className="block space-y-1.5">
+                          <span className="text-xs font-semibold text-zinc-300">
+                            Nom du fichier
+                          </span>
+                          <input
+                            value={creatorFileName}
+                            onChange={(event) => setCreatorFileName(event.target.value)}
+                            placeholder="Ex. Guide PDF premium"
+                            className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] px-3 py-2.5 text-sm text-white outline-none focus:border-blue-500"
+                          />
+                        </label>
+                        {creatorSelectedFile && (
+                          <div className="flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-xs text-emerald-300">
+                            <span className="truncate">✓ {creatorSelectedFile.name}</span>
+                            <span className="ml-3 shrink-0 text-[10px]">
+                              {(creatorSelectedFile.size / (1024 * 1024)).toFixed(1)} MB
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                          <button
+                            type="button"
+                            onClick={() => setCreatorFilesScreen("library")}
+                            className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!creatorSelectedFile || isSavingCreatorContent}
+                            onClick={finishCreatorAppWorkflow}
+                            className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            {isSavingCreatorContent ? "Enregistrement…" : "Ajouter le fichier"}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3654,11 +4836,39 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 {(selectedCreatorApp === "telegram" || selectedCreatorApp === "discord") && (
                   <div className="rounded-xl border border-white/10 bg-[#0c0d0e] p-5 text-center">
                     <div className="text-3xl">{creatorAppMeta[selectedCreatorApp].icon}</div>
-                    <p className="mt-2 text-sm font-semibold text-white">Configurer {creatorAppMeta[selectedCreatorApp].title}</p>
-                    <p className="mt-1 text-xs text-zinc-400">Les produits sélectionnés sont enregistrés. Continuez la connexion du canal ou du serveur depuis l’onglet correspondant de cette entreprise.</p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      Configurer {creatorAppMeta[selectedCreatorApp].title}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-400">
+                      Les produits sélectionnés sont enregistrés. Continuez la connexion du canal ou
+                      du serveur depuis l’onglet correspondant de cette entreprise.
+                    </p>
                   </div>
                 )}
-                {selectedCreatorApp !== "files" && (!selectedCreatorApp || selectedCreatorApp !== "courses" || courseCreationStep === "content") && <div className="flex items-center justify-between border-t border-white/10 pt-4"><button type="button" onClick={() => setCreatorAppStep("link")} className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white">Retour</button><button type="button" onClick={finishCreatorAppWorkflow} className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-500">Enregistrer dans cette entreprise</button></div>}
+                {selectedCreatorApp !== "files" &&
+                  (!selectedCreatorApp ||
+                    selectedCreatorApp !== "courses" ||
+                    courseCreationStep === "content") && (
+                    <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setCreatorAppStep("link")}
+                        className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-white"
+                      >
+                        Retour
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingCreatorContent}
+                        onClick={finishCreatorAppWorkflow}
+                        className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {isSavingCreatorContent
+                          ? "Enregistrement…"
+                          : "Enregistrer dans cette entreprise"}
+                      </button>
+                    </div>
+                  )}
               </div>
             )}
           </div>
@@ -3676,7 +4886,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">Formations & Modules Inclus</h3>
-                  <p className="text-xs text-zinc-400">{currentSub.companyName} · Accès selon votre offre</p>
+                  <p className="text-xs text-zinc-400">
+                    {currentSub.companyName} · Accès selon votre offre
+                  </p>
                 </div>
               </div>
               <button
@@ -3691,7 +4903,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               {/* Formations débloquées par l'offre achetée */}
               {authorizedCourses.length > 0 ? (
                 authorizedCourses.map((co) => (
-                  <div key={co.id} className="p-4 rounded-xl bg-[#161822] border border-purple-500/30 flex items-center justify-between gap-3">
+                  <div
+                    key={co.id}
+                    className="p-4 rounded-xl bg-[#161822] border border-purple-500/30 flex items-center justify-between gap-3"
+                  >
                     <div className="min-w-0">
                       <div className="text-sm font-bold text-white truncate">{co.title}</div>
                       <div className="text-xs text-zinc-400 mt-0.5">
@@ -3713,9 +4928,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 ))
               ) : (
                 <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1.5">
-                  <div className="text-xs font-bold text-amber-300">Aucune formation débloquée avec votre offre actuelle</div>
+                  <div className="text-xs font-bold text-amber-300">
+                    Aucune formation débloquée avec votre offre actuelle
+                  </div>
                   <p className="text-[11px] text-zinc-400">
-                    Cette ressource requiert une offre spécifique incluant les cursus vidéos de formation.
+                    Cette ressource requiert une offre spécifique incluant les cursus vidéos de
+                    formation.
                   </p>
                 </div>
               )}
@@ -3728,12 +4946,19 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                     <span>Autres formations de l'entreprise</span>
                   </div>
                   {otherCompanyCourses.map(({ course, requiredOffer }) => (
-                    <div key={course.id} className="p-3.5 rounded-xl bg-[#0e1017] border border-white/5 flex items-center justify-between gap-3">
+                    <div
+                      key={course.id}
+                      className="p-3.5 rounded-xl bg-[#0e1017] border border-white/5 flex items-center justify-between gap-3"
+                    >
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-zinc-300 truncate">{course.title}</div>
+                        <div className="text-xs font-semibold text-zinc-300 truncate">
+                          {course.title}
+                        </div>
                         <div className="text-[10px] text-amber-400/90 font-medium mt-0.5 flex items-center gap-1">
                           <Lock className="size-2.5" />
-                          <span>Requis : {requiredOffer.title} ({requiredOffer.priceDisplay})</span>
+                          <span>
+                            Requis : {requiredOffer.title} ({requiredOffer.priceDisplay})
+                          </span>
                         </div>
                       </div>
                       <button
@@ -3763,6 +4988,13 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {selectedCourse && (
+        <CourseReaderModal
+          course={selectedCourse}
+          onClose={() => setSelectedCourse(null)}
+          onDownloadAttachment={handleDownloadCourseAttachment}
+        />
       )}
     </div>
   );

@@ -2,15 +2,12 @@ import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   Banknote,
-  Building2,
   CheckCircle2,
   Clock3,
   CreditCard,
   FileText,
   LifeBuoy,
   Loader2,
-  MapPin,
-  Receipt,
   Send,
 } from "lucide-react";
 import { addDoc, collection, db, getDocs, query, where } from "../../services/firebase";
@@ -95,17 +92,10 @@ export const ResolutionCenterPanel: React.FC<Props> = ({
   const [type, setType] = useState("payment_issue");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [offerName, setOfferName] = useState("");
   const [transactionId, setTransactionId] = useState("");
-  const [providerReference, setProviderReference] = useState("");
-  const [receiptId, setReceiptId] = useState("");
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("XOF");
-  const [country, setCountry] = useState("");
   const [paymentProvider, setPaymentProvider] = useState("");
-  const [reportedPaymentStatus, setReportedPaymentStatus] = useState("unknown");
-  const [paymentDate, setPaymentDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -177,17 +167,17 @@ export const ResolutionCenterPanel: React.FC<Props> = ({
       description: description.trim(),
       status: "open" as const,
       createdAt,
-      companyName: companyName.trim(),
-      offerName: offerName.trim(),
+      companyName: "",
+      offerName: "",
       transactionId: transactionId.trim(),
-      providerReference: providerReference.trim(),
-      receiptId: receiptId.trim(),
+      providerReference: "",
+      receiptId: "",
       amount: amount.trim(),
       currency: currency.trim().toUpperCase(),
-      country: country.trim(),
+      country: "",
       paymentProvider: paymentProvider.trim(),
-      reportedPaymentStatus,
-      paymentDate,
+      reportedPaymentStatus: "unknown",
+      paymentDate: "",
       paymentInformationSource: "user_reported" as const,
     };
 
@@ -219,16 +209,10 @@ export const ResolutionCenterPanel: React.FC<Props> = ({
       saveLocalRequests(userId, nextRequests);
       setSubject("");
       setDescription("");
-      setCompanyName("");
-      setOfferName("");
       setTransactionId("");
-      setProviderReference("");
-      setReceiptId("");
       setAmount("");
-      setCountry("");
       setPaymentProvider("");
-      setReportedPaymentStatus("unknown");
-      setPaymentDate("");
+      setCurrency("XOF");
       setFeedback(successMessage);
     } catch (error) {
       console.error("Resolution request could not be submitted", error);
@@ -311,9 +295,7 @@ export const ResolutionCenterPanel: React.FC<Props> = ({
           className="w-full resize-y rounded-lg border border-white/10 bg-[#101114] p-2.5 text-white outline-none focus:border-sky-400"
         />
 
-        <details
-          open={type === "payment_issue" || type === "access_issue" || type === "refund_request"}
-        >
+        <details>
           <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg border border-white/10 bg-black/10 p-3 font-semibold text-zinc-200">
             <FileText className="size-4 text-sky-400" />
             Ajouter les références utiles (facultatif)
@@ -325,39 +307,11 @@ export const ResolutionCenterPanel: React.FC<Props> = ({
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field
-                label="Entreprise"
-                icon={<Building2 className="size-3.5" />}
-                value={companyName}
-                onChange={setCompanyName}
-                placeholder="Nom de l’entreprise"
-              />
-              <Field
-                label="Offre concernée"
-                icon={<FileText className="size-3.5" />}
-                value={offerName}
-                onChange={setOfferName}
-                placeholder="Nom de l’offre"
-              />
-              <Field
-                label="ID de transaction interne"
+                label="Référence (transaction, reçu ou commande)"
                 icon={<CreditCard className="size-3.5" />}
                 value={transactionId}
                 onChange={setTransactionId}
-                placeholder="ID affiché sur le reçu ou la commande"
-              />
-              <Field
-                label="Référence du prestataire"
-                icon={<CreditCard className="size-3.5" />}
-                value={providerReference}
-                onChange={setProviderReference}
-                placeholder="Référence Wave, Stripe, etc."
-              />
-              <Field
-                label="ID du reçu ou de la commande"
-                icon={<Receipt className="size-3.5" />}
-                value={receiptId}
-                onChange={setReceiptId}
-                placeholder="Identifiant du reçu"
+                placeholder="Identifiant figurant sur le reçu ou la commande"
               />
               <Field
                 label="Prestataire de paiement"
@@ -380,48 +334,6 @@ export const ResolutionCenterPanel: React.FC<Props> = ({
                 onChange={setCurrency}
                 placeholder="XOF"
               />
-              <Field
-                label="Pays de la transaction"
-                icon={<MapPin className="size-3.5" />}
-                value={country}
-                onChange={setCountry}
-                placeholder="Pays"
-              />
-              <div className="space-y-1">
-                <label
-                  className="block text-[11px] font-medium text-zinc-300"
-                  htmlFor="reported-payment-status"
-                >
-                  Statut constaté par vous
-                </label>
-                <select
-                  id="reported-payment-status"
-                  value={reportedPaymentStatus}
-                  onChange={(event) => setReportedPaymentStatus(event.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-[#101114] p-2.5 text-white"
-                >
-                  {PAYMENT_STATUSES.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label
-                  className="block text-[11px] font-medium text-zinc-300"
-                  htmlFor="payment-date"
-                >
-                  Date et heure indiquées
-                </label>
-                <input
-                  id="payment-date"
-                  type="datetime-local"
-                  value={paymentDate}
-                  onChange={(event) => setPaymentDate(event.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-[#101114] p-2.5 text-white [color-scheme:dark]"
-                />
-              </div>
             </div>
           </div>
         </details>
@@ -503,7 +415,7 @@ export const ResolutionCenterPanel: React.FC<Props> = ({
                     {request.companyName && <Info label="Entreprise" value={request.companyName} />}
                     {request.offerName && <Info label="Offre" value={request.offerName} />}
                     {request.transactionId && (
-                      <Info label="ID de transaction (déclaré)" value={request.transactionId} />
+                      <Info label="Référence communiquée" value={request.transactionId} />
                     )}
                     {request.providerReference && (
                       <Info

@@ -222,60 +222,161 @@ const CreatorCoursesWorkspace: React.FC<{
   productIds: string[];
   products: CreatedProductData[];
   onBack: () => void;
-}> = ({ creatorId, companyId, productIds, products, onBack }) => {
+}> = ({ companyId, productIds, products, onBack }) => {
+  type CourseChapter = {
+    id: string;
+    title: string;
+    content: string;
+    youtubeUrl?: string;
+    videoStorageKey?: string;
+    videoFileName?: string;
+  };
+  type CreatorCourse = {
+    id: string;
+    title: string;
+    description: string;
+    chapters: CourseChapter[];
+  };
   const storageKey = `mansa_creator_courses_${companyId}`;
-  const [courses, setCourses] = useState<
-    Array<{ id: string; title: string; description: string; chapters: string[]; lessons?: Array<{ id: string; title: string; videoUrl?: string }> }>
-  >(() => {
+  const [courses, setCourses] = useState<CreatorCourse[]>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      const remote = products
-        .filter((product) => productIds.includes(product.id))
-        .flatMap((product) => product.courseModules || []);
-      const merged = [...(Array.isArray(saved) ? saved : []), ...remote];
-      return merged.filter((course, index) => merged.findIndex((item) => item.id === course.id) === index);
+      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      if (!Array.isArray(saved)) return [];
+      return saved.map((courseValue): CreatorCourse => {
+        const course =
+          courseValue && typeof courseValue === "object"
+            ? (courseValue as Record<string, unknown>)
+            : {};
+        const id = typeof course["id"] === "string" ? course["id"] : `course-${Date.now()}`;
+        const rawChapters = Array.isArray(course["chapters"]) ? course["chapters"] : [];
+        const normalizedChapters = rawChapters.map((chapterValue, index): CourseChapter => {
+          if (typeof chapterValue === "string") {
+            return {
+              id: `${id}-chapter-${index}`,
+              title: chapterValue || `Chapitre ${index + 1}`,
+              content: "",
+            };
+          }
+          const chapter =
+            chapterValue && typeof chapterValue === "object"
+              ? (chapterValue as Record<string, unknown>)
+              : {};
+          return {
+            id: typeof chapter["id"] === "string" ? chapter["id"] : `${id}-chapter-${index}`,
+            title:
+              typeof chapter["title"] === "string" ? chapter["title"] : `Chapitre ${index + 1}`,
+            content: typeof chapter["content"] === "string" ? chapter["content"] : "",
+            ...(typeof chapter["youtubeUrl"] === "string"
+              ? { youtubeUrl: chapter["youtubeUrl"] }
+              : {}),
+            ...(typeof chapter["videoStorageKey"] === "string"
+              ? { videoStorageKey: chapter["videoStorageKey"] }
+              : {}),
+            ...(typeof chapter["videoFileName"] === "string"
+              ? { videoFileName: chapter["videoFileName"] }
+              : {}),
+          };
+        });
+        return {
+          id,
+          title: typeof course["title"] === "string" ? course["title"] : "Cours sans titre",
+          description: typeof course["description"] === "string" ? course["description"] : "",
+          chapters: normalizedChapters,
+        };
+      });
     } catch {
       return [];
     }
   });
   const [editing, setEditing] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [chapters, setChapters] = useState<string[]>(["Introduction"]);
-  const [lessonUrl, setLessonUrl] = useState("");
+  const [chapters, setChapters] = useState<CourseChapter[]>([]);
+  const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
+  const [selectedVideoFiles, setSelectedVideoFiles] = useState<Record<string, File>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const linkedProducts = products.filter((product) => productIds.includes(product.id));
-  const saveCourse = async () => {
-    if (!title.trim()) return;
-    setIsSaving(true);
-    const next = [
-      ...courses.filter((course) => course.id !== editingId),
-      {
-        id: editingId || `course-${Date.now()}`,
-        title: title.trim(),
-        description: description.trim(),
-        chapters: chapters.map((chapter) => chapter.trim()).filter(Boolean),
-        lessons: lessonUrl.trim() ? [{ id: `lesson-${Date.now()}`, title: "Leçon 1", videoUrl: lessonUrl.trim() }] : [],
-      },
-    ];
-    setCourses(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
-    const savedCourse = next[next.length - 1];
-    await Promise.all(linkedProducts.map((product) => saveProductPrivateContent(
-      product.id,
-      creatorId,
-      companyId,
-      product.digitalFiles || [],
-      [...(product.courseModules || []).filter((module: any) => module.id !== savedCourse?.id), ...(savedCourse ? [savedCourse] : [])],
-    )));
-    setEditing(false);
-    setEditingId(null);
+  const activeChapter = chapters.find((chapter) => chapter.id === activeChapterId) || null;
+  const activeVideoFile = activeChapter ? selectedVideoFiles[activeChapter.id] : undefined;
+  const newChapter = (index: number): CourseChapter => ({
+    id: `chapter-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: `Chapitre ${index + 1}`,
+    content: "",
+  });
+  const startNewCourse = () => {
+    const firstChapter = newChapter(0);
+    setEditingCourseId(null);
     setTitle("");
     setDescription("");
-    setChapters(["Introduction"]);
-    setLessonUrl("");
-    setIsSaving(false);
+    setChapters([firstChapter]);
+    setActiveChapterId(firstChapter.id);
+    setSelectedVideoFiles({});
+    setSaveError(null);
+    setEditing(true);
+  };
+  const editCourse = (course: CreatorCourse) => {
+    const courseChapters = course.chapters.length ? course.chapters : [newChapter(0)];
+    setEditingCourseId(course.id);
+    setTitle(course.title || "");
+    setDescription(course.description || "");
+    setChapters(courseChapters.map((chapter) => ({ ...chapter })));
+    setActiveChapterId(courseChapters[0]?.id || null);
+    setSelectedVideoFiles({});
+    setSaveError(null);
+    setEditing(true);
+  };
+  const updateChapter = (chapterId: string, updates: Partial<CourseChapter>) => {
+    setChapters((current) =>
+      current.map((chapter) => (chapter.id === chapterId ? { ...chapter, ...updates } : chapter)),
+    );
+  };
+  const saveCourse = async () => {
+    if (!title.trim() || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    const courseId = editingCourseId || `course-${Date.now()}`;
+    try {
+      const { saveDigitalAsset } = await import("../utils/digitalAssetStorage");
+      const savedChapters = await Promise.all(
+        chapters.map(async (chapter) => {
+          const file = selectedVideoFiles[chapter.id];
+          if (!file) return chapter;
+          const asset = await saveDigitalAsset(companyId, `${courseId}-${chapter.id}`, file);
+          return {
+            ...chapter,
+            videoStorageKey: asset.storageKey,
+            videoFileName: file.name,
+          };
+        }),
+      );
+      const course: CreatorCourse = {
+        id: courseId,
+        title: title.trim(),
+        description: description.trim(),
+        chapters: savedChapters,
+      };
+      const next = editingCourseId
+        ? courses.map((existing) => (existing.id === courseId ? course : existing))
+        : [...courses, course];
+      if (editingCourseId && !courses.some((existing) => existing.id === courseId)) {
+        next.push(course);
+      }
+      localStorage.setItem(storageKey, JSON.stringify(next));
+      setCourses(next);
+      setEditing(false);
+      setEditingCourseId(null);
+      setSelectedVideoFiles({});
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? `Enregistrement impossible : ${error.message}`
+          : "Enregistrement impossible. Vérifiez le stockage local et réessayez.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (editing) {
@@ -286,10 +387,16 @@ const CreatorCoursesWorkspace: React.FC<{
             <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">
               Courses
             </div>
-            <h1 className="mt-1 text-xl font-bold text-white">Créer un cours</h1>
+            <h1 className="mt-1 text-xl font-bold text-white">
+              {editingCourseId ? "Modifier le cours" : "Créer un cours"}
+            </h1>
           </div>
           <button
-            onClick={() => setEditing(false)}
+            type="button"
+            onClick={() => {
+              setEditing(false);
+              setSelectedVideoFiles({});
+            }}
             className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300"
           >
             ← Retour aux cours
@@ -298,12 +405,56 @@ const CreatorCoursesWorkspace: React.FC<{
         <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
           <aside className="rounded-xl border border-white/10 bg-[#121316] p-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Chapitres
+              Chapitres ({chapters.length})
             </div>
-            <div className="mt-3 rounded-lg bg-blue-500/10 px-3 py-3 text-sm font-semibold text-white">
-              Chapitre 1
+            <div className="mt-3 space-y-2">
+              {chapters.map((chapter, index) => (
+                <div
+                  key={chapter.id}
+                  className={`flex items-center gap-2 rounded-lg px-2 py-2 ${activeChapterId === chapter.id ? "bg-blue-500/10" : ""}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setActiveChapterId(chapter.id)}
+                    className="min-w-0 flex-1 px-1 py-1 text-left text-sm font-semibold text-white"
+                  >
+                    <span className="block text-[10px] text-zinc-500">Chapitre {index + 1}</span>
+                    <span className="block truncate">
+                      {chapter.title || `Chapitre ${index + 1}`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Supprimer ${chapter.title || `le chapitre ${index + 1}`}`}
+                    title="Supprimer ce chapitre"
+                    onClick={() => {
+                      const remaining = chapters.filter((item) => item.id !== chapter.id);
+                      setChapters(remaining);
+                      setSelectedVideoFiles((files) => {
+                        const nextFiles = { ...files };
+                        delete nextFiles[chapter.id];
+                        return nextFiles;
+                      });
+                      if (activeChapterId === chapter.id) {
+                        setActiveChapterId(remaining[0]?.id || null);
+                      }
+                    }}
+                    className="rounded-md p-2 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </div>
+              ))}
             </div>
-            <button type="button" onClick={() => setChapters((current) => [...current, `Chapitre ${current.length + 1}`])} className="mt-3 w-full rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs text-zinc-400 hover:border-blue-500/50 hover:text-white">
+            <button
+              type="button"
+              onClick={() => {
+                const chapter = newChapter(chapters.length);
+                setChapters((current) => [...current, chapter]);
+                setActiveChapterId(chapter.id);
+              }}
+              className="mt-3 w-full rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs text-zinc-400 hover:border-blue-500/50 hover:text-white"
+            >
               + Ajouter un nouveau chapitre
             </button>
           </aside>
@@ -322,28 +473,102 @@ const CreatorCoursesWorkspace: React.FC<{
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                rows={4}
+                rows={3}
                 placeholder="Présentez le contenu et les objectifs du cours"
                 className="w-full resize-none rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
               />
             </label>
-            <div className="rounded-xl border border-white/10 bg-[#121316] p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold text-white">{chapters[0] || "Introduction"}</div>
-                  <div className="mt-1 text-xs text-zinc-500">Lesson 1</div>
+            {activeChapter ? (
+              <section className="space-y-4 rounded-xl border border-white/10 bg-[#121316] p-4">
+                <label className="block space-y-2">
+                  <span className="text-xs font-semibold text-zinc-300">Titre du chapitre</span>
+                  <input
+                    value={activeChapter.title}
+                    onChange={(event) =>
+                      updateChapter(activeChapter.id, { title: event.target.value })
+                    }
+                    placeholder="Titre du chapitre"
+                    className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                </label>
+                <label className="block space-y-2">
+                  <span className="text-xs font-semibold text-zinc-300">Texte du chapitre</span>
+                  <textarea
+                    value={activeChapter.content}
+                    onChange={(event) =>
+                      updateChapter(activeChapter.id, { content: event.target.value })
+                    }
+                    rows={7}
+                    placeholder="Rédigez le contenu de ce chapitre"
+                    className="w-full resize-y rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                </label>
+                <label className="block space-y-2">
+                  <span className="text-xs font-semibold text-zinc-300">
+                    URL YouTube (facultatif)
+                  </span>
+                  <input
+                    type="url"
+                    value={activeChapter.youtubeUrl || ""}
+                    onChange={(event) =>
+                      updateChapter(activeChapter.id, { youtubeUrl: event.target.value })
+                    }
+                    placeholder="https://www.youtube.com/watch?v=…"
+                    className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+                  />
+                </label>
+                <div className="space-y-2">
+                  <label
+                    className="block text-xs font-semibold text-zinc-300"
+                    htmlFor={`video-${activeChapter.id}`}
+                  >
+                    Ou téléverser une vidéo
+                  </label>
+                  <input
+                    id={`video-${activeChapter.id}`}
+                    type="file"
+                    accept="video/*"
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      if (file) {
+                        setSelectedVideoFiles((current) => ({
+                          ...current,
+                          [activeChapter.id]: file,
+                        }));
+                        setSaveError(null);
+                      }
+                    }}
+                    className="block w-full text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
+                  />
+                  {activeVideoFile ? (
+                    <p className="text-xs text-blue-200">
+                      Fichier sélectionné : {activeVideoFile.name} — enregistré lors de la
+                      sauvegarde.
+                    </p>
+                  ) : activeChapter.videoStorageKey ? (
+                    <p className="text-xs text-emerald-300">
+                      Vidéo enregistrée sur cet appareil :{" "}
+                      {activeChapter.videoFileName || "fichier vidéo"}
+                    </p>
+                  ) : null}
                 </div>
-                <button type="button" onClick={() => setLessonUrl(lessonUrl ? "" : "https://")} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300 hover:text-white">
-                  Ajouter une vidéo
-                </button>
-              </div>
-              <div className="mt-4 space-y-3 rounded-lg border border-dashed border-white/15 p-5 text-center text-xs text-zinc-500">
-                <p>Ajoutez une vidéo ou un lien YouTube à cette leçon.</p>
-                {lessonUrl !== "" && <input value={lessonUrl} onChange={(event) => setLessonUrl(event.target.value)} placeholder="https://youtube.com/..." className="w-full rounded-lg border border-white/10 bg-[#161822] px-3 py-2 text-left text-xs text-white outline-none focus:border-blue-500" />}
-              </div>
-            </div>
+              </section>
+            ) : (
+              <p className="rounded-xl border border-dashed border-white/15 p-5 text-center text-sm text-zinc-400">
+                Aucun chapitre. Ajoutez-en un pour saisir son contenu.
+              </p>
+            )}
+            {saveError && (
+              <p
+                role="alert"
+                className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"
+              >
+                {saveError}
+              </p>
+            )}
             <div className="flex justify-end border-t border-white/10 pt-4">
               <button
+                type="button"
                 onClick={saveCourse}
                 disabled={!title.trim() || isSaving}
                 className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
@@ -380,7 +605,7 @@ const CreatorCoursesWorkspace: React.FC<{
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <button
-          onClick={() => setEditing(true)}
+          onClick={startNewCourse}
           className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] text-zinc-400 hover:border-blue-500/60 hover:text-white"
         >
           <span className="mb-3 flex size-12 items-center justify-center rounded-full border border-white/15 text-3xl">
@@ -391,14 +616,7 @@ const CreatorCoursesWorkspace: React.FC<{
         {courses.map((course) => (
           <button
             key={course.id}
-            onClick={() => {
-              setEditingId(course.id);
-              setTitle(course.title);
-              setDescription(course.description);
-              setChapters(course.chapters?.length ? course.chapters : ["Introduction"]);
-              setLessonUrl(course.lessons?.[0]?.videoUrl || "");
-              setEditing(true);
-            }}
+            onClick={() => editCourse(course)}
             className="min-h-44 rounded-xl border border-white/10 bg-[#121316] p-4 text-left hover:border-blue-500/50"
           >
             <div className="flex size-10 items-center justify-center rounded-lg bg-purple-500/15 text-xl">
@@ -412,7 +630,6 @@ const CreatorCoursesWorkspace: React.FC<{
     </div>
   );
 };
-
 export const UserDashboard: React.FC<UserDashboardProps> = ({
   user,
   onLogout,
@@ -2298,6 +2515,23 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             </span>
                           </button>
                         )}
+
+                        <div className="pt-2 pb-1">
+                          <span className="px-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block">
+                            {lang === "fr" ? "Développer" : "Grow"}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => switchTab("affilies")}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors cursor-pointer min-h-[44px] ${
+                            activeNav === "affilies"
+                              ? "bg-[#22252c] text-white font-semibold"
+                              : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                          }`}
+                        >
+                          <Share2 className="size-4 text-zinc-300" />
+                          <span>{lang === "fr" ? "Affiliés (Vendeur)" : "Affiliates (Seller)"}</span>
+                        </button>
                       </nav>
                     )}
                   </div>

@@ -45,27 +45,14 @@ describe("ResolutionCenterPanel", () => {
     fireEvent.change(screen.getByLabelText("Description du problème"), {
       target: { value: "Le paiement semble confirmé mais je ne vois pas la formation." },
     });
-    fireEvent.change(screen.getByLabelText("Entreprise"), { target: { value: "Atelier Exemple" } });
-    fireEvent.change(screen.getByLabelText("Offre concernée"), {
-      target: { value: "Formation Pro" },
-    });
-    fireEvent.change(screen.getByLabelText("ID de transaction interne"), {
-      target: { value: "TX-2048" },
-    });
-    fireEvent.change(screen.getByLabelText("Référence du prestataire"), {
+    fireEvent.click(screen.getByText("Ajouter les références utiles (facultatif)"));
+    fireEvent.change(screen.getByLabelText("Référence (transaction, reçu ou commande)"), {
       target: { value: "WAVE-REF-890" },
-    });
-    fireEvent.change(screen.getByLabelText("ID du reçu ou de la commande"), {
-      target: { value: "CMD-9301" },
     });
     fireEvent.change(screen.getByLabelText("Prestataire de paiement"), {
       target: { value: "Wave" },
     });
     fireEvent.change(screen.getByLabelText("Montant indiqué"), { target: { value: "25000" } });
-    fireEvent.change(screen.getByLabelText("Pays de la transaction"), {
-      target: { value: "Sénégal" },
-    });
-
     fireEvent.click(screen.getByRole("button", { name: "Envoyer le dossier" }));
 
     await screen.findByText(/transmis à l’équipe de support/);
@@ -76,24 +63,24 @@ describe("ResolutionCenterPanel", () => {
         userId: "customer-42",
         customerName: "Aïssata Diop",
         customerEmail: "aissata@example.com",
-        companyName: "Atelier Exemple",
-        offerName: "Formation Pro",
-        transactionId: "TX-2048",
-        providerReference: "WAVE-REF-890",
-        receiptId: "CMD-9301",
+        transactionId: "WAVE-REF-890",
+        providerReference: "",
+        receiptId: "",
         paymentProvider: "Wave",
         amount: "25000",
-        country: "Sénégal",
+        currency: "XOF",
+        reportedPaymentStatus: "unknown",
+        paymentDate: "",
         paymentInformationSource: "user_reported",
       }),
     );
-    expect(screen.getByText("ID de transaction (déclaré)")).toBeInTheDocument();
-    expect(screen.getByText("TX-2048")).toBeInTheDocument();
+    expect(screen.getByText("Référence communiquée")).toBeInTheDocument();
+    expect(screen.getByText("WAVE-REF-890")).toBeInTheDocument();
     expect(screen.getByText(/ne confirment pas à eux seuls/)).toBeInTheDocument();
 
     await waitFor(() => {
       const saved = JSON.parse(localStorage.getItem("mansa_resolution_customer-42") || "[]");
-      expect(saved[0]).toEqual(expect.objectContaining({ transactionId: "TX-2048" }));
+      expect(saved[0]).toEqual(expect.objectContaining({ transactionId: "WAVE-REF-890" }));
     });
   });
 
@@ -101,6 +88,9 @@ describe("ResolutionCenterPanel", () => {
     addDocMock.mockRejectedValueOnce(new Error("permission denied"));
 
     render(<ResolutionCenterPanel userId="customer-42" />);
+    expect(
+      screen.getByText("Ajouter les références utiles (facultatif)").closest("details"),
+    ).not.toHaveAttribute("open");
     fireEvent.change(screen.getByLabelText("Sujet du dossier"), {
       target: { value: "Paiement en attente" },
     });

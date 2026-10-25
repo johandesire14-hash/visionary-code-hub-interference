@@ -48,11 +48,21 @@ service cloud.firestore {
           == get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.get('name', '');
     }
 
+    function hasActiveOfferEntitlement(productId) {
+      let entitlementPath = /databases/$(database)/documents/offerEntitlements/$(productId)/members/$(request.auth.uid);
+      return signedIn()
+        && exists(entitlementPath)
+        && get(entitlementPath).data.get('status', '') == 'active'
+        && get(entitlementPath).data.get('memberUid', '') == request.auth.uid
+        && get(entitlementPath).data.get('productId', '') == productId;
+    }
+
     function canReadPrivateProductContent(productId) {
       return signedIn()
         && exists(/databases/$(database)/documents/products/$(productId))
-        && get(/databases/$(database)/documents/products/$(productId)).data.get('creatorId', '') == request.auth.uid
-        && ownsCompany(get(/databases/$(database)/documents/products/$(productId)).data.get('companyId', ''));
+        && ((get(/databases/$(database)/documents/products/$(productId)).data.get('creatorId', '') == request.auth.uid
+            && ownsCompany(get(/databases/$(database)/documents/products/$(productId)).data.get('companyId', '')))
+          || hasActiveOfferEntitlement(productId));
     }
 
     function hasVerifiedEntitlement(productId) {
@@ -172,8 +182,20 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.get('creatorId', '') == request.auth.uid;
     }
 
+    // Seul un service de paiement de confiance (Admin SDK) peut créer ou révoquer
+    // un entitlement. Les clients ne peuvent jamais se donner l’accès eux-mêmes.
+    match /offerEntitlements/{productId}/members/{memberUid} {
+      allow get: if signedIn()
+        && request.auth.uid == memberUid
+        && resource.data.get('status', '') == 'active'
+        && resource.data.get('memberUid', '') == request.auth.uid
+        && resource.data.get('productId', '') == productId;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
     // Le programme de cours et les ressources ne sont jamais inclus dans la fiche publique.
-    // Même leur lecture par ID exige que l’utilisateur possède encore le produit et l’entreprise.
+    // Les membres ne peuvent les lire que si le backend a émis un entitlement actif.
     match /productPrivateContent/{productId} {
       allow get: if canReadPrivateProductContent(productId) || hasVerifiedEntitlement(productId);
       allow list: if false;
