@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
 import { CompanySocialLinks } from "../../types";
-import { uploadCompanyBrandingAsset } from "../../services/companyAssetStorage";
+import {
+  uploadCompanyBrandingAsset,
+  validateCompanyBrandingImage,
+} from "../../services/companyAssetStorage";
 
 interface EnterpriseBrandingModalProps {
   isOpen: boolean;
@@ -72,6 +75,11 @@ const LOGO_PRESETS = [
   },
 ];
 
+const clearPreviewUrl = (previewRef: React.MutableRefObject<string | null>) => {
+  if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+  previewRef.current = null;
+};
+
 export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = ({
   isOpen,
   onClose,
@@ -96,6 +104,16 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const bannerFileRef = useRef<HTMLInputElement | null>(null);
+  const logoFileRef = useRef<HTMLInputElement | null>(null);
+  const bannerPreviewUrlRef = useRef<string | null>(null);
+  const logoPreviewUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) return;
+    clearPreviewUrl(bannerPreviewUrlRef);
+    clearPreviewUrl(logoPreviewUrlRef);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -107,6 +125,7 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
     setBannerFile(null);
     setLogoFile(null);
     setSaveError(null);
+    setIsSaved(false);
   }, [
     isOpen,
     company.id,
@@ -114,45 +133,49 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
     company.description,
     company.companyBanner,
     company.companyLogo,
+    company.socialLinks,
   ]);
 
-  const bannerFileRef = useRef<HTMLInputElement | null>(null);
-  const logoFileRef = useRef<HTMLInputElement | null>(null);
+  const { overlayProps, contentProps } = useModalDismiss({
+    isOpen,
+    onClose,
+    closeOnEscape: true,
+  });
 
   if (!isOpen) return null;
 
-  const validateImage = (file: File): string | null => {
-    if (!file.type.startsWith("image/")) return "Choisissez un fichier image.";
-    if (file.size > 5 * 1024 * 1024) return "L’image ne doit pas dépasser 5 Mo.";
-    return null;
-  };
-
   const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    const error = validateImage(file);
+    const error = validateCompanyBrandingImage(file);
     if (error) {
       setSaveError(error);
-      e.target.value = "";
       return;
     }
     setSaveError(null);
     setBannerFile(file);
-    setCompanyBanner(URL.createObjectURL(file));
+    clearPreviewUrl(bannerPreviewUrlRef);
+    const previewUrl = URL.createObjectURL(file);
+    bannerPreviewUrlRef.current = previewUrl;
+    setCompanyBanner(previewUrl);
   };
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
-    const error = validateImage(file);
+    const error = validateCompanyBrandingImage(file);
     if (error) {
       setSaveError(error);
-      e.target.value = "";
       return;
     }
     setSaveError(null);
     setLogoFile(file);
-    setCompanyLogo(URL.createObjectURL(file));
+    clearPreviewUrl(logoPreviewUrlRef);
+    const previewUrl = URL.createObjectURL(file);
+    logoPreviewUrlRef.current = previewUrl;
+    setCompanyLogo(previewUrl);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -187,12 +210,6 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
       setIsSaving(false);
     }
   };
-
-  const { overlayProps, contentProps } = useModalDismiss({
-    isOpen,
-    onClose,
-    closeOnEscape: true,
-  });
 
   return (
     <div
@@ -353,6 +370,8 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
               onChange={(e) => {
                 setCompanyBanner(e.target.value);
                 setBannerFile(null);
+                clearPreviewUrl(bannerPreviewUrlRef);
+                setSaveError(null);
               }}
               placeholder="https://..."
               className="w-full rounded-xl border border-white/10 bg-[#0d0e12] p-2.5 text-xs font-mono text-zinc-200 outline-none focus:border-[#00D26A]"
@@ -367,6 +386,8 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
                   onClick={() => {
                     setCompanyBanner(preset.url);
                     setBannerFile(null);
+                    clearPreviewUrl(bannerPreviewUrlRef);
+                    setSaveError(null);
                   }}
                   className={`relative h-11 rounded-lg overflow-hidden border transition-all text-left p-1 cursor-pointer ${
                     companyBanner === preset.url
@@ -422,6 +443,8 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
               onChange={(e) => {
                 setCompanyLogo(e.target.value);
                 setLogoFile(null);
+                clearPreviewUrl(logoPreviewUrlRef);
+                setSaveError(null);
               }}
               placeholder="https://..."
               className="w-full rounded-xl border border-white/10 bg-[#0d0e12] p-2.5 text-xs font-mono text-zinc-200 outline-none focus:border-[#00D26A]"
@@ -436,6 +459,8 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
                   onClick={() => {
                     setCompanyLogo(preset.url);
                     setLogoFile(null);
+                    clearPreviewUrl(logoPreviewUrlRef);
+                    setSaveError(null);
                   }}
                   className={`flex items-center gap-2 p-1.5 rounded-lg border transition-all text-left cursor-pointer bg-[#0d0e12] ${
                     companyLogo === preset.url

@@ -1,26 +1,37 @@
 import { getDownloadURL, ref, storage, uploadBytes } from "./firebase";
 
 export type CompanyBrandingAsset = "banner" | "logo";
+export const COMPANY_BRANDING_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+
+export function validateCompanyBrandingImage(file: File | null | undefined): string | null {
+  if (!file || !file.type.startsWith("image/")) return "Choisissez un fichier image.";
+  // storage.rules impose strictement moins de 5 Mio; refuser l'égalité côté client évite un upload refusé.
+  if (file.size >= COMPANY_BRANDING_IMAGE_MAX_BYTES) {
+    return "L’image doit faire moins de 5 Mo.";
+  }
+  return null;
+}
 
 export async function uploadCompanyBrandingAsset(
   companyId: string,
   kind: CompanyBrandingAsset,
   file: File,
 ): Promise<string> {
-  if (!companyId || !file) throw new Error("Choisissez une image valide.");
+  if (!companyId.trim() || !file) throw new Error("Choisissez une image valide.");
   if (!storage) {
     throw new Error(
       "Firebase Storage n’est pas configuré. Définissez VITE_FIREBASE_STORAGE_BUCKET puis déployez les règles Storage.",
     );
   }
-  if (!file.type.startsWith("image/")) throw new Error("Le fichier doit être une image.");
-  if (file.size > 5 * 1024 * 1024) throw new Error("L’image ne doit pas dépasser 5 Mo.");
+  const validationError = validateCompanyBrandingImage(file);
+  if (validationError) throw new Error(validationError);
 
-  const extension =
-    file.name
-      .split(".")
-      .pop()
-      ?.replace(/[^a-zA-Z0-9]/g, "") || "img";
+  const extension = file.name.includes(".")
+    ? file.name
+        .split(".")
+        .pop()
+        ?.replace(/[^a-zA-Z0-9]/g, "") || "img"
+    : "img";
   const objectPath = `company-branding/${encodeURIComponent(companyId)}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const objectRef = ref(storage, objectPath);
   await uploadBytes(objectRef, file, { contentType: file.type });

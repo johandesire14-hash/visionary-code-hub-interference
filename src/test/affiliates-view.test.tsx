@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getAffiliateEligibleProductsMock, getAffiliateLinksForUserMock, createOrGetAffiliateLinkMock } = vi.hoisted(() => ({
+const {
+  getAffiliateEligibleProductsMock,
+  getAffiliateLinksForUserMock,
+  createOrGetAffiliateLinkMock,
+} = vi.hoisted(() => ({
   getAffiliateEligibleProductsMock: vi.fn(),
   getAffiliateLinksForUserMock: vi.fn(),
   createOrGetAffiliateLinkMock: vi.fn(),
@@ -52,7 +56,9 @@ describe("AffiliatesView", () => {
     expect(screen.getByTestId("accepted-rate")).toHaveTextContent("12.75 %");
     expect(screen.getByText(/n’employez pas de pratiques trompeuses/i)).toBeInTheDocument();
     expect(screen.getByText(/webhook contrôlé côté serveur/i)).toBeInTheDocument();
-    const acceptButton = screen.getByRole("button", { name: /j’accepte les conditions et génère mon lien/i });
+    const acceptButton = screen.getByRole("button", {
+      name: /j’accepte les conditions et génère mon lien/i,
+    });
     expect(acceptButton).toBeDisabled();
     expect(createOrGetAffiliateLinkMock).not.toHaveBeenCalled();
 
@@ -60,12 +66,19 @@ describe("AffiliatesView", () => {
     expect(acceptButton).toBeEnabled();
     fireEvent.click(acceptButton);
 
-    await waitFor(() => expect(createOrGetAffiliateLinkMock).toHaveBeenCalledWith("affiliate-account-uid", eligibleProduct));
+    await waitFor(() =>
+      expect(createOrGetAffiliateLinkMock).toHaveBeenCalledWith(
+        "affiliate-account-uid",
+        eligibleProduct,
+      ),
+    );
     expect(await screen.findByText(/Lien affilié enregistré dans Firestore/i)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Votre lien affilié" })).toHaveValue(
       "/affiliate/QmFzZTY0VXJsU2VjdXJlVG9rZW4xMjM0",
     );
-    expect(screen.getByText(/ne confirme ni ne comptabilise de vente ou de commission/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/ne confirme ni ne comptabilise de vente ou de commission/i),
+    ).toBeInTheDocument();
   });
 
   it("loads product and existing links using the authenticated Firebase UID, never the display name", async () => {
@@ -74,5 +87,30 @@ describe("AffiliatesView", () => {
     expect(getAffiliateEligibleProductsMock).toHaveBeenCalledWith("affiliate-account-uid");
     expect(getAffiliateLinksForUserMock).toHaveBeenCalledWith("affiliate-account-uid");
     expect(getAffiliateEligibleProductsMock).not.toHaveBeenCalledWith("Nom à ne pas utiliser");
+  });
+
+  it("shows the clipboard failure instead of claiming the link was copied", async () => {
+    getAffiliateLinksForUserMock.mockResolvedValue([
+      {
+        id: "affiliate-link-doc",
+        affiliateUid: "affiliate-account-uid",
+        productId: "product-unique-17",
+        productName: "Cours de commerce",
+        commissionRate: 12.75,
+        code: "QmFzZTY0VXJsU2VjdXJlVG9rZW4xMjM0",
+      },
+    ]);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("permission denied")) },
+    });
+
+    render(<AffiliatesView />);
+    fireEvent.click(await screen.findByRole("button", { name: "Copier le lien" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Copie impossible : permission denied",
+    );
+    expect(screen.queryByRole("button", { name: "Copié" })).not.toBeInTheDocument();
   });
 });

@@ -111,6 +111,7 @@ import { EnterpriseBrandingModal } from "./EnterpriseBrandingModal";
 import { CourseReaderModal } from "./CourseReaderModal";
 import { ManageMembershipModal } from "./ManageMembershipModal";
 import { ReportEnterpriseModal } from "./ReportEnterpriseModal";
+import { getCreatorAppProductIds } from "../../utils/creatorAppRouting";
 import logoImg from "../../assets/images/afhub_logo_africa_1787956612844.webp";
 
 interface EnterpriseMemberViewProps {
@@ -127,6 +128,7 @@ interface EnterpriseMemberViewProps {
   onOpenCreatorAssistance?: () => void;
   onCreateProduct?: () => void;
   onOpenCreatorApplications?: () => void;
+  onOpenCreatorAppWorkspace?: (app: "courses" | "files", productIds: string[]) => void;
   onCheckoutOpenChange?: (open: boolean) => void;
 }
 
@@ -144,6 +146,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   onOpenCreatorAssistance,
   onCreateProduct,
   onOpenCreatorApplications,
+  onOpenCreatorAppWorkspace,
   onCheckoutOpenChange,
 }) => {
   // Navigation inside the enterprise hub - defaults to "accueil" for company home view
@@ -552,12 +555,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     }
 
     const userKey = user?.uid || user?.email || "default";
-    updateSubscriptionBranding(userKey, currentSub.companyId, {
-      companyName: branding.name,
-      companyBanner: branding.companyBanner,
-      companyLogo: branding.companyLogo,
-      socialLinks: branding.socialLinks,
-    });
     const result = updateCompanyBranding(userKey, currentSub.companyId, {
       name: branding.name,
       description: branding.description,
@@ -570,6 +567,13 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         "Entreprise introuvable dans votre espace. Rechargez la page puis réessayez.",
       );
     }
+    await result.persisted;
+    updateSubscriptionBranding(userKey, currentSub.companyId, {
+      companyName: branding.name,
+      companyBanner: branding.companyBanner,
+      companyLogo: branding.companyLogo,
+      socialLinks: branding.socialLinks,
+    });
     setCurrentSub((prev) => ({
       ...prev,
       companyName: branding.name,
@@ -577,7 +581,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       companyLogo: branding.companyLogo,
       socialLinks: branding.socialLinks,
     }));
-    await result.persisted;
   };
 
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -909,6 +912,11 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     if (app === "content") {
       setActiveTab("accueil");
       setCompanyTab("accueil");
+      return;
+    }
+    if ((app === "courses" || app === "files") && canManageCompany && onOpenCreatorAppWorkspace) {
+      const productIds = getCreatorAppProductIds(app, enterpriseOffers, selectedPreviewOfferId);
+      onOpenCreatorAppWorkspace(app, productIds);
       return;
     }
     const keywords =

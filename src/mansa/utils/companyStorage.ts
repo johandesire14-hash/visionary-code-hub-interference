@@ -11,6 +11,7 @@ import {
   onSnapshot,
   query,
   where,
+  writeBatch,
 } from "../services/firebase";
 
 const COMPANIES_STORAGE_PREFIX = "mansa_companies_";
@@ -70,8 +71,10 @@ async function syncCompanyToFirestore(company: Company): Promise<void> {
       window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
     return;
   }
-  await setDoc(doc(db, "companies", company.id), privateCompanyPayload(company));
-  await setDoc(doc(db, "discoverableCompanies", company.id), publicCompanyPayload(company));
+  const batch = writeBatch(db);
+  batch.set(doc(db, "companies", company.id), privateCompanyPayload(company));
+  batch.set(doc(db, "discoverableCompanies", company.id), publicCompanyPayload(company));
+  await batch.commit();
   if (typeof window !== "undefined")
     window.dispatchEvent(new Event("mansa_discoverable_companies_updated"));
 }
@@ -343,9 +346,12 @@ export function updateCompanyBranding(
     }
     return c;
   });
+  const storageKey = `${COMPANIES_STORAGE_PREFIX}${userKey}`;
+  const previousStoredValue = localStorage.getItem(storageKey);
+  const nextStoredValue = JSON.stringify(updated);
 
   try {
-    localStorage.setItem(`${COMPANIES_STORAGE_PREFIX}${userKey}`, JSON.stringify(updated));
+    localStorage.setItem(storageKey, nextStoredValue);
     window.dispatchEvent(new CustomEvent("mansa_companies_updated", { detail: updated }));
     window.dispatchEvent(
       new CustomEvent("mansa_company_branding_changed", { detail: { companyId, branding } }),
@@ -354,7 +360,43 @@ export function updateCompanyBranding(
     console.error("Error updating company branding:", err);
   }
 
-  const persisted = updatedItem ? syncCompanyToFirestore(updatedItem) : Promise.resolve();
+  const persisted = updatedItem
+    ? syncCompanyToFirestore(updatedItem).catch((error) => {
+        // Roll back only if this optimistic value is still current; never overwrite a newer edit.
+        try {
+          if (localStorage.getItem(storageKey) === nextStoredValue) {
+            if (previousStoredValue === null) localStorage.removeItem(storageKey);
+            else localStorage.setItem(storageKey, previousStoredValue);
+            const restoredCompanies = previousStoredValue
+              ? (JSON.parse(previousStoredValue) as Company[])
+              : current;
+            window.dispatchEvent(
+              new CustomEvent("mansa_companies_updated", { detail: restoredCompanies }),
+            );
+            const previousCompany = current.find((company) => company.id === companyId);
+            if (previousCompany) {
+              window.dispatchEvent(
+                new CustomEvent("mansa_company_branding_changed", {
+                  detail: {
+                    companyId,
+                    branding: {
+                      name: previousCompany.name,
+                      description: previousCompany.description,
+                      companyBanner: previousCompany.companyBanner,
+                      companyLogo: previousCompany.companyLogo,
+                      socialLinks: previousCompany.socialLinks,
+                    },
+                  },
+                }),
+              );
+            }
+          }
+        } catch (rollbackError) {
+          console.error("Unable to roll back failed company branding update:", rollbackError);
+        }
+        throw error;
+      })
+    : Promise.resolve();
   return { companies: updated, updatedCompany: updatedItem, persisted };
 }
 

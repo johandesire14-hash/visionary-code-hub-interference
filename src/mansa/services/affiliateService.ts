@@ -49,12 +49,10 @@ const requireFirestore = () => {
 
 const firestoreError = (error: unknown, operation: string): Error => {
   const code =
-    typeof error === "object" && error !== null && "code" in error
-      ? String(error.code)
-      : "";
+    typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
   if (code.includes("permission-denied") || code.includes("unauthenticated")) {
     return new Error(
-      `Firestore a refusé ${operation} (règles d’accès ou authentification). Aucun lien n’a été créé. Vérifiez les règles Firestore pour les produits, affiliateLinks et affiliateCodes.`,
+      `Firestore a refusé ${operation} (règles d’accès ou authentification). Aucun lien n’a été créé. Vérifiez les règles Firestore pour les produits, affiliateLinks, affiliateCodes et affiliateLinkRefs.`,
       { cause: error },
     );
   }
@@ -62,15 +60,17 @@ const firestoreError = (error: unknown, operation: string): Error => {
 };
 
 const mapProduct = (id: string, data: Record<string, unknown>): AffiliateProduct | null => {
-  const rate = Number(data["affiliateCommissionRate"]);
+  const rate = data["affiliateCommissionRate"];
   const creatorId = typeof data["creatorId"] === "string" ? data["creatorId"] : "";
   const name = typeof data["name"] === "string" ? data["name"].trim() : "";
   if (
     data["status"] !== "active" ||
     !creatorId ||
     !name ||
+    typeof rate !== "number" ||
     !Number.isFinite(rate) ||
-    rate <= 0
+    rate <= 0 ||
+    rate > 100
   ) {
     return null;
   }
@@ -87,14 +87,18 @@ const mapProduct = (id: string, data: Record<string, unknown>): AffiliateProduct
     category: typeof data["category"] === "string" ? data["category"] : "Produit",
     status: "active",
     affiliateCommissionRate: rate,
-    pricingAmount: Number.isFinite(Number(data["pricingAmount"])) ? Number(data["pricingAmount"]) : 0,
+    pricingAmount: Number.isFinite(Number(data["pricingAmount"]))
+      ? Number(data["pricingAmount"])
+      : 0,
     currency: typeof data["currency"] === "string" ? data["currency"] : "XOF",
     ...(typeof data["coverImage"] === "string" ? { coverImage: data["coverImage"] } : {}),
     ...(typeof data["storeUrl"] === "string" ? { storeUrl: data["storeUrl"] } : {}),
   };
 };
 
-export async function getAffiliateEligibleProducts(affiliateUid: string): Promise<AffiliateProduct[]> {
+export async function getAffiliateEligibleProducts(
+  affiliateUid: string,
+): Promise<AffiliateProduct[]> {
   if (!affiliateUid) return [];
   const firestore = requireFirestore();
   try {
@@ -123,11 +127,21 @@ function createRandomAffiliateCode(): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-function affiliateProductDocumentId(affiliateUid: string, productId: string): string {
-  const encodedUid = encodeURIComponent(affiliateUid);
-  const encodedProductId = encodeURIComponent(productId);
-  return `${encodedUid.length}_${encodedUid}${encodedProductId}`;
+async function affiliateProductDocumentId(
+  affiliateUid: string,
+  productId: string,
+): Promise<string> {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.subtle) {
+    throw new Error("Le hachage sécurisé du lien affilié n’est pas disponible dans ce navigateur.");
+  }
+  const input = new TextEncoder().encode(JSON.stringify([affiliateUid, productId]));
+  const digest = new Uint8Array(await cryptoApi.subtle.digest("SHA-256", input));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+
+const isValidRate = (rate: unknown): rate is number =>
+  typeof rate === "number" && Number.isFinite(rate) && rate > 0 && rate <= 100;
 
 export async function createOrGetAffiliateLink(
   affiliateUid: string,
@@ -136,56 +150,144 @@ export async function createOrGetAffiliateLink(
   if (!affiliateUid) throw new Error("Une session utilisateur est requise.");
   const firestore = requireFirestore();
   try {
-    const productSnapshot = await getDoc(doc(firestore, "products", product.id));
-    if (!productSnapshot.exists()) throw new Error("Ce produit n’existe plus dans Firebase.");
-    const currentProduct = mapProduct(productSnapshot.id, productSnapshot.data());
-    if (!currentProduct || currentProduct.creatorId === affiliateUid) {
-      throw new Error("Ce produit n’est plus éligible au programme d’affiliation.");
-    }
-    if (currentProduct.affiliateCommissionRate !== product.affiliateCommissionRate) {
-      throw new Error(
-        "Le créateur a modifié le taux depuis l’affichage des conditions. Rechargez les produits et acceptez le taux actuel.",
-      );
-    }
-
-    const linkId = affiliateProductDocumentId(affiliateUid, currentProduct.id);
+    const linkId = await affiliateProductDocumentId(affiliateUid, product.id);
+    const productRef = doc(firestore, "products", product.id);
     const linkRef = doc(firestore, "affiliateLinks", linkId);
+
+    // Each attempt reserves a fresh code, while the link document ID is stable per UID/product.
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const code = createRandomAffiliateCode();
-      const codeRef = doc(firestore, "affiliateCodes", code);
+      const publicRef = createRandomAffiliateCode();
+      const candidateCodeRef = doc(firestore, "affiliateCodes", code);
+      const candidatePublicRef = doc(firestore, "affiliateLinkRefs", publicRef);
       const result = await runTransaction(firestore, async (transaction) => {
-        const [linkSnapshot, codeSnapshot] = await Promise.all([
-          transaction.get(linkRef),
-          transaction.get(codeRef),
-        ]);
+        const [productSnapshot, linkSnapshot, candidateCodeSnapshot, candidatePublicRefSnapshot] =
+          await Promise.all([
+            transaction.get(productRef),
+            transaction.get(linkRef),
+            transaction.get(candidateCodeRef),
+            transaction.get(candidatePublicRef),
+          ]);
+        if (!productSnapshot.exists()) throw new Error("Ce produit n’existe plus dans Firebase.");
+        const currentProduct = mapProduct(productSnapshot.id, productSnapshot.data());
+        if (!currentProduct || currentProduct.creatorId === affiliateUid) {
+          throw new Error("Ce produit n’est plus éligible au programme d’affiliation.");
+        }
+        if (currentProduct.affiliateCommissionRate !== product.affiliateCommissionRate) {
+          throw new Error(
+            "Le créateur a modifié le taux depuis l’affichage des conditions. Rechargez les produits et acceptez le taux actuel.",
+          );
+        }
+
         if (linkSnapshot.exists()) {
           const saved = linkSnapshot.data();
-          if (saved["affiliateUid"] !== affiliateUid || saved["productId"] !== currentProduct.id) {
+          if (
+            saved["affiliateUid"] !== affiliateUid ||
+            saved["productId"] !== currentProduct.id ||
+            saved["creatorUid"] !== currentProduct.creatorId ||
+            typeof saved["code"] !== "string" ||
+            !isValidRate(Number(saved["commissionRate"]))
+          ) {
             throw new Error("Le lien affilié existant ne correspond pas à ce compte et produit.");
           }
-          if (Number(saved["commissionRate"]) !== currentProduct.affiliateCommissionRate) {
-            throw new Error(
-              "Le taux de commission a changé depuis votre précédente acceptation. Un nouvel accord est requis par le créateur.",
-            );
+          const savedCode = saved["code"];
+          const savedCodeRef = doc(firestore, "affiliateCodes", savedCode);
+          const savedCodeSnapshot =
+            savedCode === code ? candidateCodeSnapshot : await transaction.get(savedCodeRef);
+          if (!savedCodeSnapshot.exists()) {
+            throw new Error("Le code public du lien affilié est absent ou incohérent.");
+          }
+          const savedRate = Number(saved["commissionRate"]);
+          const codeData = savedCodeSnapshot.data();
+          const acceptedRate = currentProduct.affiliateCommissionRate;
+          const savedPublicRef =
+            typeof saved["publicRef"] === "string" && /^[A-Za-z0-9_-]{32}$/.test(saved["publicRef"])
+              ? saved["publicRef"]
+              : typeof codeData["publicRef"] === "string" &&
+                  /^[A-Za-z0-9_-]{32}$/.test(codeData["publicRef"])
+                ? codeData["publicRef"]
+                : publicRef;
+          const savedPublicRefDoc = doc(firestore, "affiliateLinkRefs", savedPublicRef);
+          const savedPublicRefSnapshot =
+            savedPublicRef === publicRef
+              ? candidatePublicRefSnapshot
+              : await transaction.get(savedPublicRefDoc);
+          const referenceData = savedPublicRefSnapshot.exists()
+            ? savedPublicRefSnapshot.data()
+            : null;
+          const validPrivateReference =
+            referenceData?.["linkId"] === linkId &&
+            referenceData?.["affiliateUid"] === affiliateUid &&
+            referenceData?.["productId"] === currentProduct.id;
+          const legacyCodeMatches = codeData["linkId"] === linkId && !saved["publicRef"];
+          if (!validPrivateReference && !legacyCodeMatches) {
+            throw new Error("Le code public du lien affilié est absent ou incohérent.");
+          }
+          if (
+            savedPublicRef === publicRef &&
+            savedPublicRefSnapshot.exists() &&
+            !validPrivateReference
+          ) {
+            return null;
+          }
+          if (
+            codeData["publicRef"] !== savedPublicRef ||
+            codeData["productId"] !== currentProduct.id ||
+            Number(codeData["commissionRate"]) !== acceptedRate ||
+            "linkId" in codeData
+          ) {
+            transaction.set(savedCodeRef, {
+              publicRef: savedPublicRef,
+              productId: currentProduct.id,
+              commissionRate: acceptedRate,
+              createdAt: codeData["createdAt"] ?? serverTimestamp(),
+            });
+          }
+          if (!savedPublicRefSnapshot.exists()) {
+            transaction.set(savedPublicRefDoc, {
+              linkId,
+              affiliateUid,
+              productId: currentProduct.id,
+            });
+          }
+          if (savedPublicRef !== saved["publicRef"] || savedRate !== acceptedRate) {
+            const linkUpdate: Record<string, unknown> = { publicRef: savedPublicRef };
+            if (savedRate !== acceptedRate) {
+              linkUpdate["commissionRate"] = acceptedRate;
+              linkUpdate["acceptedAt"] = serverTimestamp();
+            }
+            transaction.update(linkRef, linkUpdate);
           }
           return {
             id: linkId,
             affiliateUid,
             productId: currentProduct.id,
             productName: currentProduct.name,
-            commissionRate: Number(saved["commissionRate"]),
-            code: String(saved["code"]),
-            acceptedAt: saved["acceptedAt"],
+            commissionRate: acceptedRate,
+            code: savedCode,
+            acceptedAt: savedRate === acceptedRate ? saved["acceptedAt"] : undefined,
             createdAt: saved["createdAt"],
           } satisfies AffiliateLink;
         }
-        if (codeSnapshot.exists()) return null;
-        transaction.set(codeRef, { linkId, createdAt: serverTimestamp() });
+
+        if (candidateCodeSnapshot.exists() || candidatePublicRefSnapshot.exists()) return null;
+        transaction.set(candidateCodeRef, {
+          publicRef,
+          productId: currentProduct.id,
+          commissionRate: currentProduct.affiliateCommissionRate,
+          createdAt: serverTimestamp(),
+        });
+        transaction.set(candidatePublicRef, {
+          linkId,
+          affiliateUid,
+          productId: currentProduct.id,
+        });
         transaction.set(linkRef, {
           affiliateUid,
           productId: currentProduct.id,
           productName: currentProduct.name,
           creatorUid: currentProduct.creatorId,
+          publicRef,
           commissionRate: currentProduct.affiliateCommissionRate,
           code,
           acceptedAt: serverTimestamp(),
@@ -233,23 +335,34 @@ export async function getAffiliateLinksForUser(affiliateUid: string): Promise<Af
   }
 }
 
-export async function resolvePublicAffiliateCode(code: string): Promise<PublicAffiliateProduct | null> {
-  if (!code || code.length > 100) return null;
+export async function resolvePublicAffiliateCode(
+  code: string,
+): Promise<PublicAffiliateProduct | null> {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(code)) return null;
   const firestore = requireFirestore();
   try {
+    // This is the only affiliate document readable without authentication. It contains
+    // only an opaque random reference and the public product/rate needed by the landing page.
     const codeSnapshot = await getDoc(doc(firestore, "affiliateCodes", code));
     if (!codeSnapshot.exists()) return null;
-    const linkId = codeSnapshot.data()["linkId"];
-    if (typeof linkId !== "string" || !linkId) return null;
-    const linkSnapshot = await getDoc(doc(firestore, "affiliateLinks", linkId));
-    if (!linkSnapshot.exists()) return null;
-    const link = linkSnapshot.data();
-    if (link["code"] !== code || typeof link["productId"] !== "string") return null;
-    const productSnapshot = await getDoc(doc(firestore, "products", link["productId"]));
+    const codeData = codeSnapshot.data();
+    const publicRef = codeData["publicRef"];
+    const productId = codeData["productId"];
+    const commissionRate = Number(codeData["commissionRate"]);
+    if (
+      typeof publicRef !== "string" ||
+      !/^[A-Za-z0-9_-]{32}$/.test(publicRef) ||
+      typeof productId !== "string" ||
+      !productId ||
+      !isValidRate(commissionRate)
+    ) {
+      return null;
+    }
+    const productSnapshot = await getDoc(doc(firestore, "products", productId));
     if (!productSnapshot.exists()) return null;
     const product = mapProduct(productSnapshot.id, productSnapshot.data());
-    if (!product || product.creatorId !== link["creatorUid"]) return null;
-    return { product, commissionRate: Number(link["commissionRate"]) };
+    if (!product) return null;
+    return { product, commissionRate };
   } catch (error) {
     throw firestoreError(error, "la résolution du lien affilié public");
   }

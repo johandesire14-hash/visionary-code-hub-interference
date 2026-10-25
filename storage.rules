@@ -45,6 +45,5 @@ service firebase.storage {
       allow create, update: if isProductOwner() && request.resource.size < 250 * 1024 * 1024;
       allow delete: if isProductOwner();
     }
-    }
   }
 }

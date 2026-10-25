@@ -155,7 +155,10 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
   // Effective products list (passed from enterprise offers or fallback)
   const effectiveProductsList = useMemo<ConnectedAppProductItem[]>(() => {
-    if (availableProducts && availableProducts.length > 0) {
+    // Une liste explicitement fournie (même vide) est l'autorité du contexte parent.
+    // Ne pas la remplacer par les offres de démonstration : leurs IDs ne sont pas
+    // utilisables par les workspaces du créateur.
+    if (availableProducts !== undefined) {
       return availableProducts;
     }
     if (companyId) {
@@ -470,7 +473,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
     if (effectiveProductsList.length > 0) {
       setSelectedProductIdsToLink([effectiveProductsList[0].id]);
     } else {
-      setSelectedProductIdsToLink(["default-product"]);
+      setSelectedProductIdsToLink([]);
     }
 
     if (appId === "discord") {
@@ -1705,7 +1708,11 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
               </div>
 
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {effectiveProductsList.map((prod) => {
+                {effectiveProductsList.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-white/10 bg-[#0c0d0e] p-4 text-xs leading-relaxed text-zinc-400" role="status">
+                    Créez d’abord une offre dans cette entreprise pour pouvoir installer cette application.
+                  </p>
+                ) : effectiveProductsList.map((prod) => {
                   const isChecked = selectedProductIdsToLink.includes(prod.id);
                   return (
                     <label

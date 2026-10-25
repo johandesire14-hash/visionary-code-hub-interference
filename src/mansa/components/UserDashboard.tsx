@@ -159,6 +159,39 @@ interface UserDashboardProps {
   lang: "fr" | "en";
 }
 
+interface CreatorAppsErrorBoundaryProps {
+  children: React.ReactNode;
+  onRetry: () => void;
+  onBack: () => void;
+}
+
+class CreatorAppsErrorBoundary extends React.Component<
+  CreatorAppsErrorBoundaryProps,
+  { error: Error | null }
+> {
+  override state = { error: null as Error | null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  override render() {
+    if (this.state.error) {
+      return (
+        <div className="mx-auto max-w-3xl rounded-2xl border border-red-500/20 bg-red-500/5 p-6" role="alert">
+          <h2 className="text-base font-bold text-white">Cette application n’a pas pu s’ouvrir.</h2>
+          <p className="mt-2 text-sm text-zinc-300">Réessayez le chargement ou revenez au catalogue Apps Store.</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" onClick={this.props.onRetry} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white">Réessayer</button>
+            <button type="button" onClick={this.props.onBack} className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-300">Retour aux applications</button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 interface PulseEvent {
   id: string;
   type: "ad_spend" | "sale";
@@ -1131,8 +1164,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   useEffect(() => {
     if (previousWorkspaceId.current !== activeWorkspaceId) {
       previousWorkspaceId.current = activeWorkspaceId;
-      setCreatorCoursesLink(null);
-      setCreatorFilesLink(null);
+      if (creatorAppWorkflow?.companyId !== activeWorkspaceId) {
+        setCreatorAppWorkflow(null);
+      }
       setIsProductStudioOpen(false);
       setEditingProduct(null);
       setIsTelegramLinkModalOpen(false);
@@ -1302,8 +1336,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   >([]);
   const [newChatInput, setNewChatInput] = useState("");
   const [isTabLoading, setIsTabLoading] = useState(false);
-  const [creatorCoursesLink, setCreatorCoursesLink] = useState<string[] | null>(null);
-  const [creatorFilesLink, setCreatorFilesLink] = useState<string[] | null>(null);
+  const [creatorAppWorkflow, setCreatorAppWorkflow] = useState<{
+    app: "courses" | "files";
+    companyId: string;
+    productIds: string[];
+  } | null>(null);
+  const [creatorAppsLoadAttempt, setCreatorAppsLoadAttempt] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMemberCheckoutOpen, setIsMemberCheckoutOpen] = useState(false);
 
@@ -1752,6 +1790,17 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               if (creatorCompany) {
                 setActiveWorkspaceId(creatorCompany.id);
               }
+              setActiveNav("applications");
+            }}
+            onOpenCreatorAppWorkspace={(app, productIds) => {
+              const creatorCompany = companies.find(
+                (company) =>
+                  company.id === currentCommunitySub.companyId ||
+                  company.id === currentCommunitySub.id,
+              );
+              if (!creatorCompany) return;
+              setCreatorAppWorkflow({ app, companyId: creatorCompany.id, productIds });
+              setActiveWorkspaceId(creatorCompany.id);
               setActiveNav("applications");
             }}
           />
@@ -3422,44 +3471,77 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               ))}
 
             {/* VIEW: APPLICATIONS & INTÉGRATIONS CATALOG */}
-            {activeNav === "applications" &&
-              (isTabLoading ? (
-                <div className="max-w-7xl mx-auto space-y-5">
-                  <DashboardProductsSkeleton />
-                </div>
-              ) : creatorCoursesLink && activeCompany ? (
-                <CreatorCoursesWorkspace
-                  key={`${activeWorkspaceId}-courses`}
-                  creatorId={user.uid || user.email || "local-user"}
-                  companyId={activeCompany.id}
-                  productIds={creatorCoursesLink}
-                  products={contextProducts}
-                  onBack={() => setCreatorCoursesLink(null)}
-                />
-              ) : creatorFilesLink && activeCompany ? (
-                <FilesWorkspace
-                  key={`${activeWorkspaceId}-files`}
-                  creatorId={user.uid || user.email || "local-user"}
-                  companyId={activeCompany.id}
-                  productIds={creatorFilesLink}
-                  products={contextProducts}
-                  onBack={() => setCreatorFilesLink(null)}
-                />
-              ) : (
-                <ConnectedAppsView
-                  lang={lang}
-                  initialSubView="catalog"
-                  key={`${activeWorkspaceId}-catalog`}
-                  availableProducts={contextProducts.map((p) => ({
-                    id: p.id,
-                    title: p.title || p.name,
-                    priceDisplay: p.priceDisplay || formatCurrency(p.priceAmount, currency),
-                    subscribersCount: p.activeUsers || 0,
-                  }))}
-                  onOpenCoursesWorkflow={(productIds) => setCreatorCoursesLink(productIds)}
-                  onOpenFilesWorkflow={(productIds) => setCreatorFilesLink(productIds)}
-                />
-              ))}
+            {activeNav === "applications" && (
+              <CreatorAppsErrorBoundary
+                key={`${activeWorkspaceId}-${creatorAppsLoadAttempt}`}
+                onRetry={() => setCreatorAppsLoadAttempt((attempt) => attempt + 1)}
+                onBack={() => {
+                  setCreatorAppWorkflow(null);
+                  setCreatorAppsLoadAttempt((attempt) => attempt + 1);
+                }}
+              >
+                <React.Suspense
+                  fallback={
+                    <div className="rounded-2xl border border-white/10 bg-[#0c0d0e] p-8 text-center text-sm text-zinc-300" role="status">
+                      Chargement de l’application…
+                    </div>
+                  }
+                >
+                  {isTabLoading ? (
+                    <div className="max-w-7xl mx-auto space-y-5">
+                      <DashboardProductsSkeleton />
+                    </div>
+                  ) : creatorAppWorkflow ? (
+                    !activeCompany || activeCompany.id !== creatorAppWorkflow.companyId ? (
+                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6" role="alert">
+                        <h2 className="text-base font-bold text-white">Entreprise active indisponible</h2>
+                        <p className="mt-2 text-sm text-zinc-300">Le workspace ne peut pas s’ouvrir dans ce contexte. Revenez au catalogue et sélectionnez une entreprise avec une offre.</p>
+                        <button type="button" onClick={() => setCreatorAppWorkflow(null)} className="mt-4 rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-300">Retour aux applications</button>
+                      </div>
+                    ) : creatorAppWorkflow.app === "courses" ? (
+                      <CreatorCoursesWorkspace
+                        key={`${activeWorkspaceId}-courses`}
+                        creatorId={user.uid || user.email || "local-user"}
+                        companyId={activeCompany.id}
+                        productIds={creatorAppWorkflow.productIds}
+                        products={contextProducts}
+                        onBack={() => setCreatorAppWorkflow(null)}
+                      />
+                    ) : (
+                      <FilesWorkspace
+                        key={`${activeWorkspaceId}-files`}
+                        creatorId={user.uid || user.email || "local-user"}
+                        companyId={activeCompany.id}
+                        productIds={creatorAppWorkflow.productIds}
+                        products={contextProducts}
+                        onBack={() => setCreatorAppWorkflow(null)}
+                      />
+                    )
+                  ) : (
+                    <ConnectedAppsView
+                      lang={lang}
+                      initialSubView="catalog"
+                      key={`${activeWorkspaceId}-catalog`}
+                      {...(activeCompany
+                        ? { companyId: activeCompany.id, companyName: activeCompany.name }
+                        : {})}
+                      availableProducts={contextProducts.map((p) => ({
+                        id: p.id,
+                        title: p.title || p.name,
+                        priceDisplay: p.priceDisplay || formatCurrency(p.priceAmount, currency),
+                        subscribersCount: p.activeUsers || 0,
+                      }))}
+                      onOpenCoursesWorkflow={(productIds) =>
+                        setCreatorAppWorkflow({ app: "courses", companyId: activeCompany?.id || "", productIds })
+                      }
+                      onOpenFilesWorkflow={(productIds) =>
+                        setCreatorAppWorkflow({ app: "files", companyId: activeCompany?.id || "", productIds })
+                      }
+                    />
+                  )}
+                </React.Suspense>
+              </CreatorAppsErrorBoundary>
+            )}
 
             {/* VIEW: TELEGRAM CONNECTED APP & CHANNELS */}
             {activeNav === "telegram_app" &&

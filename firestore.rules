@@ -609,6 +609,184 @@ service cloud.firestore {
         && ownsCompany(resource.data.get('companyId', ''));
     }
 
+    // Liens d'affiliation : les documents contenant l'identité de l'affilié ne
+    // sont lisibles que par celui-ci. Seul le document code public, strictement
+    // limité à un pointeur opaque + produit/taux, est lisible anonymement.
+    function validAffiliateRate(productId, affiliateUid, rate) {
+      let productPath = /databases/$(database)/documents/products/$(productId);
+      return productId is string
+        && productId.size() > 0
+        && rate is number
+        && rate > 0
+        && rate <= 100
+        && exists(productPath)
+        && get(productPath).data.get('status', '') == 'active'
+        && get(productPath).data.get('creatorId', '') is string
+        && get(productPath).data.get('creatorId', '') != affiliateUid
+        && get(productPath).data.get('affiliateCommissionRate', -1) == rate;
+    }
+
+    function validAffiliateLinkCodePair(linkId, linkData, codeId, codeData) {
+      let publicRefPath = /databases/$(database)/documents/affiliateLinkRefs/$(linkData.get('publicRef', ''));
+      return linkData.get('code', '') == codeId
+        && codeData.get('publicRef', '') == linkData.get('publicRef', '')
+        && codeData.get('productId', '') == linkData.get('productId', '')
+        && codeData.get('commissionRate', -1) == linkData.get('commissionRate', -2)
+        && existsAfter(publicRefPath)
+        && getAfter(publicRefPath).data.get('linkId', '') == linkId
+        && getAfter(publicRefPath).data.get('affiliateUid', '') == linkData.get('affiliateUid', '')
+        && getAfter(publicRefPath).data.get('productId', '') == linkData.get('productId', '');
+    }
+
+    function validAffiliatePublicCode(codeId, codeData) {
+      let publicRefPath = /databases/$(database)/documents/affiliateLinkRefs/$(codeData.get('publicRef', ''));
+      let referenceData = getAfter(publicRefPath).data;
+      let linkId = referenceData.get('linkId', '');
+      let linkPath = /databases/$(database)/documents/affiliateLinks/$(linkId);
+      let linkData = getAfter(linkPath).data;
+      return existsAfter(publicRefPath)
+        && linkId.matches('^[a-f0-9]{64}$')
+        && existsAfter(linkPath)
+        && referenceData.get('affiliateUid', '') == request.auth.uid
+        && referenceData.get('productId', '') == codeData.get('productId', '')
+        && linkData.get('affiliateUid', '') == request.auth.uid
+        && validAffiliateLinkCodePair(linkId, linkData, codeId, codeData);
+    }
+
+    function validAffiliatePrivateReference(publicRef, referenceData) {
+      let linkId = referenceData.get('linkId', '');
+      let linkPath = /databases/$(database)/documents/affiliateLinks/$(linkId);
+      let linkData = getAfter(linkPath).data;
+      let codePath = /databases/$(database)/documents/affiliateCodes/$(linkData.get('code', ''));
+      let codeData = getAfter(codePath).data;
+      return linkId.matches('^[a-f0-9]{64}$')
+        && existsAfter(linkPath)
+        && existsAfter(codePath)
+        && referenceData.get('affiliateUid', '') == request.auth.uid
+        && referenceData.get('productId', '') == linkData.get('productId', '')
+        && linkData.get('affiliateUid', '') == request.auth.uid
+        && linkData.get('publicRef', '') == publicRef
+        && codeData.get('publicRef', '') == publicRef
+        && codeData.get('productId', '') == referenceData.get('productId', '')
+        && codeData.get('commissionRate', -1) == linkData.get('commissionRate', -2)
+        && linkData.get('code', '').matches('^[A-Za-z0-9_-]{32}$');
+    }
+
+    match /affiliateLinks/{linkId} {
+      allow get: if signedIn()
+        && (resource == null || resource.data.get('affiliateUid', '') == request.auth.uid);
+      allow list: if signedIn() && resource.data.get('affiliateUid', '') == request.auth.uid;
+      allow create: if signedIn()
+        && linkId.matches('^[a-f0-9]{64}$')
+        && request.resource.data.keys().hasAll([
+          'affiliateUid', 'productId', 'productName', 'creatorUid', 'commissionRate',
+          'publicRef', 'code', 'acceptedAt', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'affiliateUid', 'productId', 'productName', 'creatorUid', 'commissionRate',
+          'publicRef', 'code', 'acceptedAt', 'createdAt'
+        ])
+        && request.resource.data.affiliateUid == request.auth.uid
+        && request.resource.data.productName is string
+        && request.resource.data.creatorUid is string
+        && validAffiliateRate(
+          request.resource.data.productId,
+          request.auth.uid,
+          request.resource.data.commissionRate
+        )
+        && request.resource.data.creatorUid
+          == get(/databases/$(database)/documents/products/$(request.resource.data.productId)).data.get('creatorId', '')
+        && request.resource.data.code is string
+        && request.resource.data.code.matches('^[A-Za-z0-9_-]{32}$')
+        && request.resource.data.publicRef is string
+        && request.resource.data.publicRef.matches('^[A-Za-z0-9_-]{32}$')
+        && request.resource.data.acceptedAt is timestamp
+        && request.resource.data.acceptedAt == request.time
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/affiliateCodes/$(request.resource.data.code))
+        && validAffiliateLinkCodePair(
+          linkId,
+          request.resource.data,
+          request.resource.data.code,
+          getAfter(/databases/$(database)/documents/affiliateCodes/$(request.resource.data.code)).data
+        );
+      allow update: if signedIn()
+        && resource.data.get('affiliateUid', '') == request.auth.uid
+        && request.resource.data.get('affiliateUid', '') == resource.data.get('affiliateUid', '')
+        && request.resource.data.get('productId', '') == resource.data.get('productId', '')
+        && request.resource.data.get('creatorUid', '') == resource.data.get('creatorUid', '')
+        && request.resource.data.get('code', '') == resource.data.get('code', '')
+        && request.resource.data.get('productName', '') == resource.data.get('productName', '')
+        && request.resource.data.get('publicRef', '').matches('^[A-Za-z0-9_-]{32}$')
+        && (resource.data.get('publicRef', '') == ''
+          || request.resource.data.publicRef == resource.data.publicRef)
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commissionRate', 'acceptedAt', 'publicRef'])
+        && validAffiliateRate(
+          resource.data.get('productId', ''),
+          request.auth.uid,
+          request.resource.data.get('commissionRate', -1)
+        )
+        && request.resource.data.get('acceptedAt', null) is timestamp
+        && request.resource.data.acceptedAt == request.time
+        && existsAfter(/databases/$(database)/documents/affiliateCodes/$(resource.data.code))
+        && validAffiliateLinkCodePair(
+          linkId,
+          request.resource.data,
+          resource.data.code,
+          getAfter(/databases/$(database)/documents/affiliateCodes/$(resource.data.code)).data
+        );
+      allow delete: if false;
+    }
+
+    match /affiliateCodes/{codeId} {
+      // Public get returns only an opaque reference and public product/rate details.
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && codeId.matches('^[A-Za-z0-9_-]{32}$')
+        && request.resource.data.keys().hasAll(['publicRef', 'productId', 'commissionRate', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['publicRef', 'productId', 'commissionRate', 'createdAt'])
+        && request.resource.data.publicRef is string
+        && request.resource.data.publicRef.matches('^[A-Za-z0-9_-]{32}$')
+        && validAffiliateRate(request.resource.data.productId, request.auth.uid, request.resource.data.commissionRate)
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/affiliateLinkRefs/$(request.resource.data.publicRef))
+        && validAffiliatePublicCode(codeId, request.resource.data);
+      allow update: if signedIn()
+        && request.resource.data.keys().hasAll(['publicRef', 'productId', 'commissionRate', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['publicRef', 'productId', 'commissionRate', 'createdAt'])
+        && request.resource.data.get('publicRef', '').matches('^[A-Za-z0-9_-]{32}$')
+        && request.resource.data.get('createdAt', null) == resource.data.get('createdAt', null)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['publicRef', 'commissionRate', 'productId', 'linkId'])
+        && existsAfter(/databases/$(database)/documents/affiliateLinkRefs/$(request.resource.data.publicRef))
+        && request.resource.data.get('productId', '') == getAfter(/databases/$(database)/documents/affiliateLinkRefs/$(request.resource.data.publicRef)).data.get('productId', '')
+        && validAffiliateRate(
+          request.resource.data.productId,
+          request.auth.uid,
+          request.resource.data.get('commissionRate', -1)
+        )
+        && validAffiliatePublicCode(codeId, request.resource.data);
+      allow delete: if false;
+    }
+
+    match /affiliateLinkRefs/{publicRef} {
+      allow get: if signedIn()
+        && (resource == null || resource.data.get('affiliateUid', '') == request.auth.uid);
+      allow list: if signedIn() && resource.data.get('affiliateUid', '') == request.auth.uid;
+      allow create: if signedIn()
+        && publicRef.matches('^[A-Za-z0-9_-]{32}$')
+        && request.resource.data.keys().hasAll(['linkId', 'affiliateUid', 'productId'])
+        && request.resource.data.keys().hasOnly(['linkId', 'affiliateUid', 'productId'])
+        && request.resource.data.get('affiliateUid', '') == request.auth.uid
+        && request.resource.data.get('linkId', '').matches('^[a-f0-9]{64}$')
+        && existsAfter(/databases/$(database)/documents/affiliateLinks/$(request.resource.data.linkId))
+        && validAffiliatePrivateReference(publicRef, request.resource.data);
+      allow update, delete: if false;
+    }
+
     match /affiliateMemberships/{membershipId} {
       allow get: if signedIn()
         && (resource.data.get('affiliateUserId', '') == request.auth.uid
