@@ -3,6 +3,7 @@ import {
   getMemberAuthorizedCourses,
   getMemberAuthorizedEbooks,
   getOffersForCompany,
+  normalizeUnlockedOfferIds,
   verifyMemberResourceAccess,
 } from "@/mansa/utils/rightsAccessEngine";
 
@@ -54,6 +55,18 @@ describe("source unifiée des offres et droits aux ressources", () => {
         resourceId: course.id,
       }).isAuthorized,
     ).toBe(true);
+  });
+
+  it("ouvre toutes les offres de l’entreprise en mode temporaire sans créer d’achat", () => {
+    saveOffers([
+      { id: offerA, companyId, companyName: "Entreprise test", title: "Offre A" },
+      { id: offerB, companyId, companyName: "Entreprise test", title: "Offre B" },
+    ]);
+
+    const unlockedIds = normalizeUnlockedOfferIds({ companyId, purchasedOfferIds: [] });
+
+    expect(unlockedIds).toEqual(expect.arrayContaining([offerA, offerB]));
+    expect(unlockedIds).not.toContain("paid");
   });
 
   it("fusionne le cache produit et la source créateur en gardant le contenu du cours", () => {

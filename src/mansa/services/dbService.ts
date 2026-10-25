@@ -27,6 +27,7 @@ import { BusinessProject, LiveEvent, MarketplaceItem } from "../types";
 import { safeStorage } from "../utils/storage";
 import { getSavedCompanies } from "../utils/companyStorage";
 import { filterPersonalTransactions } from "../utils/companyScope";
+import { TEMPORARY_FREE_ACCESS_ENABLED } from "../utils/temporaryFreeAccess";
 
 export interface AccountPaymentMethodConfig {
   dialCode?: string;
@@ -450,15 +451,22 @@ export async function persistVerifiedMemberEntitlement(input: {
   }, { merge: true });
 }
 
-export async function loadVerifiedMemberContent(memberUid: string, productId: string): Promise<{
+export async function loadVerifiedMemberContent(
+  memberUid: string,
+  productId: string,
+): Promise<{
   digitalFiles?: unknown[];
   courseModules?: unknown[];
 } | null> {
   if (!db || !memberUid || !productId) return null;
-  const entitlement = await getDoc(doc(db, "memberEntitlements", `${memberUid}_${productId}`));
-  if (!entitlement.exists() || entitlement.data().status !== "paid") return null;
+  if (!TEMPORARY_FREE_ACCESS_ENABLED) {
+    const entitlement = await getDoc(doc(db, "memberEntitlements", `${memberUid}_${productId}`));
+    if (!entitlement.exists() || entitlement.data().status !== "paid") return null;
+  }
   const content = await getDoc(doc(db, "productPrivateContent", productId));
-  return content.exists() ? content.data() as { digitalFiles?: unknown[]; courseModules?: unknown[] } : null;
+  return content.exists()
+    ? (content.data() as { digitalFiles?: unknown[]; courseModules?: unknown[] })
+    : null;
 }
 
 // ----------------- USER PROFILE & ENTERPRISE SETTINGS -----------------

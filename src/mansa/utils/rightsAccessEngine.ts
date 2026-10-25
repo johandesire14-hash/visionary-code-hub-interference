@@ -8,6 +8,7 @@ import {
   PrivateResourceItem,
   EnterpriseSubscription,
 } from "../types";
+import { TEMPORARY_FREE_ACCESS_ENABLED } from "./temporaryFreeAccess";
 
 export type { EbookResourceItem, CourseResourceItem, PrivateResourceItem };
 
@@ -492,9 +493,7 @@ export const PLATFORM_OFFERS_CATALOG: CreatorPlatformOffer[] = [
 /**
  * Normalise les IDs d'offres débloquées/achetées depuis un objet EnterpriseSubscription
  */
-export function normalizeUnlockedOfferIds(
-  sub?: Partial<EnterpriseSubscription> | null
-): string[] {
+export function normalizeUnlockedOfferIds(sub?: Partial<EnterpriseSubscription> | null): string[] {
   if (!sub) return [];
   const set = new Set<string>();
 
@@ -512,6 +511,10 @@ export function normalizeUnlockedOfferIds(
 
   if (sub.productId && typeof sub.productId === "string" && !sub.productId.includes("free")) {
     set.add(sub.productId);
+  }
+
+  if (TEMPORARY_FREE_ACCESS_ENABLED && sub.companyId) {
+    getOffersForCompany(sub.companyId).forEach((offer) => set.add(offer.id));
   }
 
   return Array.from(set);

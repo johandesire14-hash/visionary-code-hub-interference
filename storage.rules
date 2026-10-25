@@ -6,6 +6,11 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // TEMPORARY GLOBAL FREE ACCESS: remove this helper and its use below when the free mode ends.
+    function temporaryGlobalFreeAccessEnabled() {
+      return true;
+    }
+
     function ownsCompany(companyId) {
       return signedIn()
         && firestore.get(/databases/(default)/documents/companies/$(companyId)).data.get('ownerUid', '') == request.auth.uid;
@@ -41,7 +46,7 @@ service firebase.storage {
           && firestore.exists(/databases/(default)/documents/offerEntitlements/$(productId)/members/$(request.auth.uid))
           && firestore.get(/databases/(default)/documents/offerEntitlements/$(productId)/members/$(request.auth.uid)).data.get('status', '') == 'active';
       }
-      allow read: if isProductOwner() || hasActiveEntitlement();
+      allow read: if isProductOwner() || hasActiveEntitlement() || (signedIn() && temporaryGlobalFreeAccessEnabled());
       allow create, update: if isProductOwner() && request.resource.size < 250 * 1024 * 1024;
       allow delete: if isProductOwner();
     }

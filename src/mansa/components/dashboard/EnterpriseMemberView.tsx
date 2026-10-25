@@ -86,6 +86,7 @@ import {
   EbookResourceItem,
   CourseResourceItem,
 } from "../../utils/rightsAccessEngine";
+import { TEMPORARY_FREE_ACCESS_ENABLED } from "../../utils/temporaryFreeAccess";
 import { downloadDigitalAsset, saveDigitalAsset } from "../../utils/digitalAssetStorage";
 import {
   getPostsForCompany,
@@ -3835,51 +3836,72 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                           )}
                         </div>
                       </div>
-                      {offer.pricingType === "paid" && (
-                        <div className="space-y-2">
-                          <label className="block text-[11px] font-bold text-zinc-300">
-                            Choisissez votre formule :
-                          </label>
-                          {plans.map((plan) => (
-                            <button
-                              type="button"
-                              key={plan.id}
-                              onClick={() => setSelectedProductPlanId(plan.id)}
-                              className={`flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs font-semibold ${selectedProductPlanId === plan.id ? "border-emerald-400 bg-emerald-500/10 text-white" : "border-white/10 bg-[#1b1e2a] text-zinc-300"}`}
-                            >
-                              <span>{plan.name}</span>
-                              <span className="font-mono font-bold text-white">
-                                {plan.price} {offer.currency === "EUR" ? "€" : offer.currency}
-                              </span>
-                            </button>
-                          ))}
+                      {offer.pricingType === "paid" &&
+                        !(TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany) && (
+                          <div className="space-y-2">
+                            <label className="block text-[11px] font-bold text-zinc-300">
+                              Choisissez votre formule :
+                            </label>
+                            {plans.map((plan) => (
+                              <button
+                                type="button"
+                                key={plan.id}
+                                onClick={() => setSelectedProductPlanId(plan.id)}
+                                className={`flex w-full items-center justify-between rounded-2xl border p-3.5 text-left text-xs font-semibold ${selectedProductPlanId === plan.id ? "border-emerald-400 bg-emerald-500/10 text-white" : "border-white/10 bg-[#1b1e2a] text-zinc-300"}`}
+                              >
+                                <span>{plan.name}</span>
+                                <span className="font-mono font-bold text-white">
+                                  {plan.price} {offer.currency === "EUR" ? "€" : offer.currency}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      {TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany && (
+                        <div
+                          role="status"
+                          className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-sm text-emerald-100"
+                        >
+                          Accès gratuit temporaire activé — aucun paiement requis.
                         </div>
                       )}
                       <button
                         type="button"
                         onClick={() => {
+                          if (TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany) {
+                            setSelectedProductDetailOffer(null);
+                            setActiveTab("accueil");
+                            setCompanyTab("accueil");
+                            return;
+                          }
                           setCheckoutModalOffer(offer);
                           setSelectedProductDetailOffer(null);
                         }}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0066FF] py-4 text-base font-black text-white shadow-xl hover:bg-[#0055EE]"
                       >
-                        <span>{offer.ctaText || "Rejoindre maintenant"}</span>
+                        <span>
+                          {TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany
+                            ? "Accéder gratuitement"
+                            : offer.ctaText || "Rejoindre maintenant"}
+                        </span>
                         <ArrowRight className="size-4" />
                       </button>
-                      <div className="space-y-2 border-t border-white/5 pt-2 text-xs text-zinc-300">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="size-4 shrink-0 text-emerald-400" />
-                          <span>Paiement sécurisé par carte & Mobile Money</span>
+                      {!(TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany) && (
+                        <div className="space-y-2 border-t border-white/5 pt-2 text-xs text-zinc-300">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="size-4 shrink-0 text-emerald-400" />
+                            <span>Paiement sécurisé par carte & Mobile Money</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Zap className="size-4 shrink-0 text-emerald-400" />
+                            <span>Livraison automatique et accès immédiat</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Lock className="size-4 shrink-0 text-emerald-400" />
+                            <span>Annulation en 1-clic sans engagement</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Zap className="size-4 shrink-0 text-emerald-400" />
-                          <span>Livraison automatique et accès immédiat</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Lock className="size-4 shrink-0 text-emerald-400" />
-                          <span>Annulation en 1-clic sans engagement</span>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>

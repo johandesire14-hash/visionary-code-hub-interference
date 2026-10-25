@@ -57,12 +57,18 @@ service cloud.firestore {
         && get(entitlementPath).data.get('productId', '') == productId;
     }
 
+    // TEMPORARY GLOBAL FREE ACCESS: remove this helper and its use in canReadPrivateProductContent when the free mode ends.
+    function temporaryGlobalFreeAccessEnabled() {
+      return true;
+    }
+
     function canReadPrivateProductContent(productId) {
       return signedIn()
-        && exists(/databases/$(database)/documents/products/$(productId))
-        && ((get(/databases/$(database)/documents/products/$(productId)).data.get('creatorId', '') == request.auth.uid
-            && ownsCompany(get(/databases/$(database)/documents/products/$(productId)).data.get('companyId', '')))
-          || hasActiveOfferEntitlement(productId));
+        && (temporaryGlobalFreeAccessEnabled()
+          || (exists(/databases/$(database)/documents/products/$(productId))
+            && ((get(/databases/$(database)/documents/products/$(productId)).data.get('creatorId', '') == request.auth.uid
+                && ownsCompany(get(/databases/$(database)/documents/products/$(productId)).data.get('companyId', '')))
+              || hasActiveOfferEntitlement(productId))));
     }
 
     function hasVerifiedEntitlement(productId) {
