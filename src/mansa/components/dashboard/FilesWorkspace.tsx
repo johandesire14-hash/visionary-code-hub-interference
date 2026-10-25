@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, FileText, Pencil, Plus, Replace, Trash2, Upload, X } from "lucide-react";
 import { saveDigitalAsset } from "../../utils/digitalAssetStorage";
+import { getOffersForCompany } from "../../utils/rightsAccessEngine";
 
 interface FilesWorkspaceProps {
   creatorId: string;
@@ -95,7 +96,98 @@ const createInitialFiles = (products: ProductRecord[], productIds: string[]): Fi
           updatedAt: file.updatedAt || existing?.updatedAt || new Date().toISOString(),
         });
       });
+      (product.ebooks || []).forEach((ebook) => {
+        const existing = byId.get(ebook.id);
+        const storageKey = typeof ebook.storageKey === "string" ? ebook.storageKey : undefined;
+        byId.set(ebook.id, {
+          id: ebook.id,
+          name: ebook.title || existing?.name || "Fichier sans nom",
+          size:
+            typeof ebook.fileSize === "string"
+              ? ebook.fileSize
+              : existing?.size || "Taille inconnue",
+          type: typeof ebook.type === "string" ? ebook.type : existing?.type || "application/pdf",
+          productIds: Array.from(new Set([...(existing?.productIds || []), product.id])),
+          storageKey: storageKey || existing?.storageKey,
+          updatedAt: existing?.updatedAt || new Date().toISOString(),
+          ...(typeof ebook.downloadUrl === "string" ? { downloadUrl: ebook.downloadUrl } : {}),
+        });
+      });
     });
+  return Array.from(byId.values());
+};
+
+const loadWorkspaceFiles = (
+  companyId: string,
+  productIds: string[],
+  products: ProductRecord[],
+): FileItem[] => {
+  if (typeof window === "undefined" || !companyId || productIds.length === 0) return [];
+
+  const savedOffers = getOffersForCompany(companyId) as ProductRecord[];
+  const mergedProducts = new Map<string, ProductRecord>();
+  [...products, ...savedOffers].forEach((product) => {
+    const existing = mergedProducts.get(product.id);
+    mergedProducts.set(product.id, { ...existing, ...product });
+  });
+  const byId = new Map(
+    createInitialFiles(Array.from(mergedProducts.values()), productIds).map((file) => [
+      file.id,
+      file,
+    ]),
+  );
+
+  try {
+    const appRecords: unknown = JSON.parse(
+      localStorage.getItem(`mansa_creator_apps_${companyId}`) || "[]",
+    );
+    if (Array.isArray(appRecords)) {
+      appRecords
+        .filter((record) => record && typeof record === "object" && record.appId === "files")
+        .forEach((record) => {
+          const app = record as { productIds?: unknown; files?: unknown };
+          const appProductIds = Array.isArray(app.productIds)
+            ? app.productIds.filter((id): id is string => typeof id === "string")
+            : [];
+          if (!Array.isArray(app.files)) return;
+          app.files.forEach((value) => {
+            if (!value || typeof value !== "object") return;
+            const file = value as Partial<FileItem>;
+            if (typeof file.id !== "string") return;
+            const linkedIds = Array.isArray(file.productIds)
+              ? file.productIds.filter((id): id is string => typeof id === "string")
+              : appProductIds;
+            const scopedProductIds = linkedIds.filter((id) => productIds.includes(id));
+            if (scopedProductIds.length === 0) return;
+            const existing = byId.get(file.id);
+            byId.set(file.id, {
+              ...existing,
+              id: file.id,
+              name:
+                typeof file.name === "string" ? file.name : existing?.name || "Fichier sans nom",
+              size: typeof file.size === "string" ? file.size : existing?.size || "Taille inconnue",
+              type:
+                typeof file.type === "string"
+                  ? file.type
+                  : existing?.type || "application/octet-stream",
+              productIds: Array.from(
+                new Set([...(existing?.productIds || []), ...scopedProductIds]),
+              ),
+              storageKey:
+                typeof file.storageKey === "string" ? file.storageKey : existing?.storageKey,
+              updatedAt:
+                typeof file.updatedAt === "string"
+                  ? file.updatedAt
+                  : existing?.updatedAt || new Date().toISOString(),
+              ...(typeof file.downloadUrl === "string" ? { downloadUrl: file.downloadUrl } : {}),
+            });
+          });
+        });
+    }
+  } catch {
+    // If one cache is malformed, keep valid resources loaded from the other source.
+  }
+
   return Array.from(byId.values());
 };
 
@@ -113,6 +205,17 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [files, setFiles] = useState<FileItem[]>(() => createInitialFiles(products, productIds));
+
+  useEffect(() => {
+    const reloadFiles = () => setFiles(loadWorkspaceFiles(companyId, productIds, products));
+    reloadFiles();
+    window.addEventListener("mansa_products_updated", reloadFiles);
+    window.addEventListener("storage", reloadFiles);
+    return () => {
+      window.removeEventListener("mansa_products_updated", reloadFiles);
+      window.removeEventListener("storage", reloadFiles);
+    };
+  }, [companyId, productIds, products]);
 
   const linkedProductNames = useMemo(
     () =>

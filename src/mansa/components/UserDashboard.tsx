@@ -249,7 +249,7 @@ const getCountryFlagFromLocation = (location: string): string => {
   return "🌍";
 };
 
-const CreatorCoursesWorkspace: React.FC<{
+export const CreatorCoursesWorkspace: React.FC<{
   creatorId: string;
   companyId: string;
   productIds: string[];
@@ -417,8 +417,8 @@ const CreatorCoursesWorkspace: React.FC<{
       <div className="min-h-full space-y-5 rounded-2xl border border-white/10 bg-[#0c0d0e] p-5">
         <div className="flex items-center justify-between border-b border-white/10 pb-4">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">
-              Courses
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-purple-400">
+              Cours & Formations
             </div>
             <h1 className="mt-1 text-xl font-bold text-white">
               {editingCourseId ? "Modifier le cours" : "Créer un cours"}
@@ -604,7 +604,7 @@ const CreatorCoursesWorkspace: React.FC<{
                 type="button"
                 onClick={saveCourse}
                 disabled={!title.trim() || isSaving}
-                className="rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
+                className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
               >
                 {isSaving ? "Enregistrement…" : "Enregistrer le cours"}
               </button>
@@ -619,12 +619,12 @@ const CreatorCoursesWorkspace: React.FC<{
     <div className="min-h-full space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-purple-400">
             {linkedProducts.length
               ? `Lié à ${linkedProducts.map((product) => product.title || product.name).join(", ")}`
-              : "Application Courses"}
+              : "Application Cours & Formations"}
           </div>
-          <h1 className="mt-1 text-2xl font-bold text-white">Courses</h1>
+          <h1 className="mt-1 text-2xl font-bold text-white">Cours & Formations</h1>
           <p className="mt-1 text-xs text-zinc-400">
             Créez et organisez les cours liés à vos offres.
           </p>
@@ -639,7 +639,7 @@ const CreatorCoursesWorkspace: React.FC<{
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <button
           onClick={startNewCourse}
-          className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] text-zinc-400 hover:border-blue-500/60 hover:text-white"
+          className="flex min-h-44 flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-[#0c0d0e] text-zinc-400 hover:border-purple-500/60 hover:text-white"
         >
           <span className="mb-3 flex size-12 items-center justify-center rounded-full border border-white/15 text-3xl">
             +
@@ -650,10 +650,10 @@ const CreatorCoursesWorkspace: React.FC<{
           <button
             key={course.id}
             onClick={() => editCourse(course)}
-            className="min-h-44 rounded-xl border border-white/10 bg-[#121316] p-4 text-left hover:border-blue-500/50"
+            className="min-h-44 rounded-xl border border-white/10 bg-[#121316] p-4 text-left hover:border-purple-500/50"
           >
-            <div className="flex size-10 items-center justify-center rounded-lg bg-purple-500/15 text-xl">
-              🎓
+            <div className="flex size-10 items-center justify-center rounded-lg bg-purple-500/15 text-purple-300">
+              <GraduationCap className="size-5" />
             </div>
             <div className="mt-5 text-sm font-bold text-white">{course.title}</div>
             <div className="mt-1 text-xs text-zinc-500">{course.chapters.length} chapitre(s)</div>

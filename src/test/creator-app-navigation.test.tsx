@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConnectedAppsView } from "@/mansa/components/dashboard/ConnectedAppsView";
 import { FilesWorkspace } from "@/mansa/components/dashboard/FilesWorkspace";
+import { CreatorCoursesWorkspace } from "@/mansa/components/UserDashboard";
 import { saveDigitalAsset } from "@/mansa/utils/digitalAssetStorage";
 import { getCreatorAppProductIds } from "@/mansa/utils/creatorAppRouting";
 
@@ -109,6 +110,69 @@ describe("navigation catalogue Apps Store vers les workspaces créateur", () => 
     fireEvent.click(screen.getByRole("button", { name: "Retour aux applications" }));
 
     expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it("réaffiche les fichiers persistés quand le créateur rouvre l’application", async () => {
+    localStorage.setItem(
+      "mansa_creator_apps_company-1",
+      JSON.stringify([
+        {
+          appId: "files",
+          productIds: ["offer-real-1"],
+          files: [
+            {
+              id: "file-existing-1",
+              name: "Guide déjà enregistré.pdf",
+              size: "12 KB",
+              type: "application/pdf",
+              productIds: ["offer-real-1"],
+              storageKey: "asset-existing-1",
+              updatedAt: "2026-10-25T00:00:00.000Z",
+            },
+          ],
+        },
+      ]),
+    );
+
+    render(
+      <FilesWorkspace
+        creatorId="creator-1"
+        companyId="company-1"
+        productIds={["offer-real-1"]}
+        products={[]}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("Guide déjà enregistré.pdf")).toBeInTheDocument();
+  });
+
+  it("affiche deux écrans de gestion distincts pour Cours et Fichiers", () => {
+    const filesScreen = render(
+      <FilesWorkspace
+        creatorId="creator-1"
+        companyId="company-1"
+        productIds={["offer-real-1"]}
+        products={[]}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Fichiers du produit" })).toBeInTheDocument();
+    filesScreen.unmount();
+
+    render(
+      <CreatorCoursesWorkspace
+        creatorId="creator-1"
+        companyId="company-1"
+        productIds={["offer-real-1"]}
+        products={[]}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Cours & Formations" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Ajouter un cours/ }));
+    expect(screen.getByRole("heading", { name: "Créer un cours" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Titre du chapitre")).toBeInTheDocument();
   });
 
   it("montre le chargement puis l’erreur et réactive l’action après échec de téléversement", async () => {
