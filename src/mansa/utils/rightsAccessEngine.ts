@@ -586,6 +586,11 @@ export function convertProjectToPlatformOffer(
     bannerUrl: project.bannerUrl || undefined,
     creatorName: project.creatorName || cName,
     ctaText: project.ctaText || undefined,
+    affiliateCommissionRate: Number.isFinite(
+      Number(project.affiliateCommissionRate ?? project.affiliateRate),
+    )
+      ? Number(project.affiliateCommissionRate ?? project.affiliateRate)
+      : 0,
     includedApps: apps,
     subscribersCount: `${project.membersCount || project.activeUsers || 142} membres`,
     rating: 4.98,

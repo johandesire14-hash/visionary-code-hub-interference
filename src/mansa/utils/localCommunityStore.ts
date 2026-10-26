@@ -20,10 +20,27 @@ export interface LocalSupportConversation {
   messages: LocalSupportMessage[];
 }
 
+export interface LocalPrivateMessage {
+  id: string;
+  sender: "member" | "creator";
+  text: string;
+  time: string;
+}
+
+export interface LocalPrivateConversation {
+  id: string;
+  companyId: string;
+  memberName: string;
+  memberEmail: string;
+  messages: LocalPrivateMessage[];
+}
+
 export const LOCAL_COMPANY_MEMBERS_PREFIX = "mansa_local_company_members_";
 export const LOCAL_SUPPORT_CONVERSATIONS_PREFIX = "mansa_local_support_conversations_";
 export const LOCAL_COMPANY_MEMBERS_EVENT = "mansa_local_company_members_updated";
 export const LOCAL_SUPPORT_CONVERSATIONS_EVENT = "mansa_support_conversations_updated";
+export const LOCAL_PRIVATE_CONVERSATIONS_PREFIX = "mansa_private_conversations_";
+export const LOCAL_PRIVATE_CONVERSATIONS_EVENT = "mansa_private_conversations_updated";
 const SUBSCRIPTIONS_STORAGE_KEY_PREFIX = "mansa_enterprise_subscriptions_";
 
 const isDevelopment = import.meta.env.DEV;
@@ -209,6 +226,82 @@ export function appendLocalSupportMessage(input: {
     dispatchLocalUpdate(LOCAL_SUPPORT_CONVERSATIONS_EVENT, input.companyId);
   } catch (error) {
     console.warn("Could not save the local development support message:", error);
+    return null;
+  }
+  return nextConversation;
+}
+
+export function getLocalPrivateConversations(companyId: string): LocalPrivateConversation[] {
+  if (!companyId) return [];
+  return readArray<LocalPrivateConversation>(`${LOCAL_PRIVATE_CONVERSATIONS_PREFIX}${companyId}`);
+}
+
+export function getAllLocalPrivateConversations(): LocalPrivateConversation[] {
+  if (!isDevelopment || typeof window === "undefined") return [];
+  const conversations: LocalPrivateConversation[] = [];
+  try {
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith(LOCAL_PRIVATE_CONVERSATIONS_PREFIX)) {
+        conversations.push(...readArray<LocalPrivateConversation>(key));
+      }
+    }
+  } catch {
+    // Keep the inbox empty when browser storage is unavailable.
+  }
+  return conversations;
+}
+
+export function appendLocalPrivateMessage(input: {
+  companyId: string;
+  memberEmail: string;
+  memberName: string;
+  sender: LocalPrivateMessage["sender"];
+  text: string;
+}): LocalPrivateConversation | null {
+  if (
+    !isDevelopment ||
+    typeof window === "undefined" ||
+    !input.companyId ||
+    !input.memberEmail ||
+    !input.text.trim()
+  ) {
+    return null;
+  }
+  const key = `${LOCAL_PRIVATE_CONVERSATIONS_PREFIX}${input.companyId}`;
+  const conversations = getLocalPrivateConversations(input.companyId);
+  const normalizedEmail = input.memberEmail.trim().toLowerCase();
+  const existing = conversations.find(
+    (conversation) => conversation.memberEmail.trim().toLowerCase() === normalizedEmail,
+  );
+  const nextMessage: LocalPrivateMessage = {
+    id: makeId(input.sender),
+    sender: input.sender,
+    text: input.text.trim(),
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  };
+  const nextConversation: LocalPrivateConversation = existing
+    ? {
+        ...existing,
+        memberName: input.memberName || existing.memberName,
+        messages: [...existing.messages, nextMessage],
+      }
+    : {
+        id: `${input.companyId}:${normalizedEmail}`,
+        companyId: input.companyId,
+        memberName: input.memberName || "Membre",
+        memberEmail: normalizedEmail,
+        messages: [nextMessage],
+      };
+  const updated = existing
+    ? conversations.map((conversation) =>
+        conversation.id === existing.id ? nextConversation : conversation,
+      )
+    : [...conversations, nextConversation];
+  try {
+    window.localStorage.setItem(key, JSON.stringify(updated));
+    dispatchLocalUpdate(LOCAL_PRIVATE_CONVERSATIONS_EVENT, input.companyId);
+  } catch (error) {
+    console.warn("Could not save the local private message:", error);
     return null;
   }
   return nextConversation;

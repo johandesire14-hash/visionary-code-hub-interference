@@ -56,6 +56,7 @@ import {
   Menu,
   AlertTriangle,
   Headphones,
+  MessageSquare,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { safeStorage } from "../utils/storage";
@@ -126,6 +127,14 @@ import { BusinessProject, Company, EnterpriseSubscription } from "../types";
 import { CompanyOnboardingModal } from "./CompanyOnboardingModal";
 import { getSavedCompanies, loadCreatorCompanies, saveCompany } from "../utils/companyStorage";
 import { filterByCompanyId, filterPersonalTransactions } from "../utils/companyScope";
+import {
+  appendLocalPrivateMessage,
+  getAllLocalPrivateConversations,
+  getLocalCompanyMembers,
+  getLocalPrivateConversations,
+  LOCAL_PRIVATE_CONVERSATIONS_EVENT,
+  LOCAL_PRIVATE_CONVERSATIONS_PREFIX,
+} from "../utils/localCommunityStore";
 const EnterpriseMemberView = React.lazy(() =>
   import("./dashboard/EnterpriseMemberView").then((m) => ({ default: m.EnterpriseMemberView })),
 );
@@ -1335,6 +1344,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     }>
   >([]);
   const [newChatInput, setNewChatInput] = useState("");
+  const [privateConversations, setPrivateConversations] = useState<any[]>([]);
+  const [selectedPrivateConversationId, setSelectedPrivateConversationId] = useState<string | null>(null);
   const [isTabLoading, setIsTabLoading] = useState(false);
   const [creatorAppWorkflow, setCreatorAppWorkflow] = useState<{
     app: "courses" | "files";
@@ -1413,20 +1424,73 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     }
   }, [contextTransactions]);
 
+  useEffect(() => {
+    const refreshPrivateConversations = () => {
+      const isCreatorInbox = activeWorkspaceId !== "personnel" && Boolean(activeCompany);
+      const next = isCreatorInbox
+        ? [
+            ...getLocalPrivateConversations(activeWorkspaceId),
+            ...getLocalCompanyMembers(activeWorkspaceId)
+              .filter(
+                (member) =>
+                  !getLocalPrivateConversations(activeWorkspaceId).some(
+                    (conversation) =>
+                      conversation.memberEmail.trim().toLowerCase() === member.email.trim().toLowerCase(),
+                  ),
+              )
+              .map((member) => ({
+                id: `${activeWorkspaceId}:${member.email.trim().toLowerCase()}`,
+                companyId: activeWorkspaceId,
+                memberName: member.name,
+                memberEmail: member.email,
+                messages: [],
+              })),
+          ]
+        : getAllLocalPrivateConversations().filter(
+            (conversation) =>
+              conversation.memberEmail.trim().toLowerCase() === user.email.trim().toLowerCase(),
+          );
+      setPrivateConversations(next);
+      setSelectedPrivateConversationId((current) =>
+        current && next.some((conversation) => conversation.id === current)
+          ? current
+          : next[0]?.id || null,
+      );
+    };
+    refreshPrivateConversations();
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key?.startsWith(LOCAL_PRIVATE_CONVERSATIONS_PREFIX)) return;
+      refreshPrivateConversations();
+    };
+    window.addEventListener(LOCAL_PRIVATE_CONVERSATIONS_EVENT, refreshPrivateConversations);
+    window.addEventListener("mansa_local_company_members_updated", refreshPrivateConversations);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(LOCAL_PRIVATE_CONVERSATIONS_EVENT, refreshPrivateConversations);
+      window.removeEventListener("mansa_local_company_members_updated", refreshPrivateConversations);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [activeCompany, activeWorkspaceId, user.email]);
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newChatInput.trim()) return;
-    setChatMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        sender: user.name,
-        avatar: "",
-        text: newChatInput.trim(),
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        isMe: true,
-      },
-    ]);
+    const selected = privateConversations.find(
+      (conversation) => conversation.id === selectedPrivateConversationId,
+    );
+    if (!selected || !newChatInput.trim()) return;
+    const isCreatorInbox = activeWorkspaceId !== "personnel" && Boolean(activeCompany);
+    const saved = appendLocalPrivateMessage({
+      companyId: selected.companyId,
+      memberEmail: selected.memberEmail,
+      memberName: selected.memberName,
+      sender: isCreatorInbox ? "creator" : "member",
+      text: newChatInput.trim(),
+    });
+    if (saved) {
+      setPrivateConversations((previous) =>
+        previous.map((conversation) => (conversation.id === saved.id ? saved : conversation)),
+      );
+    }
     setNewChatInput("");
   };
 
@@ -1529,22 +1593,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           </div>
         </div>
 
-        {/* Center: Search Bar with ⌘K - tablet & desktop only */}
-        <div className="hidden sm:block flex-1 max-w-xs md:max-w-md mx-2 sm:mx-4">
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="w-full flex items-center justify-between rounded-lg border border-white/10 bg-[#16171a] px-2.5 sm:px-3 py-1.5 text-xs text-zinc-400 hover:border-white/20 hover:text-zinc-200 transition-all cursor-pointer min-h-[36px]"
-          >
-            <div className="flex items-center gap-1.5 sm:gap-2 truncate">
-              <Search className="size-3.5 text-zinc-500 shrink-0" />
-              <span className="truncate">{lang === "fr" ? "Rechercher..." : "Search..."}</span>
-            </div>
-            <kbd className="hidden md:flex items-center gap-0.5 rounded border border-white/10 bg-[#212328] px-1.5 py-0.5 text-[10px] font-mono text-zinc-400 shrink-0">
-              ⌘K
-            </kbd>
-          </button>
-        </div>
-
         {/* Spacer for mobile to push right icons to the edge */}
         <div className="sm:hidden flex-1" />
 
@@ -1570,15 +1618,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               </span>
             </button>
           )}
-
-          {/* Mobile Search Button (Quick icon-only tap) */}
-          <button
-            onClick={() => setIsSearchOpen(true)}
-            className="sm:hidden p-1.5 text-zinc-400 hover:text-white transition-colors cursor-pointer rounded-lg hover:bg-white/5 min-h-[36px] min-w-[36px] flex items-center justify-center"
-            title={lang === "fr" ? "Rechercher" : "Search"}
-          >
-            <Search className="size-4" />
-          </button>
 
           {/* Refresh Data with Skeleton simulator */}
           <button
@@ -1951,17 +1990,17 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       )}
                     </button>
 
-                    {/* Assistance */}
+                    {/* Messages privés */}
                     <button
-                      onClick={() => switchTab("assistance")}
+                      onClick={() => switchTab("messages")}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
-                        activeNav === "assistance"
+                        activeNav === "messages"
                           ? "bg-[#22252c] text-white font-semibold"
                           : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
                       }`}
                     >
-                      <Headphones className="size-4 text-emerald-400" />
-                      <span>{lang === "fr" ? "Assistance" : "Assistance"}</span>
+                      <MessageSquare className="size-4 text-emerald-400" />
+                      <span>{lang === "fr" ? "Messages" : "Messages"}</span>
                     </button>
 
                     {/* Découvrir */}
@@ -2362,24 +2401,24 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             <UsersIcon className="size-4 text-[#00D26A]" />
                             <span>{lang === "fr" ? "Communauté" : "Community"}</span>
                           </div>
-                          {memberSubscriptions.length > 0 && (
+                        {memberSubscriptions.length > 0 && (
                             <span className="text-[10px] font-mono text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 font-bold">
                               {memberSubscriptions.length}
                             </span>
                           )}
                         </button>
 
-                        {/* Assistance */}
+                        {/* Messages privés */}
                         <button
-                          onClick={() => switchTab("assistance")}
+                          onClick={() => switchTab("messages")}
                           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors cursor-pointer min-h-[44px] ${
-                            activeNav === "assistance"
+                            activeNav === "messages"
                               ? "bg-[#22252c] text-white font-semibold"
                               : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
                           }`}
                         >
-                          <Headphones className="size-4 text-emerald-400" />
-                          <span>{lang === "fr" ? "Assistance" : "Assistance"}</span>
+                          <MessageSquare className="size-4 text-emerald-400" />
+                          <span>{lang === "fr" ? "Messages" : "Messages"}</span>
                         </button>
 
                         {/* Découvrir */}
@@ -3343,65 +3382,58 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   <DashboardProductsSkeleton />
                 </div>
               ) : (
-                <div className="mansa-keyboard-scroll max-w-3xl mx-auto rounded-2xl border border-white/10 bg-[#121316] overflow-hidden flex flex-col h-[calc(100dvh-140px)]">
-                  <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[#16171b]">
+                <div className="mansa-keyboard-scroll mx-auto flex h-[calc(100dvh-140px)] max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121316]">
+                  <div className="flex items-center justify-between border-b border-white/10 bg-[#16171b] p-4">
                     <div className="flex items-center gap-3">
                       <div className="size-3 rounded-full bg-[#00D26A]" />
                       <div>
-                        <h3 className="text-sm font-bold text-white">
-                          Centre de Messagerie & Clients
-                        </h3>
+                        <h3 className="text-sm font-bold text-white">Messages privés</h3>
                         <p className="text-[11px] text-zinc-400">
-                          Canal direct avec vos acheteurs et l'équipe Victory Roos
+                          {activeWorkspaceId === "personnel"
+                            ? "Vos échanges directs avec les créateurs"
+                            : `Messages directs avec les membres de ${activeCompany?.name || "votre entreprise"}`}
                         </p>
                       </div>
                     </div>
                   </div>
-
-                  <div className="flex-1 p-4 overflow-y-auto space-y-3">
-                    {chatMessages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex items-start gap-3 ${msg.isMe ? "flex-row-reverse" : ""}`}
-                      >
-                        <div className="size-8 rounded-full bg-[#272932] border border-white/10 flex items-center justify-center font-bold text-xs text-white shrink-0">
-                          {msg.isMe ? user.avatarInitials : msg.sender[0]}
-                        </div>
-                        <div
-                          className={`max-w-md rounded-xl p-3 text-xs leading-relaxed ${
-                            msg.isMe
-                              ? "bg-[#00D26A] text-black font-semibold"
-                              : "bg-[#1a1c22] border border-white/10 text-zinc-200"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-4 mb-1 text-[10px] opacity-75">
-                            <span className="font-semibold">{msg.sender}</span>
-                            <span>{msg.time}</span>
+                  <div className="grid min-h-0 flex-1 lg:grid-cols-[280px_1fr]">
+                    <div className="border-b border-white/10 lg:border-b-0 lg:border-r">
+                      <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold text-zinc-300">Conversations</div>
+                      <div className="max-h-56 overflow-y-auto lg:max-h-none">
+                        {privateConversations.length === 0 ? (
+                          <div className="p-5 text-xs leading-relaxed text-zinc-500">
+                            {activeWorkspaceId === "personnel" ? "Les messages reçus d’un créateur apparaîtront ici." : "Les membres contactés apparaîtront ici."}
                           </div>
-                          <p>{msg.text}</p>
-                        </div>
+                        ) : privateConversations.map((conversation) => {
+                          const lastMessage = conversation.messages[conversation.messages.length - 1];
+                          return (
+                            <button type="button" key={conversation.id} onClick={() => setSelectedPrivateConversationId(conversation.id)} className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left transition-colors ${selectedPrivateConversationId === conversation.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}>
+                              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{conversation.memberName?.[0]?.toUpperCase() || "M"}</div>
+                              <div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="truncate text-[11px] text-zinc-500">{conversation.memberEmail}</div><div className="mt-1 truncate text-[11px] text-zinc-400">{lastMessage?.text}</div></div>
+                            </button>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex min-h-0 flex-col">
+                      {(() => {
+                        const conversation = privateConversations.find((item) => item.id === selectedPrivateConversationId);
+                        if (!conversation) return <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-zinc-500">Sélectionnez une conversation pour lire et envoyer un message privé.</div>;
+                        return (
+                          <>
+                            <div className="border-b border-white/10 px-5 py-4"><div className="text-sm font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="mt-1 text-[11px] text-zinc-500">{conversation.memberEmail}</div></div>
+                            <div className="flex-1 space-y-3 overflow-y-auto p-5">
+                              {conversation.messages.map((item) => {
+                                const mine = item.sender === (activeWorkspaceId === "personnel" ? "member" : "creator");
+                                return <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${mine ? "bg-[#00D26A] text-black" : "bg-white/[0.06] text-zinc-200"}`}><div>{item.text}</div><div className={`mt-1 text-[10px] ${mine ? "text-emerald-950" : "text-zinc-500"}`}>{item.time}</div></div></div>;
+                              })}
+                            </div>
+                            <form onSubmit={handleSendMessage} className="flex gap-2 border-t border-white/10 p-4"><input type="text" value={newChatInput} onChange={(e) => setNewChatInput(e.target.value)} placeholder="Écrire un message privé..." className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#101114] px-4 py-2 text-xs text-white outline-none focus:border-[#00D26A]" /><button type="submit" disabled={!newChatInput.trim()} className="ui-btn-primary px-4 py-2 text-xs cursor-pointer disabled:opacity-40"><Send className="size-3.5" /></button></form>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
-
-                  <form
-                    onSubmit={handleSendMessage}
-                    className="p-3 border-t border-white/10 bg-[#16171b] flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      value={newChatInput}
-                      onChange={(e) => setNewChatInput(e.target.value)}
-                      placeholder="Écrivez un message..."
-                      className="flex-1 rounded-xl border border-white/10 bg-[#121316] px-4 py-2 text-xs text-white outline-none focus:border-[#00D26A]"
-                    />
-                    <button
-                      type="submit"
-                      className="ui-btn-primary px-4 py-2 text-xs cursor-pointer"
-                    >
-                      <Send className="size-3.5" />
-                    </button>
-                  </form>
                 </div>
               ))}
 

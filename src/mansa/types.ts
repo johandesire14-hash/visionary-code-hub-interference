@@ -246,6 +246,8 @@ export interface CreatorPlatformOffer {
   bannerUrl?: string;
   creatorName?: string;
   ctaText?: string;
+  /** Taux fixé par le créateur pour ce produit, en pourcentage. */
+  affiliateCommissionRate?: number;
   includedApps: string[];
   subscribersCount?: string;
   rating?: number;

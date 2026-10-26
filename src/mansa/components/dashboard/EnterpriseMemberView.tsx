@@ -113,6 +113,8 @@ import { CourseReaderModal } from "./CourseReaderModal";
 import { ManageMembershipModal } from "./ManageMembershipModal";
 import { ReportEnterpriseModal } from "./ReportEnterpriseModal";
 import { getCreatorAppProductIds } from "../../utils/creatorAppRouting";
+import { createOrGetAffiliateLink } from "../../services/affiliateService";
+import { siteUrl } from "@/lib/site";
 import logoImg from "../../assets/images/afhub_logo_africa_1787956612844.webp";
 
 interface EnterpriseMemberViewProps {
@@ -199,6 +201,42 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     useState<CreatorPlatformOffer | null>(null);
   const [selectedProductPlanId, setSelectedProductPlanId] = useState<string | null>(null);
   const [expandedProductFaqIndex, setExpandedProductFaqIndex] = useState<number | null>(null);
+  const [affiliateLinkUrl, setAffiliateLinkUrl] = useState<string>("");
+  const [affiliateLinkOfferId, setAffiliateLinkOfferId] = useState<string | null>(null);
+  const [affiliateLinkError, setAffiliateLinkError] = useState<string>("");
+  const [isCreatingAffiliateLink, setIsCreatingAffiliateLink] = useState(false);
+  const [isAffiliateLinkCopied, setIsAffiliateLinkCopied] = useState(false);
+
+  const handleCopyAffiliateLink = async (offer: CreatorPlatformOffer) => {
+    setAffiliateLinkError("");
+    setIsAffiliateLinkCopied(false);
+    if (!user?.uid) {
+      setAffiliateLinkError("Connectez-vous pour créer votre lien personnel.");
+      return;
+    }
+    const rate = Number(offer.affiliateCommissionRate || 0);
+    if (rate <= 0) {
+      setAffiliateLinkError("Le créateur n’a pas activé l’affiliation pour ce produit.");
+      return;
+    }
+    setIsCreatingAffiliateLink(true);
+    try {
+      const link = await createOrGetAffiliateLink(user.uid, {
+        id: offer.id,
+        affiliateCommissionRate: rate,
+      });
+      const url = siteUrl(`/affiliate/${encodeURIComponent(link.code)}`);
+      setAffiliateLinkUrl(url);
+      setAffiliateLinkOfferId(offer.id);
+      await navigator.clipboard.writeText(url);
+      setIsAffiliateLinkCopied(true);
+      window.setTimeout(() => setIsAffiliateLinkCopied(false), 2500);
+    } catch (error) {
+      setAffiliateLinkError(error instanceof Error ? error.message : "Impossible de créer le lien affilié.");
+    } finally {
+      setIsCreatingAffiliateLink(false);
+    }
+  };
 
   // Enterprise branding state (Banner & Profile Photo customization)
   const [currentSub, setCurrentSub] = useState<EnterpriseSubscription>(subscription);
@@ -3857,6 +3895,48 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                             ))}
                           </div>
                         )}
+                      {!isCompanyOwner && (
+                        <div className="space-y-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="text-xs font-bold text-white">Partager ce produit</div>
+                              <div className="mt-1 text-[11px] text-zinc-400">
+                                Votre lien personnel · commission créateur : {Number(offer.affiliateCommissionRate || 0)} %
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyAffiliateLink(offer)}
+                              disabled={isCreatingAffiliateLink}
+                              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {isAffiliateLinkCopied && affiliateLinkOfferId === offer.id ? (
+                                <Check className="size-3.5" />
+                              ) : (
+                                <Copy className="size-3.5" />
+                              )}
+                              {isCreatingAffiliateLink
+                                ? "Création…"
+                                : isAffiliateLinkCopied && affiliateLinkOfferId === offer.id
+                                  ? "Copié"
+                                  : "Copier le lien"}
+                            </button>
+                          </div>
+                          {affiliateLinkOfferId === offer.id && affiliateLinkUrl && (
+                            <input
+                              readOnly
+                              value={affiliateLinkUrl}
+                              aria-label="Votre lien affilié pour ce produit"
+                              className="w-full rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 font-mono text-[10px] text-zinc-300"
+                            />
+                          )}
+                          {affiliateLinkError && (
+                            <p role="alert" className="text-[11px] leading-relaxed text-rose-300">
+                              {affiliateLinkError}
+                            </p>
+                          )}
+                        </div>
+                      )}
                       {TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany && (
                         <div
                           role="status"
