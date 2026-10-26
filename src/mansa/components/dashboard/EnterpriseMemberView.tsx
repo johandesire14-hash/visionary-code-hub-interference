@@ -1626,6 +1626,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [accessDeniedToast, setAccessDeniedToast] = useState<string | null>(null);
 
   const [supportMessage, setSupportMessage] = useState("");
+  const [isSupportConversationOpen, setIsSupportConversationOpen] = useState(false);
   const [supportChatList, setSupportChatList] = useState<
     Array<{
       id: string;
@@ -3258,84 +3259,28 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         )}
 
         {/* ============================================================ */}
-        {/* VIEW 2: SUPPORT CHAT                                         */}
-        {/* ============================================================ */}
+        {/* VIEW 2: SUPPORT CHAT */}
         {activeTab === "support" && (
-          <div className="mansa-keyboard-scroll mansa-safe-bottom p-3.5 sm:p-6 md:p-8 max-w-3xl mx-auto w-full flex flex-col h-full space-y-4 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
-              <div className="flex items-center gap-2.5">
-                <button
-                  onClick={() => {
-                    setActiveTab("accueil");
-                    setCompanyTab("accueil");
-                    setIsMobileCompanyNavOpen(true);
-                    setIsMobileSidebarOpen(false);
-                  }}
-                  className="lg:hidden p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center"
-                  title="Retour à la navigation de l’entreprise"
-                  aria-label="Retour à la navigation de l’entreprise"
-                >
-                  <ChevronLeft className="size-4" />
-                </button>
-                <div>
-                  <h1 className="text-base sm:text-lg font-bold text-white">
-                    Assistance {subscription.companyName}
-                  </h1>
-                  <p className="text-xs text-zinc-400">
-                    Échangez en direct avec l'équipe pour toute question ou aide
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="size-2 rounded-full bg-emerald-400" />
-                <span className="text-xs text-emerald-400 font-mono font-medium hidden sm:inline">
-                  En ligne
-                </span>
-              </div>
+          <div className="mansa-keyboard-scroll mansa-safe-bottom mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121316] animate-in fade-in duration-150">
+            <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-[#16171b] px-4 py-3 sm:px-5">
+              <button onClick={() => { setActiveTab("accueil"); setCompanyTab("accueil"); setIsMobileCompanyNavOpen(true); setIsMobileSidebarOpen(false); }} className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden" aria-label="Retour"><ChevronLeft className="size-4" /></button>
+              <div className="flex size-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400"><MessageSquare className="size-5" /></div>
+              <div><h1 className="text-sm font-bold text-white">Chats de support</h1><p className="text-[11px] text-zinc-500">Assistance de {subscription.companyName}</p></div>
+            </header>
+            <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[300px_1fr]">
+              <aside className={`min-h-0 border-b border-white/10 lg:border-b-0 lg:border-r ${isSupportConversationOpen ? "hidden lg:block" : "block"}`}>
+                <div className="space-y-2 border-b border-white/10 p-3"><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" /><input placeholder="Rechercher…" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-blue-400" /></div><select className="rounded-lg border border-white/10 bg-[#0c0d0e] px-2.5 py-2 text-[11px] text-zinc-300 outline-none" defaultValue="recent"><option value="recent">Dernière activité</option></select></div>
+                <button type="button" onClick={() => setIsSupportConversationOpen(true)} className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left ${isSupportConversationOpen ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}><div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{subscription.companyName?.[0]?.toUpperCase() || "A"}</div><div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{subscription.companyName}</div><div className="truncate text-[11px] text-zinc-500">Assistance officielle</div><div className="mt-1 truncate text-[11px] text-zinc-400">{supportChatList.at(-1)?.text}</div></div></button>
+              </aside>
+              <main className={`min-h-0 flex-1 flex-col ${isSupportConversationOpen ? "flex" : "hidden lg:flex"}`}>
+                <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5"><button type="button" onClick={() => setIsSupportConversationOpen(false)} className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden" aria-label="Retour à la liste"><ChevronLeft className="size-4" /></button><div className="flex size-9 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{subscription.companyName?.[0]?.toUpperCase() || "A"}</div><div><div className="text-sm font-semibold text-white">{subscription.companyName}</div><div className="text-[11px] text-zinc-500">Assistance officielle</div></div></div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">{supportChatList.map((msg) => <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${msg.sender === "user" ? "bg-[#0055ff] text-white" : "bg-white/[0.06] text-zinc-200"}`}><div>{msg.text}</div><div className={`mt-1 text-[10px] ${msg.sender === "user" ? "text-blue-100" : "text-zinc-500"}`}>{msg.time}</div></div></div>)}</div>
+                <form onSubmit={handleSendSupport} className="mansa-safe-bottom flex shrink-0 gap-2 border-t border-white/10 p-3 sm:p-4"><textarea value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} rows={2} placeholder="Écrire un message…" className="min-w-0 flex-1 resize-none rounded-xl border border-white/10 bg-[#101114] p-3 text-xs text-white outline-none focus:border-blue-400" /><button type="submit" className="self-end rounded-xl bg-[#0055ff] px-4 py-2.5 text-xs font-bold text-white"><Send className="size-3.5" /></button></form>
+              </main>
             </div>
-
-            {/* Chat message box */}
-            <div className="mansa-keyboard-scroll flex-1 rounded-2xl border border-white/10 bg-[#121316] p-4 overflow-y-auto space-y-3 min-h-[340px]">
-              {supportChatList.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl p-3.5 text-xs leading-relaxed ${
-                      msg.sender === "user"
-                        ? "bg-[#0055ff] text-white rounded-br-none"
-                        : "bg-[#1c1e24] text-zinc-200 border border-white/5 rounded-bl-none"
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                  <span className="text-[10px] text-zinc-500 mt-1 font-mono px-1">{msg.time}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Chat Input */}
-            <form onSubmit={handleSendSupport} className="mansa-safe-bottom flex gap-2">
-              <input
-                type="text"
-                value={supportMessage}
-                onChange={(e) => setSupportMessage(e.target.value)}
-                placeholder="Écrivez votre message à l'équipe..."
-                className="flex-1 rounded-xl border border-white/10 bg-[#16171b] px-4 py-2.5 text-xs text-white placeholder:text-zinc-500 focus:border-[#0055ff] focus:outline-none"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2.5 rounded-xl bg-[#0055ff] hover:bg-[#0047d6] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Send className="size-3.5" />
-                <span>Envoyer</span>
-              </button>
-            </form>
           </div>
         )}
 
-        {/* ============================================================ */}
         {/* VIEW 3: TELEGRAM CONNECTED APP & CHANNELS                     */}
         {/* ============================================================ */}
         {activeTab === "telegram" && (

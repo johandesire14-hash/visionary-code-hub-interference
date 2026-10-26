@@ -1346,6 +1346,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [newChatInput, setNewChatInput] = useState("");
   const [privateConversations, setPrivateConversations] = useState<any[]>([]);
   const [selectedPrivateConversationId, setSelectedPrivateConversationId] = useState<string | null>(null);
+  const [messageSearchQuery, setMessageSearchQuery] = useState("");
+  const [messageSortOrder, setMessageSortOrder] = useState<"recent" | "oldest">("recent");
   const [isTabLoading, setIsTabLoading] = useState(false);
   const [creatorAppWorkflow, setCreatorAppWorkflow] = useState<{
     app: "courses" | "files";
@@ -1472,6 +1474,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     };
   }, [activeCompany, activeWorkspaceId, user.email]);
 
+  const visiblePrivateConversations = privateConversations
+    .filter((conversation) => {
+      const query = messageSearchQuery.trim().toLowerCase();
+      return !query || `${conversation.memberName} ${conversation.memberEmail} ${conversation.messages.at(-1)?.text || ""}`.toLowerCase().includes(query);
+    })
+    .sort((a, b) => {
+      const aLast = a.messages.at(-1)?.id || "";
+      const bLast = b.messages.at(-1)?.id || "";
+      return messageSortOrder === "recent" ? bLast.localeCompare(aLast) : aLast.localeCompare(bLast);
+    });
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     const selected = privateConversations.find(
@@ -3378,61 +3390,20 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             {/* VIEW: MESSAGES */}
             {activeNav === "messages" &&
               (isTabLoading ? (
-                <div className="max-w-3xl mx-auto space-y-5">
-                  <DashboardProductsSkeleton />
-                </div>
+                <div className="max-w-3xl mx-auto space-y-5"><DashboardProductsSkeleton /></div>
               ) : (
-                <div className="mansa-keyboard-scroll mx-auto flex h-[calc(100dvh-140px)] max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121316]">
-                  <div className="flex items-center justify-between border-b border-white/10 bg-[#16171b] p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="size-3 rounded-full bg-[#00D26A]" />
-                      <div>
-                        <h3 className="text-sm font-bold text-white">Messages privés</h3>
-                        <p className="text-[11px] text-zinc-400">
-                          {activeWorkspaceId === "personnel"
-                            ? "Vos échanges directs avec les créateurs"
-                            : `Messages directs avec les membres de ${activeCompany?.name || "votre entreprise"}`}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid min-h-0 flex-1 lg:grid-cols-[280px_1fr]">
-                    <div className="border-b border-white/10 lg:border-b-0 lg:border-r">
-                      <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold text-zinc-300">Conversations</div>
-                      <div className="max-h-56 overflow-y-auto lg:max-h-none">
-                        {privateConversations.length === 0 ? (
-                          <div className="p-5 text-xs leading-relaxed text-zinc-500">
-                            {activeWorkspaceId === "personnel" ? "Les messages reçus d’un créateur apparaîtront ici." : "Les membres contactés apparaîtront ici."}
-                          </div>
-                        ) : privateConversations.map((conversation) => {
-                          const lastMessage = conversation.messages[conversation.messages.length - 1];
-                          return (
-                            <button type="button" key={conversation.id} onClick={() => setSelectedPrivateConversationId(conversation.id)} className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left transition-colors ${selectedPrivateConversationId === conversation.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}>
-                              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{conversation.memberName?.[0]?.toUpperCase() || "M"}</div>
-                              <div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="truncate text-[11px] text-zinc-500">{conversation.memberEmail}</div><div className="mt-1 truncate text-[11px] text-zinc-400">{lastMessage?.text}</div></div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    <div className="flex min-h-0 flex-col">
-                      {(() => {
-                        const conversation = privateConversations.find((item) => item.id === selectedPrivateConversationId);
-                        if (!conversation) return <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-zinc-500">Sélectionnez une conversation pour lire et envoyer un message privé.</div>;
-                        return (
-                          <>
-                            <div className="border-b border-white/10 px-5 py-4"><div className="text-sm font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="mt-1 text-[11px] text-zinc-500">{conversation.memberEmail}</div></div>
-                            <div className="flex-1 space-y-3 overflow-y-auto p-5">
-                              {conversation.messages.map((item) => {
-                                const mine = item.sender === (activeWorkspaceId === "personnel" ? "member" : "creator");
-                                return <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs leading-relaxed ${mine ? "bg-[#00D26A] text-black" : "bg-white/[0.06] text-zinc-200"}`}><div>{item.text}</div><div className={`mt-1 text-[10px] ${mine ? "text-emerald-950" : "text-zinc-500"}`}>{item.time}</div></div></div>;
-                              })}
-                            </div>
-                            <form onSubmit={handleSendMessage} className="flex gap-2 border-t border-white/10 p-4"><input type="text" value={newChatInput} onChange={(e) => setNewChatInput(e.target.value)} placeholder="Écrire un message privé..." className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#101114] px-4 py-2 text-xs text-white outline-none focus:border-[#00D26A]" /><button type="submit" disabled={!newChatInput.trim()} className="ui-btn-primary px-4 py-2 text-xs cursor-pointer disabled:opacity-40"><Send className="size-3.5" /></button></form>
-                          </>
-                        );
-                      })()}
-                    </div>
+                <div className="mansa-keyboard-scroll mx-auto flex h-[calc(100dvh-140px)] max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121316]">
+                  <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#16171b] px-4 py-3 sm:px-5">
+                    <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-400"><MessageSquare className="size-5" /></div><div><h1 className="text-sm font-bold text-white">Messages</h1><p className="text-[11px] text-zinc-500">Vos conversations privées</p></div></div>
+                  </header>
+                  <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[300px_1fr]">
+                    <aside className={`min-h-0 border-b border-white/10 lg:border-b-0 lg:border-r ${selectedPrivateConversationId ? "hidden lg:block" : "block"}`}>
+                      <div className="space-y-2 border-b border-white/10 p-3"><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" /><input value={messageSearchQuery} onChange={(event) => setMessageSearchQuery(event.target.value)} placeholder="Rechercher…" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-emerald-400" /></div><select value={messageSortOrder} onChange={(event) => setMessageSortOrder(event.target.value as "recent" | "oldest")} className="rounded-lg border border-white/10 bg-[#0c0d0e] px-2.5 py-2 text-[11px] text-zinc-300 outline-none"><option value="recent">Dernière activité</option><option value="oldest">Plus ancienne</option></select></div>
+                      <div className="max-h-56 overflow-y-auto lg:max-h-none">{visiblePrivateConversations.length === 0 ? <div className="p-5 text-xs leading-relaxed text-zinc-500">Aucune conversation pour le moment.</div> : visiblePrivateConversations.map((conversation) => { const last = conversation.messages.at(-1); return <button type="button" key={conversation.id} onClick={() => setSelectedPrivateConversationId(conversation.id)} className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left ${selectedPrivateConversationId === conversation.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}><div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{conversation.memberName?.[0]?.toUpperCase() || "M"}</div><div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="truncate text-[11px] text-zinc-500">{conversation.memberEmail}</div><div className="mt-1 truncate text-[11px] text-zinc-400">{last?.text || "Nouvelle conversation"}</div></div></button>; })}</div>
+                    </aside>
+                    <main className={`min-h-0 flex-1 flex-col ${selectedPrivateConversationId ? "flex" : "hidden lg:flex"}`}>
+                      {(() => { const conversation = privateConversations.find((item) => item.id === selectedPrivateConversationId); if (!conversation) return <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-zinc-500">Sélectionnez une conversation pour consulter le chat.</div>; return <><div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5"><button type="button" onClick={() => setSelectedPrivateConversationId(null)} className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden" aria-label="Retour à la liste"><ArrowLeft className="size-4" /></button><div className="flex size-9 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{(activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName)?.[0]?.toUpperCase() || "M"}</div><div><div className="text-sm font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="text-[11px] text-zinc-500">{conversation.memberEmail}</div></div></div><div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">{conversation.messages.map((item) => { const mine = item.sender === (activeWorkspaceId === "personnel" ? "member" : "creator"); return <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${mine ? "bg-[#00D26A] text-black" : "bg-white/[0.06] text-zinc-200"}`}><div>{item.text}</div><div className={`mt-1 text-[10px] ${mine ? "text-emerald-950" : "text-zinc-500"}`}>{item.time}</div></div></div>; })}</div><form onSubmit={handleSendMessage} className="flex shrink-0 gap-2 border-t border-white/10 p-3 sm:p-4"><textarea value={newChatInput} onChange={(event) => setNewChatInput(event.target.value)} rows={2} placeholder="Écrire un message…" className="min-w-0 flex-1 resize-none rounded-xl border border-white/10 bg-[#101114] p-3 text-xs text-white outline-none focus:border-emerald-400" /><button type="submit" disabled={!newChatInput.trim()} className="ui-btn-primary self-end px-4 py-2.5 text-xs disabled:opacity-40"><Send className="size-3.5" /></button></form></>; })()}
+                    </main>
                   </div>
                 </div>
               ))}
