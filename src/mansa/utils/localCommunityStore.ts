@@ -65,8 +65,10 @@ function makeId(prefix: string) {
   return `${prefix}-${randomId || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`}`;
 }
 
-export function getLocalCompanyMembers(companyId: string): LocalCompanyMember[] {
+export function getLocalCompanyMembers(companyId: string, companyName?: string): LocalCompanyMember[] {
   if (!companyId) return [];
+  const normalizedCompanyId = companyId.trim().toLowerCase();
+  const normalizedCompanyName = companyName?.trim().toLowerCase();
   const members = new Map(
     readArray<LocalCompanyMember>(`${LOCAL_COMPANY_MEMBERS_PREFIX}${companyId}`).map((member) => [
       member.memberId,
@@ -88,15 +90,16 @@ export function getLocalCompanyMembers(companyId: string): LocalCompanyMember[] 
         isCommunityPreview?: boolean;
         hasJoined?: boolean;
       }>(key);
-      if (
-        !subscriptions.some(
-          (subscription) =>
-            subscription.companyId === companyId &&
-            subscription.status !== "canceled" &&
-            !subscription.isCommunityPreview &&
-            subscription.hasJoined !== false,
-        )
-      ) {
+      if (!subscriptions.some((subscription) => {
+        const subscriptionCompanyId = String(subscription.companyId || "").trim().toLowerCase();
+        const subscriptionId = String(subscription.id || "").trim().toLowerCase();
+        const subscriptionCompanyName = String(subscription.companyName || "").trim().toLowerCase();
+        const sameCompany =
+          subscriptionCompanyId === normalizedCompanyId ||
+          subscriptionId === normalizedCompanyId ||
+          Boolean(normalizedCompanyName && subscriptionCompanyName === normalizedCompanyName);
+        return sameCompany && subscription.status !== "canceled" && !subscription.isCommunityPreview && subscription.hasJoined !== false;
+      })) {
         continue;
       }
       const existing = members.get(memberId);
@@ -114,8 +117,8 @@ export function getLocalCompanyMembers(companyId: string): LocalCompanyMember[] 
   return [...members.values()];
 }
 
-export function getLocalCompanyMemberCount(companyId: string): number {
-  return getLocalCompanyMembers(companyId).length;
+export function getLocalCompanyMemberCount(companyId: string, companyName?: string): number {
+  return getLocalCompanyMembers(companyId, companyName).length;
 }
 
 export function registerLocalCompanyMember(

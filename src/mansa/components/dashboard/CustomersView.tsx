@@ -104,7 +104,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
       const knownEmails = new Set(
         remoteCustomers.map((customer) => customer.email.trim().toLowerCase()),
       );
-      const localMembers: CustomerMember[] = getLocalCompanyMembers(activeCompanyId)
+      const localMembers: CustomerMember[] = getLocalCompanyMembers(activeCompanyId, activeCompanyName)
         .map((member) => {
           const email = member.email || member.memberId;
           const displayName = member.name || email;
@@ -168,10 +168,10 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
     );
     const handleLocalMembersUpdated = (event: Event) => {
       const companyId = (event as CustomEvent<{ companyId?: string }>).detail?.companyId;
-      if (!companyId || companyId === activeCompanyId) refreshCustomers();
+      if (!companyId || companyId === activeCompanyId || activeCompanyName) refreshCustomers();
     };
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === `${LOCAL_COMPANY_MEMBERS_PREFIX}${activeCompanyId}`) refreshCustomers();
+      if (event.key?.startsWith(LOCAL_COMPANY_MEMBERS_PREFIX)) refreshCustomers();
     };
     window.addEventListener(LOCAL_COMPANY_MEMBERS_EVENT, handleLocalMembersUpdated);
     window.addEventListener("storage", handleStorage);
@@ -182,7 +182,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
       window.removeEventListener(LOCAL_COMPANY_MEMBERS_EVENT, handleLocalMembersUpdated);
       window.removeEventListener("storage", handleStorage);
     };
-  }, [profile?.uid, user?.email, activeCompanyId]);
+  }, [profile?.uid, user?.email, activeCompanyId, activeCompanyName]);
 
   const filtered = customers.filter((c) => {
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;

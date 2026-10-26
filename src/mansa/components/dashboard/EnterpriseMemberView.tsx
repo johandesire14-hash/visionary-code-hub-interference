@@ -277,7 +277,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   );
   const companyMemberCount = Math.max(
     Number.isFinite(savedMemberCount) ? savedMemberCount : 0,
-    getLocalCompanyMemberCount(companyId),
+    getLocalCompanyMemberCount(companyId, currentSub.companyName),
   );
 
   React.useEffect(() => {

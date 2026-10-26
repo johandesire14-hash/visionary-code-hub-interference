@@ -1430,7 +1430,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       const next = isCreatorInbox
         ? [
             ...getLocalPrivateConversations(activeWorkspaceId),
-            ...getLocalCompanyMembers(activeWorkspaceId)
+            ...getLocalCompanyMembers(activeWorkspaceId, activeCompany?.name)
               .filter(
                 (member) =>
                   !getLocalPrivateConversations(activeWorkspaceId).some(
