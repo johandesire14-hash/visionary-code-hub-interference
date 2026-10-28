@@ -3,20 +3,34 @@ import { useEffect, useState } from "react";
 const COOKIE_CONSENT_KEY = "thal_cookie_consent";
 
 type Consent = "accepted" | "refused" | null;
+type ConsentState = Consent | undefined;
+
+const readConsent = (): Consent => {
+  try {
+    const value = window.localStorage.getItem(COOKIE_CONSENT_KEY);
+    return value === "accepted" || value === "refused" ? value : null;
+  } catch {
+    return null;
+  }
+};
 
 export function CookieConsentBanner() {
-  const [consent, setConsent] = useState<Consent>(null);
+  const [consent, setConsent] = useState<ConsentState>(undefined);
 
   useEffect(() => {
-    setConsent(window.localStorage.getItem(COOKIE_CONSENT_KEY) as Consent);
+    setConsent(readConsent());
   }, []);
 
   const saveConsent = (value: Exclude<Consent, null>) => {
-    window.localStorage.setItem(COOKIE_CONSENT_KEY, value);
+    try {
+      window.localStorage.setItem(COOKIE_CONSENT_KEY, value);
+    } catch {
+      // Le choix reste appliqué pour cette session si le navigateur bloque le stockage.
+    }
     setConsent(value);
   };
 
-  if (consent) return null;
+  if (consent !== null) return null;
 
   return (
     <aside className="fixed inset-x-4 bottom-4 z-[100] mx-auto max-w-xl rounded-2xl border border-white/10 bg-[#121316] p-4 text-store-foreground shadow-2xl" role="dialog" aria-label="Consentement aux cookies">

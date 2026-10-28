@@ -1194,7 +1194,11 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   };
 
   const continueCourseDetails = () => {
-    if (!creatorCourseName.trim() || !creatorCourseDescription.trim()) return;
+    if (!creatorCourseName.trim() || !creatorCourseDescription.trim()) {
+      setCreatorSaveError("Renseignez le titre et la description du cours avant de continuer.");
+      return;
+    }
+    setCreatorSaveError(null);
     setCourseCreationStep("content");
   };
 
@@ -1208,10 +1212,13 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setCreatorSaveError("Associez ce contenu à au moins une offre avant de l’enregistrer.");
       return;
     }
+    if (selectedCreatorApp === "courses" && (!creatorCourseName.trim() || !creatorCourseDescription.trim())) {
+      setCreatorSaveError("Renseignez le titre et la description du cours avant de l’enregistrer.");
+      return;
+    }
     setIsSavingCreatorContent(true);
     try {
       if (selectedCreatorApp === "courses") {
-        if (!creatorCourseName.trim()) return;
         const courseId =
           editingCreatorCourseId && editingCreatorCourseId !== "new"
             ? editingCreatorCourseId
@@ -1262,13 +1269,17 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           const modules = (off.courseModules || []).filter(
             (item: any) => !String(item.id || "").startsWith(`${course.id}-chapter-`),
           );
+          const nextCourses = isLinked ? [...existingCourses, course] : existingCourses;
+          const nextModules = isLinked ? [...modules, ...course.courseModules] : modules;
           return {
             ...off,
-            courses: isLinked ? [...existingCourses, course] : existingCourses,
-            courseModules: isLinked ? [...modules, ...course.courseModules] : modules,
+            courses: nextCourses,
+            courseModules: nextModules,
             includedApps: isLinked
               ? Array.from(new Set([...(off.includedApps || []), "Cours & formations"]))
-              : off.includedApps,
+              : nextCourses.length || nextModules.length
+                ? off.includedApps
+                : (off.includedApps || []).filter((app: string) => app !== "Cours & formations"),
           };
         });
         localStorage.setItem(`mansa_creator_offers_${companyId}`, JSON.stringify(updatedOffers));
@@ -1289,7 +1300,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           );
           return;
         }
-        const id = `file-${Date.now()}`;
+        const id = `file-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
         const stored = await saveDigitalAsset(companyId, id, creatorSelectedFile);
         const newFile = {
           id,
@@ -1324,17 +1335,25 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         localStorage.setItem(`mansa_creator_offers_${companyId}`, JSON.stringify(updatedOffers));
         const storageKey = `mansa_creator_apps_${companyId}`;
         const currentApps = JSON.parse(localStorage.getItem(storageKey) || "[]");
-        const others = Array.isArray(currentApps)
-          ? currentApps.filter((app: { appId?: string }) => app.appId !== "files")
-          : [];
+        const appEntries = Array.isArray(currentApps) ? currentApps : [];
+        const existingFileApps = appEntries.filter((app: { appId?: string }) => app.appId === "files");
+        const otherApps = appEntries.filter((app: { appId?: string }) => app.appId !== "files");
+        const savedFiles = existingFileApps.flatMap((app: { files?: any[] }) => app.files || []);
+        const mergedFiles = [...savedFiles, newFile].filter(
+          (file, index, files) => files.findIndex((candidate) => candidate.id === file.id) === index,
+        );
+        const mergedProductIds = Array.from(new Set([
+          ...existingFileApps.flatMap((app: { productIds?: string[] }) => app.productIds || []),
+          ...linkedCreatorProductIds,
+        ]));
         localStorage.setItem(
           storageKey,
           JSON.stringify([
-            ...others,
+            ...otherApps,
             {
               appId: "files",
-              productIds: linkedCreatorProductIds,
-              files: [newFile],
+              productIds: mergedProductIds,
+              files: mergedFiles,
               updatedAt: new Date().toISOString(),
             },
           ]),

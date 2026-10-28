@@ -61,6 +61,9 @@ import {
   formatCurrency,
 } from "../utils/currency";
 
+const createLocalId = (prefix: string) =>
+  `${prefix}-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+
 export type ProductTypeCategory = "digital" | "course" | "ebook" | "membership";
 
 export interface DigitalFileAttachment {
@@ -439,18 +442,18 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
     if (e) e.preventDefault();
     if (!newModuleTitle.trim()) return;
     const newMod: CourseModuleItem = {
-      id: "mod-" + Date.now(),
+      id: createLocalId("mod"),
       title: newModuleTitle.trim(),
       duration: newModuleDuration.trim() || "20 min",
     };
-    setCourseModules([...courseModules, newMod]);
+    setCourseModules((previous) => [...previous, newMod]);
     setNewModuleTitle("");
     setNewModuleDuration("25 min");
     setIsAddingCourseModule(false);
   };
 
   const handleRemoveCourseModule = (id: string) => {
-    setCourseModules(courseModules.filter((m) => m.id !== id));
+    setCourseModules((previous) => previous.filter((m) => m.id !== id));
   };
 
   const sanitizeApps = (apps?: string[]): string[] => {
@@ -645,7 +648,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
     const companyId = selectedCompanyId || initialData?.companyId || initialCompanyId || productId;
     try {
       const uploaded = await Promise.all(Array.from(files).map(async (file: File, index: number) => {
-        const id = `file-${Date.now()}-${index}`;
+        const id = createLocalId(`file-${index}`);
         const stored = await saveDigitalAsset(companyId, id, file);
         const isAudio = file.type.startsWith("audio/") || /\.(mp3|wav|ogg|aac|flac|m4a)$/i.test(file.name);
         return {
@@ -793,8 +796,8 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
       ctaText: ctaButtonText,
       pricingOptions,
       faqs,
-      digitalFiles: digitalFiles.length > 0 ? digitalFiles : undefined,
-      courseModules: courseModules.length > 0 ? courseModules : undefined,
+      digitalFiles,
+      courseModules,
       ebookDetails:
         productType === "ebook"
           ? {
@@ -1001,12 +1004,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
             {/* ========================================================================= */}
             {/* SECTION D'UPLOAD DE FICHIERS / DOCUMENTS (POUR E-BOOK, GUIDE & DIGITALS) */}
             {/* ========================================================================= */}
-            {(selectedApps.includes("Fichiers") ||
-              selectedApps.includes("Fichiers & Documents") ||
-              selectedApps.includes("Téléchargement instantané") ||
-              productType === "ebook" ||
-              productType === "digital" ||
-              digitalFiles.length > 0) && (
+            {(productType === "ebook" || productType === "digital") && (
               <div className="space-y-4 pt-3 border-t border-white/[0.08]">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1180,7 +1178,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
             {/* ========================================================================= */}
             {/* SECTION COURS & FORMATIONS (POUR MODULES ET CONTENUS DE FORMATION)        */}
             {/* ========================================================================= */}
-            {(productType === "course" || selectedApps.includes("Cours & formations")) && (
+            {productType === "course" && (
               <div className="space-y-4 pt-3 border-t border-white/[0.08]">
                 <div className="flex items-center justify-between">
                   <div>

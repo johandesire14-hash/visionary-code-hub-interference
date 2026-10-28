@@ -1829,6 +1829,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               );
               if (!creatorCompany) return;
               setActiveWorkspaceId(creatorCompany.id);
+              setActiveNav("produits");
               setEditingProduct(null);
               setIsProductStudioOpen(true);
             }}
@@ -3138,7 +3139,22 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           contextProducts.map((product) => (
                             <tr
                               key={product.id}
-                              className="hover:bg-white/[0.02] transition-colors group"
+                              onClick={(event) => {
+                                if ((event.target as HTMLElement).closest("button, a, input, select, textarea")) return;
+                                setActiveNav("produits");
+                                setEditingProduct(product);
+                                setIsProductStudioOpen(true);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                                  event.preventDefault();
+                                  setActiveNav("produits");
+                                  setEditingProduct(product);
+                                  setIsProductStudioOpen(true);
+                                }
+                              }}
+                              tabIndex={0}
+                              className="hover:bg-white/[0.02] transition-colors group cursor-pointer"
                             >
                               {/* Nom */}
                               <td className="py-4 px-4 font-bold text-white whitespace-nowrap">
@@ -3928,7 +3944,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       {/* PRODUCT CREATION STUDIO MODAL */}
       {isProductStudioOpen && activeCompany && (
         <ProductCreationStudio
-          key={activeWorkspaceId}
+          key={`${activeWorkspaceId}:${activeEditingProduct?.id ?? "new"}`}
           companyName={activeCompany.name}
           companies={[activeCompany]}
           initialCompanyId={activeCompany.id}
@@ -3962,8 +3978,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               companyId: newProduct.companyId || activeCompany.id,
               companyName: newProduct.companyName || activeCompany.name,
               productType: newProduct.productType,
-              ...(newProduct.digitalFiles ? { digitalFiles: newProduct.digitalFiles } : {}),
-              ...(newProduct.courseModules ? { courseModules: newProduct.courseModules } : {}),
+              digitalFiles: newProduct.digitalFiles || [],
+              courseModules: newProduct.courseModules || [],
               visibility: newProduct.visibility,
             });
             setIsProductStudioOpen(false);
