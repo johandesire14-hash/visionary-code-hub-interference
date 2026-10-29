@@ -187,12 +187,29 @@ class CreatorAppsErrorBoundary extends React.Component<
   override render() {
     if (this.state.error) {
       return (
-        <div className="mx-auto max-w-3xl rounded-2xl border border-red-500/20 bg-red-500/5 p-6" role="alert">
+        <div
+          className="mx-auto max-w-3xl rounded-2xl border border-red-500/20 bg-red-500/5 p-6"
+          role="alert"
+        >
           <h2 className="text-base font-bold text-white">Cette application n’a pas pu s’ouvrir.</h2>
-          <p className="mt-2 text-sm text-zinc-300">Réessayez le chargement ou revenez au catalogue Apps Store.</p>
+          <p className="mt-2 text-sm text-zinc-300">
+            Réessayez le chargement ou revenez au catalogue Apps Store.
+          </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            <button type="button" onClick={this.props.onRetry} className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white">Réessayer</button>
-            <button type="button" onClick={this.props.onBack} className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-300">Retour aux applications</button>
+            <button
+              type="button"
+              onClick={this.props.onRetry}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white"
+            >
+              Réessayer
+            </button>
+            <button
+              type="button"
+              onClick={this.props.onBack}
+              className="rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-300"
+            >
+              Retour aux applications
+            </button>
           </div>
         </div>
       );
@@ -680,6 +697,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 }) => {
   const [activeNav, setActiveNav] = useState<
     | "accueil"
+    | "analytique"
     | "communaute"
     | "produits"
     | "paiements"
@@ -801,42 +819,54 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     if (!memberUid || memberSubscriptions.length === 0) return;
     let cancelled = false;
     (async () => {
-      const hydrated = await Promise.all(memberSubscriptions.map(async (subscription) => {
-        const productIds = subscription.unlockedProductIds || subscription.purchasedOfferIds || [];
-        const contents = await Promise.all(productIds.map((productId) => loadVerifiedMemberContent(memberUid, productId)));
-        const digitalFiles = contents.flatMap((content) => content?.digitalFiles || []);
-        const courseModules = contents.flatMap((content) => content?.courseModules || []);
-        if (!digitalFiles.length && !courseModules.length) return subscription;
-        const hydratedCourses = courseModules.map((module: any, index) => ({
-          id: module.id || `course-module-${subscription.companyId}-${index}`,
-          title: module.title || `Formation ${index + 1}`,
-          description: module.description || "Module inclus dans votre offre",
-          modulesCount: module.lessons?.length || module.modulesCount || 1,
-          accessUrl: module.accessUrl || `/courses/${subscription.companyId}`,
-          associatedOfferId: module.associatedOfferId || productIds[0],
-          associatedOfferTitle: subscription.productName,
-        }));
-        return {
-          ...subscription,
-          digitalFiles,
-          courseModules,
-          ebooks: [...(subscription.ebooks || []), ...digitalFiles.map((file: any) => ({
-            id: file.id,
-            title: file.name,
-            description: "Fichier inclus dans votre offre",
-            downloadUrl: file.downloadUrl,
-            associatedOfferId: file.productId || productIds[0],
+      const hydrated = await Promise.all(
+        memberSubscriptions.map(async (subscription) => {
+          const productIds =
+            subscription.unlockedProductIds || subscription.purchasedOfferIds || [];
+          const contents = await Promise.all(
+            productIds.map((productId) => loadVerifiedMemberContent(memberUid, productId)),
+          );
+          const digitalFiles = contents.flatMap((content) => content?.digitalFiles || []);
+          const courseModules = contents.flatMap((content) => content?.courseModules || []);
+          if (!digitalFiles.length && !courseModules.length) return subscription;
+          const hydratedCourses = courseModules.map((module: any, index) => ({
+            id: module.id || `course-module-${subscription.companyId}-${index}`,
+            title: module.title || `Formation ${index + 1}`,
+            description: module.description || "Module inclus dans votre offre",
+            modulesCount: module.lessons?.length || module.modulesCount || 1,
+            accessUrl: module.accessUrl || `/courses/${subscription.companyId}`,
+            associatedOfferId: module.associatedOfferId || productIds[0],
             associatedOfferTitle: subscription.productName,
-          }))],
-          courses: [...(subscription.courses || []), ...hydratedCourses],
-        };
-      }));
+          }));
+          return {
+            ...subscription,
+            digitalFiles,
+            courseModules,
+            ebooks: [
+              ...(subscription.ebooks || []),
+              ...digitalFiles.map((file: any) => ({
+                id: file.id,
+                title: file.name,
+                description: "Fichier inclus dans votre offre",
+                downloadUrl: file.downloadUrl,
+                associatedOfferId: file.productId || productIds[0],
+                associatedOfferTitle: subscription.productName,
+              })),
+            ],
+            courses: [...(subscription.courses || []), ...hydratedCourses],
+          };
+        }),
+      );
       if (cancelled) return;
       const userKey = user.uid || user.email || "default";
       setMemberSubscriptions(hydrated);
       localStorage.setItem(`mansa_enterprise_subscriptions_${userKey}`, JSON.stringify(hydrated));
-    })().catch((error) => console.warn("Impossible de charger les droits membres persistants:", error));
-    return () => { cancelled = true; };
+    })().catch((error) =>
+      console.warn("Impossible de charger les droits membres persistants:", error),
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [user.uid]);
 
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>("personnel");
@@ -1097,7 +1127,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               title: p.name,
               description: p.tagline || "",
               productUrl: p.storeUrl || `mansa.af/p/${p.id}`,
-              affiliateRate: p.affiliateCommissionRate || 25,
+              affiliateRate: p.affiliateCommissionRate ?? 25,
               ctaText: p.ctaText || "Rejoindre maintenant",
               companyId: p.companyId || "",
               companyName: p.companyName || "",
@@ -1278,6 +1308,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       ...(newProj.bannerUrl ? { bannerUrl: newProj.bannerUrl } : {}),
       companyId: newProj.companyId || activeCompany?.id || "",
       companyName: newProj.companyName || activeCompany?.name || "",
+      visibility: newProj.status === "active" ? "Visible" : "Caché",
     });
   };
 
@@ -1300,6 +1331,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       ...(updated.bannerUrl ? { bannerUrl: updated.bannerUrl } : {}),
       companyId: updated.companyId || activeCompany?.id || "",
       companyName: updated.companyName || activeCompany?.name || "",
+      visibility: updated.status === "active" ? "Visible" : "Caché",
     });
   };
 
@@ -1345,7 +1377,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   >([]);
   const [newChatInput, setNewChatInput] = useState("");
   const [privateConversations, setPrivateConversations] = useState<any[]>([]);
-  const [selectedPrivateConversationId, setSelectedPrivateConversationId] = useState<string | null>(null);
+  const [selectedPrivateConversationId, setSelectedPrivateConversationId] = useState<string | null>(
+    null,
+  );
   const [messageSearchQuery, setMessageSearchQuery] = useState("");
   const [messageSortOrder, setMessageSortOrder] = useState<"recent" | "oldest">("recent");
   const [isTabLoading, setIsTabLoading] = useState(false);
@@ -1437,7 +1471,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 (member) =>
                   !getLocalPrivateConversations(activeWorkspaceId).some(
                     (conversation) =>
-                      conversation.memberEmail.trim().toLowerCase() === member.email.trim().toLowerCase(),
+                      conversation.memberEmail.trim().toLowerCase() ===
+                      member.email.trim().toLowerCase(),
                   ),
               )
               .map((member) => ({
@@ -1469,7 +1504,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener(LOCAL_PRIVATE_CONVERSATIONS_EVENT, refreshPrivateConversations);
-      window.removeEventListener("mansa_local_company_members_updated", refreshPrivateConversations);
+      window.removeEventListener(
+        "mansa_local_company_members_updated",
+        refreshPrivateConversations,
+      );
       window.removeEventListener("storage", handleStorage);
     };
   }, [activeCompany, activeWorkspaceId, user.email]);
@@ -1477,12 +1515,19 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const visiblePrivateConversations = privateConversations
     .filter((conversation) => {
       const query = messageSearchQuery.trim().toLowerCase();
-      return !query || `${conversation.memberName} ${conversation.memberEmail} ${conversation.messages.at(-1)?.text || ""}`.toLowerCase().includes(query);
+      return (
+        !query ||
+        `${conversation.memberName} ${conversation.memberEmail} ${conversation.messages.at(-1)?.text || ""}`
+          .toLowerCase()
+          .includes(query)
+      );
     })
     .sort((a, b) => {
       const aLast = a.messages.at(-1)?.id || "";
       const bLast = b.messages.at(-1)?.id || "";
-      return messageSortOrder === "recent" ? bLast.localeCompare(aLast) : aLast.localeCompare(bLast);
+      return messageSortOrder === "recent"
+        ? bLast.localeCompare(aLast)
+        : aLast.localeCompare(bLast);
     });
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1979,6 +2024,19 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       <span>{lang === "fr" ? "Accueil" : "Home"}</span>
                     </button>
 
+                    {/* Analytique */}
+                    <button
+                      onClick={() => switchTab("analytique")}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
+                        activeNav === "analytique"
+                          ? "bg-[#22252c] text-white font-semibold"
+                          : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                      }`}
+                    >
+                      <TrendingUp className="size-4 text-[#00D26A]" />
+                      <span>{lang === "fr" ? "Analytique" : "Analytics"}</span>
+                    </button>
+
                     {/* Communauté */}
                     <button
                       onClick={() =>
@@ -2067,6 +2125,19 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     >
                       <Home className="size-4 text-zinc-300" />
                       <span>{lang === "fr" ? "Accueil" : "Home"}</span>
+                    </button>
+
+                    {/* Analytique */}
+                    <button
+                      onClick={() => switchTab("analytique")}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors cursor-pointer ${
+                        activeNav === "analytique"
+                          ? "bg-[#22252c] text-white font-semibold"
+                          : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                      }`}
+                    >
+                      <TrendingUp className="size-4 text-[#00D26A]" />
+                      <span>{lang === "fr" ? "Analytique" : "Analytics"}</span>
                     </button>
 
                     {/* Communauté de l'entreprise active : ouvre l'espace personnel sur cette entreprise */}
@@ -2397,6 +2468,22 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           <span>{lang === "fr" ? "Accueil" : "Home"}</span>
                         </button>
 
+                        {/* Analytique */}
+                        <button
+                          onClick={() => {
+                            switchTab("analytique");
+                            setIsMobileSidebarOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors cursor-pointer min-h-[44px] ${
+                            activeNav === "analytique"
+                              ? "bg-[#22252c] text-white font-semibold"
+                              : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                          }`}
+                        >
+                          <TrendingUp className="size-4 text-[#00D26A]" />
+                          <span>{lang === "fr" ? "Analytique" : "Analytics"}</span>
+                        </button>
+
                         {/* Communauté */}
                         <button
                           onClick={() =>
@@ -2414,7 +2501,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             <UsersIcon className="size-4 text-[#00D26A]" />
                             <span>{lang === "fr" ? "Communauté" : "Community"}</span>
                           </div>
-                        {memberSubscriptions.length > 0 && (
+                          {memberSubscriptions.length > 0 && (
                             <span className="text-[10px] font-mono text-emerald-400 px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 font-bold">
                               {memberSubscriptions.length}
                             </span>
@@ -2485,6 +2572,22 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                         >
                           <Home className="size-4 text-zinc-300" />
                           <span>{lang === "fr" ? "Accueil" : "Home"}</span>
+                        </button>
+
+                        {/* Analytique */}
+                        <button
+                          onClick={() => {
+                            switchTab("analytique");
+                            setIsMobileSidebarOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors cursor-pointer min-h-[44px] ${
+                            activeNav === "analytique"
+                              ? "bg-[#22252c] text-white font-semibold"
+                              : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                          }`}
+                        >
+                          <TrendingUp className="size-4 text-[#00D26A]" />
+                          <span>{lang === "fr" ? "Analytique" : "Analytics"}</span>
                         </button>
 
                         <button
@@ -2631,7 +2734,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           }`}
                         >
                           <Share2 className="size-4 text-zinc-300" />
-                          <span>{lang === "fr" ? "Affiliés (Vendeur)" : "Affiliates (Seller)"}</span>
+                          <span>
+                            {lang === "fr" ? "Affiliés (Vendeur)" : "Affiliates (Seller)"}
+                          </span>
                         </button>
                       </nav>
                     )}
@@ -2921,19 +3026,55 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       </div>
                     </div>
                   </div>
-
-                  {/* RECHARTS DATA VISUALIZATION: 30-DAY DIGITAL REVENUE EVOLUTION */}
-                  <div id="tour-revenue-analytics">
-                    <RevenueAnalyticsChart
-                      lang={lang}
-                      currentBalance={activeBalance}
-                      currentCurrency={currency}
-                      onSelectCurrency={setCurrency}
-                      transactions={contextTransactions}
-                    />
-                  </div>
                 </div>
               ))}
+
+            {/* VIEW: ANALYTIQUE */}
+            {activeNav === "analytique" && (
+              <div className="mx-auto max-w-[1400px] space-y-6">
+                <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#121316] p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-[#00D26A]">
+                      <TrendingUp className="size-4" />
+                      <span className="text-[11px] font-bold uppercase tracking-[0.18em]">
+                        Performance financière
+                      </span>
+                    </div>
+                    <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+                      Analytique
+                    </h1>
+                    <p className="max-w-2xl text-xs leading-relaxed text-zinc-400 sm:text-sm">
+                      Analysez l’évolution de vos revenus numériques, le volume de vos ventes et les
+                      produits qui contribuent le plus à votre activité.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-[#00D26A]/20 bg-[#00D26A]/10 px-3 py-2 text-right">
+                    <span className="block text-[10px] uppercase tracking-wider text-zinc-400">
+                      Solde du contexte
+                    </span>
+                    <span className="block text-sm font-bold text-[#00D26A]">
+                      {formatCurrency(activeBalance, currency)}
+                    </span>
+                  </div>
+                </div>
+
+                <div id="tour-revenue-analytics" className="space-y-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-white">Analyse des revenus numériques</h2>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Vue détaillée des 30 derniers jours, convertie dans la devise sélectionnée.
+                    </p>
+                  </div>
+                  <RevenueAnalyticsChart
+                    lang={lang}
+                    currentBalance={activeBalance}
+                    currentCurrency={currency}
+                    onSelectCurrency={setCurrency}
+                    transactions={contextTransactions}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* VIEW: PRODUITS (Matching exact UI of Image 1) */}
             {activeNav === "produits" && (
@@ -3140,13 +3281,21 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             <tr
                               key={product.id}
                               onClick={(event) => {
-                                if ((event.target as HTMLElement).closest("button, a, input, select, textarea")) return;
+                                if (
+                                  (event.target as HTMLElement).closest(
+                                    "button, a, input, select, textarea",
+                                  )
+                                )
+                                  return;
                                 setActiveNav("produits");
                                 setEditingProduct(product);
                                 setIsProductStudioOpen(true);
                               }}
                               onKeyDown={(event) => {
-                                if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                                if (
+                                  event.target === event.currentTarget &&
+                                  (event.key === "Enter" || event.key === " ")
+                                ) {
                                   event.preventDefault();
                                   setActiveNav("produits");
                                   setEditingProduct(product);
@@ -3161,6 +3310,26 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                                 <div className="flex flex-col gap-1">
                                   <div className="flex items-center gap-2">
                                     <span>{product.name}</span>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const nextVisibility =
+                                          product.status === "active" ? "Caché" : "Visible";
+                                        await handleUpdateProject({
+                                          ...product,
+                                          status:
+                                            nextVisibility === "Visible" ? "active" : "paused",
+                                        });
+                                      }}
+                                      className={`ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${product.status === "active" ? "border border-amber-400/30 text-amber-300 hover:bg-amber-400/10" : "border border-emerald-400/30 text-emerald-300 hover:bg-emerald-400/10"}`}
+                                      title={
+                                        product.status === "active"
+                                          ? "Dépublier ce produit"
+                                          : "Publier ce produit"
+                                      }
+                                    >
+                                      {product.status === "active" ? "Dépublier" : "Publier"}
+                                    </button>
                                   </div>
                                   {product.communityConfig?.telegramChannelName ? (
                                     <button
@@ -3406,19 +3575,170 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             {/* VIEW: MESSAGES */}
             {activeNav === "messages" &&
               (isTabLoading ? (
-                <div className="max-w-3xl mx-auto space-y-5"><DashboardProductsSkeleton /></div>
+                <div className="max-w-3xl mx-auto space-y-5">
+                  <DashboardProductsSkeleton />
+                </div>
               ) : (
                 <div className="mansa-keyboard-scroll mx-auto flex h-[calc(100dvh-140px)] max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121316]">
                   <header className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#16171b] px-4 py-3 sm:px-5">
-                    <div className="flex items-center gap-3"><div className="flex size-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-400"><MessageSquare className="size-5" /></div><div><h1 className="text-sm font-bold text-white">Messages</h1><p className="text-[11px] text-zinc-500">Vos conversations privées</p></div></div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10 text-emerald-400">
+                        <MessageSquare className="size-5" />
+                      </div>
+                      <div>
+                        <h1 className="text-sm font-bold text-white">Messages</h1>
+                        <p className="text-[11px] text-zinc-500">Vos conversations privées</p>
+                      </div>
+                    </div>
                   </header>
                   <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[300px_1fr]">
-                    <aside className={`min-h-0 border-b border-white/10 lg:border-b-0 lg:border-r ${selectedPrivateConversationId ? "hidden lg:block" : "block"}`}>
-                      <div className="space-y-2 border-b border-white/10 p-3"><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" /><input value={messageSearchQuery} onChange={(event) => setMessageSearchQuery(event.target.value)} placeholder="Rechercher…" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-emerald-400" /></div><select value={messageSortOrder} onChange={(event) => setMessageSortOrder(event.target.value as "recent" | "oldest")} className="rounded-lg border border-white/10 bg-[#0c0d0e] px-2.5 py-2 text-[11px] text-zinc-300 outline-none"><option value="recent">Dernière activité</option><option value="oldest">Plus ancienne</option></select></div>
-                      <div className="max-h-56 overflow-y-auto lg:max-h-none">{visiblePrivateConversations.length === 0 ? <div className="p-5 text-xs leading-relaxed text-zinc-500">Aucune conversation pour le moment.</div> : visiblePrivateConversations.map((conversation) => { const last = conversation.messages.at(-1); return <button type="button" key={conversation.id} onClick={() => setSelectedPrivateConversationId(conversation.id)} className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left ${selectedPrivateConversationId === conversation.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}><div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{conversation.memberName?.[0]?.toUpperCase() || "M"}</div><div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="truncate text-[11px] text-zinc-500">{conversation.memberEmail}</div><div className="mt-1 truncate text-[11px] text-zinc-400">{last?.text || "Nouvelle conversation"}</div></div></button>; })}</div>
+                    <aside
+                      className={`min-h-0 border-b border-white/10 lg:border-b-0 lg:border-r ${selectedPrivateConversationId ? "hidden lg:block" : "block"}`}
+                    >
+                      <div className="space-y-2 border-b border-white/10 p-3">
+                        <div className="relative">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                          <input
+                            value={messageSearchQuery}
+                            onChange={(event) => setMessageSearchQuery(event.target.value)}
+                            placeholder="Rechercher…"
+                            className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                        <select
+                          value={messageSortOrder}
+                          onChange={(event) =>
+                            setMessageSortOrder(event.target.value as "recent" | "oldest")
+                          }
+                          className="rounded-lg border border-white/10 bg-[#0c0d0e] px-2.5 py-2 text-[11px] text-zinc-300 outline-none"
+                        >
+                          <option value="recent">Dernière activité</option>
+                          <option value="oldest">Plus ancienne</option>
+                        </select>
+                      </div>
+                      <div className="max-h-56 overflow-y-auto lg:max-h-none">
+                        {visiblePrivateConversations.length === 0 ? (
+                          <div className="p-5 text-xs leading-relaxed text-zinc-500">
+                            Aucune conversation pour le moment.
+                          </div>
+                        ) : (
+                          visiblePrivateConversations.map((conversation) => {
+                            const last = conversation.messages.at(-1);
+                            return (
+                              <button
+                                type="button"
+                                key={conversation.id}
+                                onClick={() => setSelectedPrivateConversationId(conversation.id)}
+                                className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left ${selectedPrivateConversationId === conversation.id ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}
+                              >
+                                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">
+                                  {conversation.memberName?.[0]?.toUpperCase() || "M"}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="truncate text-xs font-semibold text-white">
+                                    {activeWorkspaceId === "personnel"
+                                      ? conversation.companyId
+                                      : conversation.memberName}
+                                  </div>
+                                  <div className="truncate text-[11px] text-zinc-500">
+                                    {conversation.memberEmail}
+                                  </div>
+                                  <div className="mt-1 truncate text-[11px] text-zinc-400">
+                                    {last?.text || "Nouvelle conversation"}
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
                     </aside>
-                    <main className={`min-h-0 flex-1 flex-col ${selectedPrivateConversationId ? "flex" : "hidden lg:flex"}`}>
-                      {(() => { const conversation = privateConversations.find((item) => item.id === selectedPrivateConversationId); if (!conversation) return <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-zinc-500">Sélectionnez une conversation pour consulter le chat.</div>; return <><div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5"><button type="button" onClick={() => setSelectedPrivateConversationId(null)} className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden" aria-label="Retour à la liste"><ArrowLeft className="size-4" /></button><div className="flex size-9 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{(activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName)?.[0]?.toUpperCase() || "M"}</div><div><div className="text-sm font-semibold text-white">{activeWorkspaceId === "personnel" ? conversation.companyId : conversation.memberName}</div><div className="text-[11px] text-zinc-500">{conversation.memberEmail}</div></div></div><div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">{conversation.messages.map((item) => { const mine = item.sender === (activeWorkspaceId === "personnel" ? "member" : "creator"); return <div key={item.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${mine ? "bg-[#00D26A] text-black" : "bg-white/[0.06] text-zinc-200"}`}><div>{item.text}</div><div className={`mt-1 text-[10px] ${mine ? "text-emerald-950" : "text-zinc-500"}`}>{item.time}</div></div></div>; })}</div><form onSubmit={handleSendMessage} className="flex shrink-0 gap-2 border-t border-white/10 p-3 sm:p-4"><textarea value={newChatInput} onChange={(event) => setNewChatInput(event.target.value)} rows={2} placeholder="Écrire un message…" className="min-w-0 flex-1 resize-none rounded-xl border border-white/10 bg-[#101114] p-3 text-xs text-white outline-none focus:border-emerald-400" /><button type="submit" disabled={!newChatInput.trim()} className="ui-btn-primary self-end px-4 py-2.5 text-xs disabled:opacity-40"><Send className="size-3.5" /></button></form></>; })()}
+                    <main
+                      className={`min-h-0 flex-1 flex-col ${selectedPrivateConversationId ? "flex" : "hidden lg:flex"}`}
+                    >
+                      {(() => {
+                        const conversation = privateConversations.find(
+                          (item) => item.id === selectedPrivateConversationId,
+                        );
+                        if (!conversation)
+                          return (
+                            <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-zinc-500">
+                              Sélectionnez une conversation pour consulter le chat.
+                            </div>
+                          );
+                        return (
+                          <>
+                            <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPrivateConversationId(null)}
+                                className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden"
+                                aria-label="Retour à la liste"
+                              >
+                                <ArrowLeft className="size-4" />
+                              </button>
+                              <div className="flex size-9 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">
+                                {(activeWorkspaceId === "personnel"
+                                  ? conversation.companyId
+                                  : conversation.memberName)?.[0]?.toUpperCase() || "M"}
+                              </div>
+                              <div>
+                                <div className="text-sm font-semibold text-white">
+                                  {activeWorkspaceId === "personnel"
+                                    ? conversation.companyId
+                                    : conversation.memberName}
+                                </div>
+                                <div className="text-[11px] text-zinc-500">
+                                  {conversation.memberEmail}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
+                              {conversation.messages.map((item) => {
+                                const mine =
+                                  item.sender ===
+                                  (activeWorkspaceId === "personnel" ? "member" : "creator");
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className={`flex ${mine ? "justify-end" : "justify-start"}`}
+                                  >
+                                    <div
+                                      className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${mine ? "bg-[#00D26A] text-black" : "bg-white/[0.06] text-zinc-200"}`}
+                                    >
+                                      <div>{item.text}</div>
+                                      <div
+                                        className={`mt-1 text-[10px] ${mine ? "text-emerald-950" : "text-zinc-500"}`}
+                                      >
+                                        {item.time}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <form
+                              onSubmit={handleSendMessage}
+                              className="flex shrink-0 gap-2 border-t border-white/10 p-3 sm:p-4"
+                            >
+                              <textarea
+                                value={newChatInput}
+                                onChange={(event) => setNewChatInput(event.target.value)}
+                                rows={2}
+                                placeholder="Écrire un message…"
+                                className="min-w-0 flex-1 resize-none rounded-xl border border-white/10 bg-[#101114] p-3 text-xs text-white outline-none focus:border-emerald-400"
+                              />
+                              <button
+                                type="submit"
+                                disabled={!newChatInput.trim()}
+                                className="ui-btn-primary self-end px-4 py-2.5 text-xs disabled:opacity-40"
+                              >
+                                <Send className="size-3.5" />
+                              </button>
+                            </form>
+                          </>
+                        );
+                      })()}
                     </main>
                   </div>
                 </div>
@@ -3501,7 +3821,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               >
                 <React.Suspense
                   fallback={
-                    <div className="rounded-2xl border border-white/10 bg-[#0c0d0e] p-8 text-center text-sm text-zinc-300" role="status">
+                    <div
+                      className="rounded-2xl border border-white/10 bg-[#0c0d0e] p-8 text-center text-sm text-zinc-300"
+                      role="status"
+                    >
                       Chargement de l’application…
                     </div>
                   }
@@ -3512,10 +3835,24 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                     </div>
                   ) : creatorAppWorkflow ? (
                     !activeCompany || activeCompany.id !== creatorAppWorkflow.companyId ? (
-                      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6" role="alert">
-                        <h2 className="text-base font-bold text-white">Entreprise active indisponible</h2>
-                        <p className="mt-2 text-sm text-zinc-300">Le workspace ne peut pas s’ouvrir dans ce contexte. Revenez au catalogue et sélectionnez une entreprise avec une offre.</p>
-                        <button type="button" onClick={() => setCreatorAppWorkflow(null)} className="mt-4 rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-300">Retour aux applications</button>
+                      <div
+                        className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6"
+                        role="alert"
+                      >
+                        <h2 className="text-base font-bold text-white">
+                          Entreprise active indisponible
+                        </h2>
+                        <p className="mt-2 text-sm text-zinc-300">
+                          Le workspace ne peut pas s’ouvrir dans ce contexte. Revenez au catalogue
+                          et sélectionnez une entreprise avec une offre.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setCreatorAppWorkflow(null)}
+                          className="mt-4 rounded-lg border border-white/10 px-4 py-2 text-xs font-semibold text-zinc-300"
+                        >
+                          Retour aux applications
+                        </button>
                       </div>
                     ) : creatorAppWorkflow.app === "courses" ? (
                       <CreatorCoursesWorkspace
@@ -3551,10 +3888,18 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                         subscribersCount: p.activeUsers || 0,
                       }))}
                       onOpenCoursesWorkflow={(productIds) =>
-                        setCreatorAppWorkflow({ app: "courses", companyId: activeCompany?.id || "", productIds })
+                        setCreatorAppWorkflow({
+                          app: "courses",
+                          companyId: activeCompany?.id || "",
+                          productIds,
+                        })
                       }
                       onOpenFilesWorkflow={(productIds) =>
-                        setCreatorAppWorkflow({ app: "files", companyId: activeCompany?.id || "", productIds })
+                        setCreatorAppWorkflow({
+                          app: "files",
+                          companyId: activeCompany?.id || "",
+                          productIds,
+                        })
                       }
                     />
                   )}
@@ -3970,7 +4315,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               billingCycle: newProduct.billingCycle,
               currency: newProduct.currency || currency || "USD",
               includedApps: newProduct.includedApps,
-              affiliateRate: newProduct.affiliateRate || 25,
+              affiliateRate: newProduct.affiliateRate ?? 25,
               productUrl: newProduct.productUrl,
               ctaText: newProduct.ctaText,
               ...(newProduct.imageUrl ? { coverImage: newProduct.imageUrl } : {}),

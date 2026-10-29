@@ -172,9 +172,26 @@
     border-color: var(--color-border);
   }
 
+  html {
+    min-height: 100%;
+    min-height: 100dvh;
+    background-color: #0f1012;
+    color-scheme: dark;
+    overscroll-behavior-y: none;
+  }
+
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    min-height: 100%;
+    min-height: 100dvh;
+    background-color: #0f1012;
+    color: #eeeeee;
+    overscroll-behavior-y: none;
+  }
+
+  #root {
+    min-height: 100%;
+    min-height: 100dvh;
+    background-color: #0f1012;
   }
 }
 

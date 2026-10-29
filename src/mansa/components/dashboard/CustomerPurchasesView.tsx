@@ -58,6 +58,35 @@ export interface PurchasedProductItem {
   audioTrackName?: string;
 }
 
+export function persistCustomerPurchase(item: PurchasedProductItem): void {
+  if (typeof window === "undefined") return;
+  const current = (() => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  })();
+  const next = [item, ...current.filter((entry: PurchasedProductItem) => entry.id !== item.id)];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  window.dispatchEvent(new Event("mansa_purchases_updated"));
+}
+
+export function revokeCustomerPurchase(productId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const current = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const next = Array.isArray(current)
+      ? current.filter((entry: PurchasedProductItem) => entry.id !== productId)
+      : [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event("mansa_purchases_updated"));
+  } catch {
+    /* storage is best effort */
+  }
+}
+
 interface CustomerPurchasesViewProps {
   lang: "fr" | "en";
   onOpenAccountSettings?: () => void;

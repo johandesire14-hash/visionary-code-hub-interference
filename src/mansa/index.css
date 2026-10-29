@@ -2,54 +2,88 @@
 
 @layer base {
   :root {
-    --mansa-green: #3DDC84;
-    --mansa-green-hover: #3DDC84;
-    --mansa-green-light: #F2F2F2;
-    --mansa-bg: #F2F2F2;
-    --mansa-surface: #F2F2F2;
+    --mansa-green: #3ddc84;
+    --mansa-green-hover: #3ddc84;
+    --mansa-green-light: #f2f2f2;
+    --mansa-bg: #f2f2f2;
+    --mansa-surface: #f2f2f2;
     --mansa-border: rgba(0, 0, 0, 0.14);
-    --ui-action-primary: #3DDC84;
-    --ui-action-primary-hover: #2FB86A;
-    --ui-action-secondary: #1B1E23;
-    --ui-action-secondary-hover: #252A30;
-    --ui-action-danger: #E05252;
-    --ui-action-danger-hover: #C83F45;
-    --ui-action-focus: #8BE8B1;
+    --ui-action-primary: #3ddc84;
+    --ui-action-primary-hover: #2fb86a;
+    --ui-action-secondary: #1b1e23;
+    --ui-action-secondary-hover: #252a30;
+    --ui-action-danger: #e05252;
+    --ui-action-danger-hover: #c83f45;
+    --ui-action-focus: #8be8b1;
   }
 
   body {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background-color: #F2F2F2;
-    color: #000000;
+    font-family:
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    background-color: #0f1012;
+    color: #eeeeee;
     min-height: 100%;
     min-height: 100dvh;
     overflow-x: hidden;
+    overscroll-behavior-y: none;
   }
 
   html,
   #root {
     min-height: 100%;
     min-height: 100dvh;
+    background-color: #0f1012;
   }
 
-  h1, h2, h3, h4, h5, h6, .font-heading, .title-grotesk {
-    font-family: "Hanken Grotesk", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  html {
+    color-scheme: dark;
+    overscroll-behavior-y: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-heading,
+  .title-grotesk {
+    font-family:
+      "Hanken Grotesk",
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
     letter-spacing: -0.025em;
   }
 }
 
 .font-hanken {
-  font-family: "Hanken Grotesk", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    "Hanken Grotesk",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
 }
 
 .font-inter {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
 }
 
 /* Responsive primitives shared by dashboard, community, checkout and chat. */
 .mansa-viewport {
   min-height: 100dvh;
   min-height: var(--mansa-viewport-height, 100dvh);
+  background-color: #0f1012;
 }
 
 .mansa-safe-top {
@@ -67,7 +101,9 @@
 }
 
 .mansa-modal-viewport {
-  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem);
+  max-height: calc(
+    100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem
+  );
 }
 
 @media (max-width: 1023px) {
@@ -99,7 +135,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 150ms cubic-bezier(0.23, 1, 0.32, 1), border-color 150ms ease-out, transform 150ms ease-out;
+  transition:
+    background-color 150ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 150ms ease-out,
+    transform 150ms ease-out;
 }
 
 .ui-btn-primary:hover {
@@ -107,25 +146,28 @@
 }
 
 .ui-btn-secondary {
-  background-color: var(--ui-action-secondary) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #F2F4F5 !important;
+  background-color: var(--ui-action-primary) !important;
+  border: 1px solid var(--ui-action-primary);
+  color: #000000 !important;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 150ms ease;
 }
 
 .ui-btn-secondary:hover {
-  background-color: var(--ui-action-secondary-hover) !important;
-  border-color: rgba(255, 255, 255, 0.22);
+  background-color: var(--ui-action-primary-hover) !important;
+  border-color: var(--ui-action-primary-hover);
 }
 
 .ui-btn-outline {
   background: transparent !important;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #D7DCE0 !important;
+  color: #d7dce0 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -134,13 +176,13 @@
 .ui-btn-outline:hover {
   background: rgba(255, 255, 255, 0.06) !important;
   border-color: rgba(255, 255, 255, 0.3);
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 
 .ui-btn-ghost {
   background: transparent !important;
   border: 1px solid transparent;
-  color: #AAB2B9 !important;
+  color: #aab2b9 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -148,12 +190,12 @@
 
 .ui-btn-ghost:hover {
   background: rgba(255, 255, 255, 0.07) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
 }
 
 .ui-btn-danger {
   background: var(--ui-action-danger) !important;
-  color: #FFFFFF !important;
+  color: #ffffff !important;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -237,92 +279,6 @@ button:not(.rounded-full),
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-/* Harmonisation de l’interface importée avec la palette afhub. */
-.mansa-palette [class*="bg-[#0"],
-.mansa-palette [class*="bg-[#1"],
-.mansa-palette [class*="bg-[#2"],
-.mansa-palette [class*="bg-[#3"] {
-  background-color: #F2F2F2 !important;
-  background-image: none !important;
-}
-.mansa-palette [class*="text-white"],
-.mansa-palette [class*="text-zinc-"],
-.mansa-palette [class*="text-gray-"] {
-  color: #000000 !important;
-}
-.mansa-palette [class*="border-white"] {
-  border-color: rgba(0, 0, 0, 0.14) !important;
-}
-.mansa-palette [class*="#00D26A"],
-.mansa-palette [class*="#00b85c"],
-.mansa-palette [class*="#10E47A"] {
-  color: #3DDC84 !important;
-  border-color: #3DDC84 !important;
-}
-.mansa-palette [class*="bg-[#00D26A"] {
-  background-color: #3DDC84 !important;
-  color: #000000 !important;
-}
-.mansa-palette.mansa-dark {
-  background: #2A2929;
-  color: #F2F2F2;
-}
-.mansa-palette.mansa-dark [class*="bg-[#0"],
-.mansa-palette.mansa-dark [class*="bg-[#1"],
-.mansa-palette.mansa-dark [class*="bg-[#2"],
-.mansa-palette.mansa-dark [class*="bg-[#3"] {
-  background-color: #2A2929 !important;
-}
-.mansa-palette.mansa-dark [class*="text-white"],
-.mansa-palette.mansa-dark [class*="text-zinc-"],
-.mansa-palette.mansa-dark [class*="text-gray-"] {
-  color: #F2F2F2 !important;
-}
-.mansa-palette.mansa-dark [class*="border-white"] {
-  border-color: rgba(242, 242, 242, 0.14) !important;
-}
-.mansa-palette.mansa-dark [class*="bg-[#00D26A"] {
-  background-color: #3DDC84 !important;
-  color: #000000 !important;
-}
-
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* User-selected page background. Internal cards, controls, typography and buttons keep their base styles. */
-:root {
-  --store-background: #2A2929;
-  --background: #2A2929;
-}
-
-html,
-body,
-#root,
-.mansa-palette,
-.afhub-home,
-.afhub-home > header,
-.afhub-home > main,
-.afhub-home > main > section,
-.afhub-home > footer,
-.mansa-viewport {
-  background-color: #2A2929 !important;
-}
-
-/* Higher specificity overrides the legacy section palette on the public page. */
-.mansa-palette .afhub-home > main > section,
-.mansa-palette .afhub-home > header,
-.mansa-palette .afhub-home > footer {
-  background-color: #2A2929 !important;
-}
-
-.mansa-palette .mansa-viewport,
-.mansa-palette > .mansa-viewport {
-  background-color: #2A2929 !important;
 }
 
 /* Dashboard visual system: colour carries decisions, surfaces stay quiet. */
@@ -414,8 +370,102 @@ body,
   letter-spacing: -0.025em;
 }
 
+/* Product-wide action color: blue dashboard CTAs become afhub green. */
+.mansa-dashboard button[class*="bg-[#0055ff"],
+.mansa-dashboard button[class*="bg-blue-"],
+.mansa-dashboard button[class*="bg-indigo-"] {
+  background-color: var(--ui-action-primary) !important;
+  border-color: var(--ui-action-primary) !important;
+  color: #000000 !important;
+}
+
+.mansa-dashboard button[class*="hover:bg-[#0047d6"],
+.mansa-dashboard button[class*="hover:bg-blue-"],
+.mansa-dashboard button[class*="hover:bg-indigo-"] {
+  background-color: var(--ui-action-primary-hover) !important;
+}
+
+.mansa-dashboard button[class*="bg-emerald-"] {
+  background-color: var(--ui-action-primary) !important;
+  border-color: var(--ui-action-primary) !important;
+  color: #000000 !important;
+}
+
 @media (max-width: 1023px) {
   .mansa-dashboard .dashboard-overview {
     max-width: none;
+  }
+}
+
+/* Wider-inspired public palette. Each public component owns its foreground/background. */
+:root {
+  --wider-orange: #f0522b;
+  --wider-orange-deep: #d94322;
+  --wider-paper: #efede8;
+  --wider-surface: #ffffff;
+  --wider-ink: #171717;
+  --wider-muted: #686868;
+  --wider-line: rgba(23, 23, 23, 0.12);
+  --store-background: var(--wider-paper);
+  --background: var(--wider-paper);
+}
+
+html,
+body,
+#root,
+.afhub-home {
+  background: var(--wider-paper);
+  color: var(--wider-ink);
+}
+
+html.dark,
+html.dark body,
+html.dark #root,
+html.dark .mansa-palette {
+  background: #0f1012;
+  color: #eeeeee;
+}
+
+html:not(.dark) .mansa-palette {
+  background: #ffffff;
+  color: #171717;
+}
+
+.afhub-home-hero {
+  background: var(--wider-orange-deep);
+  color: #ffffff;
+}
+
+.afhub-home > footer {
+  background: #171717;
+  color: #ffffff;
+}
+
+.pill-nav {
+  min-height: 3.5rem;
+}
+
+.afhub-grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+  background-size: 72px 72px;
+  transform: perspective(520px) rotateX(58deg) scale(1.35) translateY(18%);
+  transform-origin: center bottom;
+  mask-image: linear-gradient(to top, black, transparent 78%);
+}
+
+.afhub-site-header .ui-btn-primary {
+  background: var(--ui-action-primary) !important;
+  color: #000000 !important;
+}
+
+.afhub-site-header .ui-btn-ghost {
+  color: var(--wider-muted) !important;
+}
+
+@media (max-width: 767px) {
+  .afhub-site-header .pill-nav {
+    padding-inline: 0.65rem;
   }
 }

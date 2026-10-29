@@ -319,7 +319,13 @@ export async function saveProductPrivateContent(
   digitalFiles: unknown[],
   courseModules: unknown[],
 ): Promise<void> {
-  const payload = { creatorId, companyId, digitalFiles, courseModules, updatedAt: new Date().toISOString() };
+  const payload = {
+    creatorId,
+    companyId,
+    digitalFiles,
+    courseModules,
+    updatedAt: new Date().toISOString(),
+  };
   if (db) {
     const contentRef = doc(db, "productPrivateContent", productId);
     const current = await getDoc(contentRef);
@@ -334,7 +340,8 @@ export async function saveProductPrivateContent(
     localProducts[index] = { ...localProducts[index], digitalFiles, courseModules };
     saveCreatorLocalProducts(creatorId, localProducts);
   }
-  if (typeof window !== "undefined") window.dispatchEvent(new Event("mansa_discoverable_products_updated"));
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event("mansa_discoverable_products_updated"));
 }
 
 export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
@@ -409,20 +416,29 @@ export async function joinAffiliateProgram(input: {
   ownerId: string;
   commissionRate: number;
 }): Promise<void> {
-  const membershipId = `${input.productId}_${input.affiliateUserId}`.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const membershipId = `${input.productId}_${input.affiliateUserId}`.replace(
+    /[^a-zA-Z0-9_-]/g,
+    "_",
+  );
   const payload = { ...input, membershipId, joinedAt: new Date().toISOString() };
   if (db) await setDoc(doc(db, "affiliateMemberships", membershipId), payload, { merge: true });
   if (typeof window !== "undefined") {
     const key = "mansa_affiliate_memberships";
     const current = JSON.parse(window.localStorage.getItem(key) || "[]");
-    window.localStorage.setItem(key, JSON.stringify([
-      ...current.filter((item: any) => item.membershipId !== membershipId),
-      payload,
-    ]));
+    window.localStorage.setItem(
+      key,
+      JSON.stringify([
+        ...current.filter((item: any) => item.membershipId !== membershipId),
+        payload,
+      ]),
+    );
   }
 }
 
-export async function getAffiliateMembership(productId: string, affiliateUserId: string): Promise<Record<string, unknown> | null> {
+export async function getAffiliateMembership(
+  productId: string,
+  affiliateUserId: string,
+): Promise<Record<string, unknown> | null> {
   const membershipId = `${productId}_${affiliateUserId}`.replace(/[^a-zA-Z0-9_-]/g, "_");
   if (db) {
     const snapshot = await getDoc(doc(db, "affiliateMemberships", membershipId));
@@ -435,6 +451,47 @@ export async function getAffiliateMembership(productId: string, affiliateUserId:
   return null;
 }
 
+export async function revokeVerifiedMemberEntitlement(input: {
+  memberUid: string;
+  productId: string;
+  reason?: string;
+}): Promise<void> {
+  if (!input.memberUid || !input.productId) return;
+  const ref = doc(db, "memberEntitlements", `${input.memberUid}_${input.productId}`);
+  await setDoc(
+    ref,
+    {
+      status: "revoked",
+      revokedAt: new Date().toISOString(),
+      revokeReason: input.reason || "refund",
+    },
+    { merge: true },
+  );
+}
+
+/** À appeler depuis le handler de remboursement confirmé. */
+export async function revokeCustomerAccessAfterRefund(input: {
+  memberUid: string;
+  productId: string;
+  reason?: string;
+}): Promise<void> {
+  await revokeVerifiedMemberEntitlement(input);
+  if (typeof window !== "undefined") {
+    try {
+      const current = JSON.parse(window.localStorage.getItem("mansa_customer_purchases") || "[]");
+      if (Array.isArray(current)) {
+        window.localStorage.setItem(
+          "mansa_customer_purchases",
+          JSON.stringify(current.filter((item: any) => item.id !== input.productId)),
+        );
+        window.dispatchEvent(new Event("mansa_purchases_updated"));
+      }
+    } catch {
+      // Le cache local ne doit jamais bloquer la révocation serveur.
+    }
+  }
+}
+
 export async function persistVerifiedMemberEntitlement(input: {
   memberUid: string;
   productId: string;
@@ -443,11 +500,15 @@ export async function persistVerifiedMemberEntitlement(input: {
   verifiedAt?: string;
 }): Promise<void> {
   if (!db || !input.memberUid || !input.productId) return;
-  await setDoc(doc(db, "memberEntitlements", `${input.memberUid}_${input.productId}`), {
-    ...input,
-    status: "paid",
-    verifiedAt: input.verifiedAt || new Date().toISOString(),
-  }, { merge: true });
+  await setDoc(
+    doc(db, "memberEntitlements", `${input.memberUid}_${input.productId}`),
+    {
+      ...input,
+      status: "paid",
+      verifiedAt: input.verifiedAt || new Date().toISOString(),
+    },
+    { merge: true },
+  );
 }
 
 export async function loadVerifiedMemberContent(

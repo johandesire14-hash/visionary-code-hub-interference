@@ -82,9 +82,14 @@ export default function MansaRoot({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const applyTheme = (theme: "dark" | "light") => {
-      setIsDark(theme === "dark");
+      const dark = theme === "dark";
+      const background = dark ? "#0f1012" : "#ffffff";
+      setIsDark(dark);
       document.documentElement.classList.toggle("dark", theme === "dark");
       document.documentElement.style.colorScheme = theme;
+      document.documentElement.style.backgroundColor = background;
+      document.body.style.backgroundColor = background;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute("content", background);
     };
     applyTheme(getAppTheme());
     const handleThemeChange = (event: Event) => {
@@ -97,7 +102,10 @@ export default function MansaRoot({ children }: { children: React.ReactNode }) {
 
   return (
     <RootErrorBoundary>
-      <div className={`mansa-palette min-h-screen${isDark ? " mansa-dark" : ""}`}>
+      <div
+        className={`mansa-palette min-h-screen${isDark ? " mansa-dark" : ""}`}
+        style={{ minHeight: "100dvh", backgroundColor: isDark ? "#0f1012" : "#ffffff" }}
+      >
         <ViewportMetrics />
         {children}
       </div>

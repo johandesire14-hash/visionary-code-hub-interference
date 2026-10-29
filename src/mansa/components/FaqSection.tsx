@@ -1,105 +1,84 @@
 // @ts-nocheck
 import React, { useState } from "react";
-import { ChevronDown, HelpCircle, ArrowRight } from "lucide-react";
+import { ChevronDown, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-interface FaqItem {
-  id: string;
-  question: string;
-  answer: string;
-}
-
-const FAQ_ITEMS: FaqItem[] = [
+const FAQ_ITEMS = [
   {
     id: "faq-1",
     question: "Comment fonctionne l'automatisation Telegram et Discord ?",
     answer:
-      "Dès qu'un client paie (par Mobile Money ou Carte Bancaire), notre bot génère un lien d'invitation sécurisé à usage unique ou lui attribue automatiquement le rôle VIP. En cas d'annulation ou non-renouvellement, l'accès est automatiquement révoqué.",
+      "Dès qu'un client paie, votre système peut générer un lien d'invitation sécurisé ou lui attribuer automatiquement le rôle VIP. En cas d'annulation, l'accès peut être révoqué.",
   },
   {
     id: "faq-2",
-    question: "Quels sont les moyens de paiement acceptés pour mes clients ?",
+    question: "Quels sont les moyens de paiement acceptés ?",
     answer:
-      "Vos clients peuvent régler via Wave, Orange Money, MTN MoMo, Moov Money, Airtel Money ainsi que par Carte Bancaire (Visa, Mastercard), Apple Pay et Google Pay.",
+      "Vos clients peuvent régler via Wave, Orange Money, MTN MoMo, Moov Money, Airtel Money ainsi que par carte bancaire selon votre configuration.",
   },
   {
     id: "faq-3",
-    question: "Quand et comment reçois-je mes gains ?",
+    question: "Puis-je vendre des formations ou des fichiers ?",
     answer:
-      "Vos fonds sont transférables directement sur votre compte Mobile Money ou compte bancaire. Aucun délai arbitraire de blocage.",
+      "Oui. Vous pouvez proposer des vidéos de formation, ebooks PDF, modèles Notion ou autres ressources numériques avec une livraison sécurisée.",
   },
   {
     id: "faq-4",
-    question: "Puis-je vendre aussi des formations ou des fichiers ?",
+    question: "Puis-je gérer plusieurs types d’offres ?",
     answer:
-      "Absolument. Vous pouvez héberger vos vidéos de formation, e-books PDF, modèles Notion ou logiciels avec téléchargement sécurisé et illimité pour vos acheteurs.",
+      "Oui. Votre boutique peut réunir des abonnements communautaires et des produits numériques dans une même expérience.",
   },
 ];
 
-interface FaqSectionProps {
-  lang?: "fr" | "en";
-  onOpenStudio?: () => void;
-}
-
-export const FaqSection: React.FC<FaqSectionProps> = ({
-  lang = "fr",
+export const FaqSection: React.FC<{ lang?: "fr" | "en"; onOpenStudio?: () => void }> = ({
   onOpenStudio,
 }) => {
   const [openIds, setOpenIds] = useState<string[]>(["faq-1"]);
-
-  const toggleAccordion = (id: string) => {
-    setOpenIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
   return (
-    <section id="faq" className="w-full bg-[#090a0f] py-16 px-6 sm:px-10 border-t border-white/[0.04]">
-      <div className="mx-auto max-w-[760px] space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+    <section id="faq" className="w-full bg-[#efeDE8] px-5 py-20 text-[#171717] sm:px-10 sm:py-28">
+      <div className="mx-auto max-w-[820px]">
+        <div className="text-center">
+          <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#d94322]">
             Questions fréquentes
+          </p>
+          <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl">
+            Questions answered.
           </h2>
-          <p className="text-xs sm:text-sm text-zinc-400">
-            Tout ce que vous devez savoir pour lancer vos produits et encaisser sans friction.
+          <p className="mx-auto mt-5 max-w-xl text-sm leading-relaxed text-[#686868]">
+            Tout ce qu’il faut savoir pour lancer vos offres et encaisser sans friction.
           </p>
         </div>
-
-        {/* Accordion List */}
-        <div className="space-y-3">
+        <div className="mt-10 space-y-3">
           {FAQ_ITEMS.map((faq) => {
             const isOpen = openIds.includes(faq.id);
             return (
               <div
                 key={faq.id}
-                className="rounded-2xl border border-white/[0.06] bg-[#12141a]/80 overflow-hidden transition-all"
+                className="overflow-hidden rounded-[18px] border border-black/10 bg-white"
               >
                 <button
-                  onClick={() => toggleAccordion(faq.id)}
-                  className="w-full flex items-center justify-between p-4 sm:p-5 text-left cursor-pointer gap-4 hover:bg-white/[0.02] transition-colors"
+                  onClick={() =>
+                    setOpenIds((prev) =>
+                      isOpen ? prev.filter((id) => id !== faq.id) : [...prev, faq.id],
+                    )
+                  }
+                  className="flex w-full items-center justify-between gap-4 p-5 text-left"
                 >
-                  <span className="text-sm font-bold text-white">
-                    {faq.question}
-                  </span>
+                  <span className="text-sm font-bold sm:text-base">{faq.question}</span>
                   <ChevronDown
-                    className={`size-4 text-zinc-500 transition-transform duration-200 shrink-0 ${
-                      isOpen ? "rotate-180 text-emerald-400" : ""
-                    }`}
+                    className={`size-4 shrink-0 text-[#d94322] transition-transform ${isOpen ? "rotate-180" : ""}`}
                   />
                 </button>
-
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
                     >
-                      <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-zinc-400 leading-relaxed border-t border-white/[0.04]">
+                      <p className="border-t border-black/10 px-5 pb-5 pt-4 text-sm leading-relaxed text-[#686868]">
                         {faq.answer}
-                      </div>
+                      </p>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -107,19 +86,13 @@ export const FaqSection: React.FC<FaqSectionProps> = ({
             );
           })}
         </div>
-
-        {/* Action prompt */}
-        <div className="text-center pt-2">
-          <button
-            onClick={() => onOpenStudio && onOpenStudio()}
-            className="text-xs sm:text-sm font-bold text-emerald-400 hover:text-emerald-300 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
-          >
-            <span>Prêt à créer votre première boutique ?</span>
-            <ArrowRight className="size-4" />
-          </button>
-        </div>
+        <button
+          onClick={() => onOpenStudio?.()}
+          className="mx-auto mt-10 flex items-center gap-2 text-sm font-bold hover:text-[#d94322]"
+        >
+          Créer votre première boutique <ArrowRight className="size-4" />
+        </button>
       </div>
     </section>
   );
 };
-

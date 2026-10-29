@@ -13,88 +13,85 @@ const CATEGORIES_DATA: CategoryCardItem[] = [
   {
     id: "community",
     categoryKey: "community",
-    title: "Canaux Telegram & Discord Privés",
-    subtitle: "Abonnements à des canaux privés et invitation après paiement.",
+    title: "Canaux VIP Telegram & Discord",
+    subtitle: "Vendez des abonnements et automatisez l’invitation de vos membres après paiement.",
     samplePrompt: "Canal Telegram privé avec invitation après paiement",
     icon: Send,
-    colorGradient: "from-[#229ED9]/10 to-transparent",
+    colorGradient: "",
   },
   {
     id: "courses",
     categoryKey: "courses",
-    title: "Formations & E-books",
-    subtitle: "Vendez vos guides, vidéos et programmes avec accès direct et sécurisé.",
+    title: "Formations & ebooks",
+    subtitle: "Partagez vos connaissances avec des accès directs et sécurisés pour vos acheteurs.",
     samplePrompt: "Formation vidéo et masterclass privée",
     icon: BookOpen,
-    colorGradient: "from-emerald-500/10 to-transparent",
+    colorGradient: "",
   },
   {
     id: "digital",
     categoryKey: "digital",
-    title: "Fichiers & Templates",
-    subtitle: "Templates Notion, presets, tableurs, codes sources et ressources prêtes à l'emploi.",
+    title: "Templates & fichiers",
+    subtitle: "Mettez vos ressources numériques en vente et livrez-les automatiquement.",
     samplePrompt: "Templates Notion & Design",
     icon: PackageCheck,
-    colorGradient: "from-[#00D26A]/10 to-transparent",
+    colorGradient: "",
   },
 ];
 
 export const BuildNextCarousel: React.FC<BuildNextCarouselProps> = ({
   onSelectCategory,
   onOpenStudio,
-  lang,
-}) => {
-  return (
-    <section id="categories" className="w-full bg-[#0c0d12] py-16 border-t border-white/[0.04]">
-      <div className="mx-auto max-w-[1100px] px-6 sm:px-10">
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
-          <div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Que souhaitez-vous vendre ?
-            </h2>
-            <p className="text-sm text-zinc-400 mt-1">
-              Choisissez un type de produit pour configurer votre offre.
-            </p>
-          </div>
-          <button
-            onClick={() => onOpenStudio()}
-            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
-          >
-            <span>Créer sur mesure</span>
-            <ArrowRight className="size-3.5" />
-          </button>
+}) => (
+  <section
+    id="solutions"
+    className="w-full bg-[#f5f5f3] px-5 py-20 text-[#171717] sm:px-10 sm:py-28"
+  >
+    <div className="mx-auto max-w-[1120px]">
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#d94322]">
+            Nos solutions
+          </p>
+          <h2 className="max-w-xl text-4xl font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl">
+            Vendez ce que vous savez faire.
+          </h2>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {CATEGORIES_DATA.map((cat) => {
-            const Icon = cat.icon;
-            return (
-              <div
-                key={cat.id}
-                onClick={() => onSelectCategory(cat)}
-                className="group relative flex flex-col justify-between rounded-2xl border border-white/[0.06] bg-[#12141a]/80 p-5 transition-colors duration-150 hover:border-white/20 hover:bg-[#161822] cursor-pointer"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-white/[0.04] text-white border border-white/5 group-hover:bg-emerald-500/20 group-hover:text-emerald-400 transition-colors">
-                      <Icon className="size-5" />
-                    </div>
-                  </div>
-                  <h3 className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
-                    {cat.title}
-                  </h3>
-                  <p className="mt-1.5 text-xs text-zinc-400 leading-relaxed">
-                    {cat.subtitle}
-                  </p>
-                </div>
-                <div className="mt-5 pt-3 border-t border-white/[0.04] flex items-center justify-between text-[11px] font-semibold text-zinc-500 group-hover:text-white transition-colors">
-                  <span>Lancer ce modèle</span>
-                  <ArrowRight className="size-3 text-emerald-400 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <button
+          onClick={() => onOpenStudio()}
+          className="inline-flex items-center gap-2 text-sm font-bold text-[#171717] hover:text-[#d94322]"
+        >
+          Créer sur mesure <ArrowRight className="size-4" />
+        </button>
       </div>
-    </section>
-  );
-};
+      <div className="mt-12 grid gap-4 lg:grid-cols-3">
+        {CATEGORIES_DATA.map((cat) => {
+          const Icon = cat.icon;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => onSelectCategory(cat)}
+              className="group flex min-h-[280px] flex-col justify-between rounded-[24px] border border-black/10 bg-white p-6 text-left shadow-[0_14px_40px_rgba(23,23,23,0.04)] transition-all hover:-translate-y-1 hover:border-[#f0522b]/40 hover:shadow-[0_18px_48px_rgba(23,23,23,0.09)]"
+            >
+              <span className="flex size-12 items-center justify-center rounded-2xl bg-[#f0522b]/10 text-[#d94322]">
+                <Icon className="size-5" />
+              </span>
+              <span>
+                <span className="mt-10 block text-xl font-extrabold tracking-tight">
+                  {cat.title}
+                </span>
+                <span className="mt-2 block text-sm leading-relaxed text-[#686868]">
+                  {cat.subtitle}
+                </span>
+              </span>
+              <span className="mt-8 flex items-center gap-2 text-xs font-bold">
+                Explorer{" "}
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+);
