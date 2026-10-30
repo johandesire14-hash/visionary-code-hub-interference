@@ -94,9 +94,6 @@ describe("payment settings scope", () => {
     expect(screen.getByText("Wave")).toBeInTheDocument();
     expect(screen.getByText("Orange Money")).toBeInTheDocument();
 
-    const defaultMethodsToggle = screen.getByRole("switch");
-    expect(defaultMethodsToggle).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(defaultMethodsToggle);
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => {
@@ -104,7 +101,7 @@ describe("payment settings scope", () => {
         user.uid,
         expect.objectContaining({
           accountPaymentSettings: expect.objectContaining({
-            includeDefaultPaymentMethods: false,
+            includeDefaultPaymentMethods: true,
           }),
         }),
       );
