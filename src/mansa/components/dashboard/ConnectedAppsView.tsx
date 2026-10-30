@@ -113,9 +113,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
   onOpenFilesWorkflow,
 }) => {
   // Current view state: 'catalog' | 'telegram' | 'telegram_wizard' | 'discord' | 'fan_purchases'
-  const [subView, setSubView] = useState<"catalog" | "telegram" | "telegram_wizard" | "discord" | "fan_purchases">(
-    initialSubView
-  );
+  const [subView, setSubView] = useState<
+    "catalog" | "telegram" | "telegram_wizard" | "discord" | "fan_purchases"
+  >(initialSubView);
 
   // Search in Available Channels
   const [channelSearchQuery, setChannelSearchQuery] = useState("");
@@ -131,7 +131,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
   // Live Telegram Simulation Chat State
   const [chatChannelName, setChatChannelName] = useState("VICTORY ODDS 🤑🔥");
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "bot"; text: string; time: string }>>([]);
+  const [chatMessages, setChatMessages] = useState<
+    Array<{ sender: "user" | "bot"; text: string; time: string }>
+  >([]);
   const [typedMessage, setTypedMessage] = useState("");
   const [isBotTyping, setIsBotTyping] = useState(false);
 
@@ -151,7 +153,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
   const [selectedProductIdsToLink, setSelectedProductIdsToLink] = useState<string[]>([]);
 
   // Currently active linked product (for display in telegram / discord views)
-  const [activeLinkedProduct, setActiveLinkedProduct] = useState<ConnectedAppProductItem | null>(null);
+  const [activeLinkedProduct, setActiveLinkedProduct] = useState<ConnectedAppProductItem | null>(
+    null,
+  );
 
   // Effective products list (passed from enterprise offers or fallback)
   const effectiveProductsList = useMemo<ConnectedAppProductItem[]>(() => {
@@ -178,8 +182,18 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       } catch {}
     }
     return [
-      { id: "prod-vip", title: "Pass VIP & Accès Membre", priceDisplay: "29 € / mois", subscribersCount: 142 },
-      { id: "prod-standard", title: "Accès Communauté Standard", priceDisplay: "Gratuit", subscribersCount: 380 },
+      {
+        id: "prod-vip",
+        title: "Pass VIP & Accès Membre",
+        priceDisplay: "29 € / mois",
+        subscribersCount: 142,
+      },
+      {
+        id: "prod-standard",
+        title: "Accès Communauté Standard",
+        priceDisplay: "Gratuit",
+        subscribersCount: 380,
+      },
     ];
   }, [availableProducts, companyId]);
 
@@ -236,7 +250,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
   const [newDiscordServerName, setNewDiscordServerName] = useState("");
   const [newDiscordRoleName, setNewDiscordRoleName] = useState("");
   const [isManageRolesModalOpen, setIsManageRolesModalOpen] = useState(false);
-  const [selectedServerForRoles, setSelectedServerForRoles] = useState<DiscordServerItem | null>(null);
+  const [selectedServerForRoles, setSelectedServerForRoles] = useState<DiscordServerItem | null>(
+    null,
+  );
   const [newRoleInput, setNewRoleInput] = useState("");
 
   // Sync Telegram Channels to LocalStorage
@@ -265,14 +281,16 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
         // Fallback local aléatoire
         const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
         let fallback = "";
-        for (let i = 0; i < 6; i++) fallback += chars.charAt(Math.floor(Math.random() * chars.length));
+        for (let i = 0; i < 6; i++)
+          fallback += chars.charAt(Math.floor(Math.random() * chars.length));
         setVerifyCode(fallback);
       }
     } catch (err) {
       console.warn("Erreur fetch code:", err);
       const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
       let fallback = "";
-      for (let i = 0; i < 6; i++) fallback += chars.charAt(Math.floor(Math.random() * chars.length));
+      for (let i = 0; i < 6; i++)
+        fallback += chars.charAt(Math.floor(Math.random() * chars.length));
       setVerifyCode(fallback);
     } finally {
       setIsRefetching(false);
@@ -320,7 +338,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
           ]);
 
           setVerificationSuccessToast(
-            `🎉 Canal "${info.title}" vérifié et synchronisé avec succès !`
+            `🎉 Canal "${info.title}" vérifié et synchronisé avec succès !`,
           );
 
           // Consommer le code sur le serveur et pré-générer le code suivant
@@ -355,7 +373,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       const filtered = prev.filter((c) => c.id !== channel.id && c.name !== channel.name);
       return [...filtered, { ...channel, isIncluded: true }];
     });
-    setAvailableChannels((prev) => prev.filter((c) => c.id !== channel.id && c.name !== channel.name));
+    setAvailableChannels((prev) =>
+      prev.filter((c) => c.id !== channel.id && c.name !== channel.name),
+    );
     setVerificationSuccessToast(`Canal "${channel.name}" ajouté avec succès à vos offres !`);
     setTimeout(() => setVerificationSuccessToast(null), 3500);
   };
@@ -379,7 +399,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       const filtered = prev.filter((s) => s.id !== server.id && s.name !== server.name);
       return [...filtered, { ...server, isIncluded: true }];
     });
-    setAvailableDiscordServers((prev) => prev.filter((s) => s.id !== server.id && s.name !== server.name));
+    setAvailableDiscordServers((prev) =>
+      prev.filter((s) => s.id !== server.id && s.name !== server.name),
+    );
     setVerificationSuccessToast(`Serveur "${server.name}" ajouté avec succès à vos offres !`);
     setTimeout(() => setVerificationSuccessToast(null), 3500);
   };
@@ -435,14 +457,14 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       prev.map((s) =>
         s.id === selectedServerForRoles.id && !s.rolesManaged.includes(role)
           ? { ...s, rolesManaged: [...s.rolesManaged, role] }
-          : s
-      )
+          : s,
+      ),
     );
 
     setSelectedServerForRoles((prev) =>
       prev && !prev.rolesManaged.includes(role)
         ? { ...prev, rolesManaged: [...prev.rolesManaged, role] }
-        : prev
+        : prev,
     );
 
     setNewRoleInput("");
@@ -456,14 +478,12 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       prev.map((s) =>
         s.id === selectedServerForRoles.id
           ? { ...s, rolesManaged: s.rolesManaged.filter((r) => r !== roleToRemove) }
-          : s
-      )
+          : s,
+      ),
     );
 
     setSelectedServerForRoles((prev) =>
-      prev
-        ? { ...prev, rolesManaged: prev.rolesManaged.filter((r) => r !== roleToRemove) }
-        : prev
+      prev ? { ...prev, rolesManaged: prev.rolesManaged.filter((r) => r !== roleToRemove) } : prev,
     );
   };
 
@@ -480,7 +500,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       setSelectedAppToInstall({
         id: "discord",
         title: "Discord",
-        description: "Vendez l'accès à votre serveur Discord avec gestion automatique des rôles VIP.",
+        description:
+          "Vendez l'accès à votre serveur Discord avec gestion automatique des rôles VIP.",
         installationsCount: 2037,
         icon: <DiscordIcon className="size-10" />,
       });
@@ -488,7 +509,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       setSelectedAppToInstall({
         id: "telegram",
         title: "Telegram",
-        description: "Vendez l'accès à vos canaux et groupes Telegram avec liens d'invitation automatiques.",
+        description:
+          "Vendez l'accès à vos canaux et groupes Telegram avec liens d'invitation automatiques.",
         installationsCount: 1845,
         icon: <TelegramIcon className="size-10" />,
       });
@@ -496,7 +518,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       setSelectedAppToInstall({
         id: "courses",
         title: "Cours & Vidéos",
-        description: "Organisez et monétisez vos formations vidéos protégées avec suivi des élèves.",
+        description:
+          "Organisez et monétisez vos formations vidéos protégées avec suivi des élèves.",
         installationsCount: 920,
         icon: <span className="text-3xl">🎓</span>,
       });
@@ -504,7 +527,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       setSelectedAppToInstall({
         id: "files",
         title: "Fichiers",
-        description: "Distribuez des documents, ebooks PDF et logiciels en téléchargement sécurisé.",
+        description:
+          "Distribuez des documents, ebooks PDF et logiciels en téléchargement sécurisé.",
         installationsCount: 1410,
         icon: <span className="text-3xl">📁</span>,
       });
@@ -516,7 +540,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
     if (!selectedAppToInstall || selectedProductIdsToLink.length === 0) return;
     const app = selectedAppToInstall;
 
-    const matchedProduct = effectiveProductsList.find((p) => selectedProductIdsToLink.includes(p.id)) || {
+    const matchedProduct = effectiveProductsList.find((p) =>
+      selectedProductIdsToLink.includes(p.id),
+    ) || {
       id: selectedProductIdsToLink[0],
       title: "Produit sélectionné",
     };
@@ -525,10 +551,16 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
     // Les apps de contenu ne sont pas finalisées tant que leur contenu n'est pas ajouté.
     // Telegram/Discord, eux, poursuivent vers leur écran de connexion dédié.
     if (app.id === "telegram" || app.id === "discord") {
-      const linksKey = companyId ? `mansa_creator_app_links_${companyId}` : "mansa_creator_app_links";
+      const linksKey = companyId
+        ? `mansa_creator_app_links_${companyId}`
+        : "mansa_creator_app_links";
       try {
         const saved = JSON.parse(localStorage.getItem(linksKey) || "[]");
-        const next = { appId: app.id, productIds: selectedProductIdsToLink, updatedAt: new Date().toISOString() };
+        const next = {
+          appId: app.id,
+          productIds: selectedProductIdsToLink,
+          updatedAt: new Date().toISOString(),
+        };
         const withoutApp = Array.isArray(saved) ? saved.filter((i: any) => i.appId !== app.id) : [];
         localStorage.setItem(linksKey, JSON.stringify([...withoutApp, next]));
       } catch {}
@@ -539,20 +571,22 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
     if (app.id === "telegram") {
       setSubView("telegram");
       setVerificationSuccessToast(
-        `Application Telegram liée à "${matchedProduct.title}". Choisissez ou connectez ci-dessous le canal/groupe à associer.`
+        `Application Telegram liée à "${matchedProduct.title}". Choisissez ou connectez ci-dessous le canal/groupe à associer.`,
       );
       setTimeout(() => setVerificationSuccessToast(null), 4500);
     } else if (app.id === "discord") {
       setSubView("discord");
       setVerificationSuccessToast(
-        `Application Discord liée à "${matchedProduct.title}". Choisissez ou connectez ci-dessous le serveur Discord à associer.`
+        `Application Discord liée à "${matchedProduct.title}". Choisissez ou connectez ci-dessous le serveur Discord à associer.`,
       );
       setTimeout(() => setVerificationSuccessToast(null), 4500);
     } else if (app.id === "courses") {
       if (onOpenCoursesWorkflow) {
         onOpenCoursesWorkflow(selectedProductIdsToLink);
       } else {
-        setVerificationSuccessToast(`Module Cours & Formations configuré pour "${matchedProduct.title}".`);
+        setVerificationSuccessToast(
+          `Module Cours & Formations configuré pour "${matchedProduct.title}".`,
+        );
         setTimeout(() => setVerificationSuccessToast(null), 3500);
       }
     } else if (app.id === "files") {
@@ -571,12 +605,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
     if (!code) return;
 
     const timeNow = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    
+
     // Add user's message
-    setChatMessages((prev) => [
-      ...prev,
-      { sender: "user", text: code, time: timeNow },
-    ]);
+    setChatMessages((prev) => [...prev, { sender: "user", text: code, time: timeNow }]);
     setTypedMessage("");
     setIsBotTyping(true);
 
@@ -612,13 +643,15 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12 select-none text-zinc-200">
-      
       {/* SUCCESS TOAST NOTIFICATION */}
       {verificationSuccessToast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-[#121316] p-4 text-xs font-semibold text-emerald-400 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
           <CheckCircle2 className="size-5 text-emerald-400 shrink-0" />
           <span>{verificationSuccessToast}</span>
-          <button onClick={() => setVerificationSuccessToast(null)} className="text-zinc-500 hover:text-white ml-2">
+          <button
+            onClick={() => setVerificationSuccessToast(null)}
+            className="text-zinc-500 hover:text-white ml-2"
+          >
             <X className="size-4" />
           </button>
         </div>
@@ -627,16 +660,13 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       {/* ========================================================================= */}
       {/* FAN / CUSTOMER PURCHASES VIEW ("Vos achats")                              */}
       {/* ========================================================================= */}
-      {subView === "fan_purchases" && (
-        <CustomerPurchasesView lang={lang} />
-      )}
+      {subView === "fan_purchases" && <CustomerPurchasesView lang={lang} />}
 
       {/* ========================================================================= */}
       {/* 1. VIEW: APP CATALOG / DIRECTORY ("Ajouter une application")             */}
       {/* ========================================================================= */}
       {subView === "catalog" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-5">
             <div>
@@ -645,7 +675,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 <span>Applications & Intégrations</span>
               </h1>
               <p className="text-xs text-zinc-400 mt-1">
-                Installez des applications sur vos business pour connecter vos canaux Telegram, serveurs Discord et cours vidéo.
+                Installez des applications sur vos business pour connecter vos canaux Telegram,
+                serveurs Discord et cours vidéo.
               </p>
             </div>
 
@@ -670,7 +701,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
           {/* Connected Apps Highlights Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
             {/* Telegram App Card */}
             <div className="rounded-2xl border border-white/[0.08] bg-[#0c0d0e] p-5 flex flex-col justify-between space-y-4 hover:border-[#229ED9]/40 transition-all group">
               <div className="space-y-3">
@@ -697,13 +727,16 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 </div>
 
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Automatisez l'accès à vos canaux et groupes Telegram payants grâce aux liens d'invitation à usage unique générés après paiement.
+                  Automatisez l'accès à vos canaux et groupes Telegram payants grâce aux liens
+                  d'invitation à usage unique générés après paiement.
                 </p>
 
                 <div className="rounded-xl bg-[#14161c] p-3 border border-white/5 space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-zinc-400">Canaux actifs liés :</span>
-                    <span className="font-mono font-bold text-white">{telegramChannels.length} canaux</span>
+                    <span className="font-mono font-bold text-white">
+                      {telegramChannels.length} canaux
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-zinc-400">Bot officiel :</span>
@@ -754,13 +787,16 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 </div>
 
                 <p className="text-xs text-zinc-400 leading-relaxed">
-                  Vendez l'accès à vos serveurs Discord avec gestion automatique des rôles VIP et révocation instantanée en cas de désabonnement.
+                  Vendez l'accès à vos serveurs Discord avec gestion automatique des rôles VIP et
+                  révocation instantanée en cas de désabonnement.
                 </p>
 
                 <div className="rounded-xl bg-[#14161c] p-3 border border-white/5 space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-zinc-400">Serveurs synchronisés :</span>
-                    <span className="font-mono font-bold text-white">{discordServers.length} serveurs</span>
+                    <span className="font-mono font-bold text-white">
+                      {discordServers.length} serveurs
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-zinc-400">Mécanisme :</span>
@@ -786,7 +822,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 </button>
               </div>
             </div>
-
           </div>
 
           {/* More Available Apps in the Marketplace */}
@@ -796,7 +831,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              
               {/* Courses App */}
               <div className="rounded-xl border border-white/[0.06] bg-[#0c0d0e] p-4 flex flex-col justify-between space-y-3 hover:border-white/20 transition-colors">
                 <div className="flex items-start gap-3">
@@ -838,10 +872,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                   + Installer sur un business
                 </button>
               </div>
-
             </div>
           </div>
-
         </div>
       )}
 
@@ -850,7 +882,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       {/* ========================================================================= */}
       {subView === "telegram" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          
           {/* Top Bar: "< Retour aux applications" (Sans logo dupliqué) */}
           <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
             <button
@@ -867,7 +898,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 <ChevronLeft className="size-5" />
               </div>
               <span className="text-sm font-semibold text-zinc-300 group-hover:text-white">
-                {onBackToDashboard && initialSubView === "telegram" ? "Retour à l'accueil" : "Retour aux applications"}
+                {onBackToDashboard && initialSubView === "telegram"
+                  ? "Retour à l'accueil"
+                  : "Retour aux applications"}
               </span>
             </button>
           </div>
@@ -875,30 +908,27 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
           {/* Banner if linked from a product */}
           {activeLinkedProduct && (
             <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3 text-xs text-zinc-300 flex items-center justify-between">
-              <span>Liaison en cours pour le produit : <strong className="text-white">{activeLinkedProduct.title}</strong></span>
-              <span className="text-[11px] text-blue-400 font-semibold">Choisissez ou ajoutez le canal/groupe à associer</span>
+              <span>
+                Liaison en cours pour le produit :{" "}
+                <strong className="text-white">{activeLinkedProduct.title}</strong>
+              </span>
+              <span className="text-[11px] text-blue-400 font-semibold">
+                Choisissez ou ajoutez le canal/groupe à associer
+              </span>
             </div>
           )}
 
-          {/* Title Row with Large Logo (Le SEUL logo Telegram de la page), Title & "+ Ajouter un canal / groupe" Button */}
+          {/* Title Row: description and the single primary channel action */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-            <div className="flex items-center gap-3">
-              <TelegramIcon className="size-8 sm:size-9" />
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                  Telegram
-                </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  Gestion des canaux et groupes connectés via le bot de vérification.
-                </p>
-              </div>
-            </div>
+            <p className="text-xs text-zinc-400 max-w-xl">
+              Gestion des canaux et groupes connectés via le bot de vérification.
+            </p>
 
             {/* + Ajouter un canal / groupe Button */}
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setSubView("telegram_wizard")}
-                className="flex items-center gap-2 rounded-xl bg-[#0055ff] hover:bg-[#0047d6] text-white px-4 py-2.5 text-xs font-bold transition-all shadow-md cursor-pointer"
+                className="ui-btn-primary flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-md cursor-pointer"
               >
                 <Plus className="size-4" />
                 <span>Ajouter un canal / groupe</span>
@@ -908,22 +938,14 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
           {/* Section 1: "Canaux inclus dans Telegram" */}
           <div className="space-y-3 pt-2">
-            <h3 className="text-sm font-bold text-white">
-              Canaux inclus dans Telegram
-            </h3>
+            <h3 className="text-sm font-bold text-white">Canaux inclus dans Telegram</h3>
 
             {telegramChannels.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/10 bg-[#0c0d0e] p-8 text-center space-y-3">
                 <p className="text-xs text-zinc-400">
-                  Aucun canal n'est inclus pour le moment. Ajoutez votre premier canal Telegram ci-dessous.
+                  Aucun canal n'est inclus pour le moment. Ajoutez votre premier canal Telegram
+                  ci-dessous.
                 </p>
-                <button
-                  onClick={() => setSubView("telegram_wizard")}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#229ED9] text-white text-xs font-bold hover:bg-[#1c8ec4] cursor-pointer"
-                >
-                  <Plus className="size-3.5" />
-                  <span>Connecter un canal</span>
-                </button>
               </div>
             ) : (
               <div className="space-y-2">
@@ -966,9 +988,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
           {/* Section 2: "Canaux disponibles" */}
           <div className="space-y-3 pt-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">
-                Canaux disponibles
-              </h3>
+              <h3 className="text-sm font-bold text-white">Canaux disponibles</h3>
               <span className="text-xs text-zinc-500 font-mono">
                 {availableChannels.length} disponibles
               </span>
@@ -1001,9 +1021,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                         <Radio className="size-4" />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-white block">
-                          {chan.name}
-                        </span>
+                        <span className="text-xs font-bold text-white block">{chan.name}</span>
                         <span className="text-[10px] text-zinc-500 font-mono">
                           {chan.memberCount} membres · Bot prêt
                         </span>
@@ -1022,7 +1040,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
               )}
             </div>
           </div>
-
         </div>
       )}
 
@@ -1031,7 +1048,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       {/* ========================================================================= */}
       {subView === "telegram_wizard" && (
         <div className="space-y-6 max-w-4xl mx-auto animate-in fade-in duration-200">
-          
           {/* Header Bar */}
           <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
             <button
@@ -1052,7 +1068,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
           {/* Step 1: Add Mansa Bot to your Telegram (Exact match to Screenshot 1) */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#0c0d0e] p-6 space-y-5">
-            
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
               <h3 className="text-base font-bold text-white">
                 Étape 1 : Ajoutez le Bot Mansa à votre Canal ou Groupe
@@ -1071,7 +1086,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
             <div className="space-y-1">
               <div className="text-xs font-bold text-white">Groupe Telegram</div>
               <div className="text-xs text-zinc-400">
-                Pour un groupe, ajoutez <code className="text-[#229ED9]">@MansaAccess_Bot</code> comme membre ou administrateur.
+                Pour un groupe, ajoutez <code className="text-[#229ED9]">@MansaAccess_Bot</code>{" "}
+                comme membre ou administrateur.
               </div>
             </div>
 
@@ -1081,7 +1097,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
             <div className="space-y-1">
               <div className="text-xs font-bold text-white">Canal Telegram (Recommandé)</div>
               <div className="text-xs text-zinc-400">
-                Pour un canal, ajoutez <code className="text-[#229ED9]">@MansaAccess_Bot</code> comme <strong>Administrateur du Canal</strong> avec le droit d'ajouter des membres via liens d'invitation.
+                Pour un canal, ajoutez <code className="text-[#229ED9]">@MansaAccess_Bot</code>{" "}
+                comme <strong>Administrateur du Canal</strong> avec le droit d'ajouter des membres
+                via liens d'invitation.
               </div>
             </div>
 
@@ -1103,12 +1121,10 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 Copier le pseudo
               </button>
             </div>
-
           </div>
 
           {/* Step 2: Verify with dynamic unique code */}
           <div className="rounded-2xl border border-white/[0.08] bg-[#0c0d0e] p-6 space-y-5">
-            
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white">
                 Étape 2 : Vérification dynamique en temps réel
@@ -1121,7 +1137,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
             <div className="space-y-1">
               <div className="text-xs font-bold text-white">Envoyez ce code dans votre canal</div>
               <div className="text-xs text-zinc-400">
-                Collez ce code unique directement dans votre canal ou groupe Telegram où le bot est administrateur. Le bot détectera le code automatiquement et transmettra les détails du canal au site.
+                Collez ce code unique directement dans votre canal ou groupe Telegram où le bot est
+                administrateur. Le bot détectera le code automatiquement et transmettra les détails
+                du canal au site.
               </div>
             </div>
 
@@ -1141,7 +1159,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                   className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#16181f] hover:bg-[#222530] text-zinc-300 hover:text-white px-3.5 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
                   title="Régénérer un nouveau code"
                 >
-                  <RefreshCw className={`size-3.5 ${isRefetching ? "animate-spin text-[#229ED9]" : "text-zinc-400"}`} />
+                  <RefreshCw
+                    className={`size-3.5 ${isRefetching ? "animate-spin text-[#229ED9]" : "text-zinc-400"}`}
+                  />
                   <span>Nouveau Code</span>
                 </button>
 
@@ -1186,11 +1206,15 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                       </div>
                       <div>
                         <span className="text-[10px] text-zinc-500 block">Membres :</span>
-                        <strong className="text-white">{verifiedChannelMeta.memberCount || 1} membres</strong>
+                        <strong className="text-white">
+                          {verifiedChannelMeta.memberCount || 1} membres
+                        </strong>
                       </div>
                       <div>
                         <span className="text-[10px] text-zinc-500 block">ID Telegram :</span>
-                        <code className="text-zinc-400 text-[11px] font-mono">{verifiedChannelMeta.chatId}</code>
+                        <code className="text-zinc-400 text-[11px] font-mono">
+                          {verifiedChannelMeta.chatId}
+                        </code>
                       </div>
                     </div>
                   )}
@@ -1214,13 +1238,14 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
                   <div className="flex items-center gap-2">
                     <RefreshCw className="size-3.5 animate-spin text-[#229ED9]" />
-                    <span>En attente de réception du code par le Bot Telegram en temps réel...</span>
+                    <span>
+                      En attente de réception du code par le Bot Telegram en temps réel...
+                    </span>
                   </div>
                   <span className="text-[10px] text-zinc-500">Polling actif</span>
                 </div>
               )}
             </div>
-
           </div>
 
           <div className="flex justify-between items-center pt-2">
@@ -1240,7 +1265,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
               </button>
             )}
           </div>
-
         </div>
       )}
 
@@ -1249,7 +1273,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       {/* ========================================================================= */}
       {subView === "discord" && (
         <div className="space-y-6 animate-in fade-in duration-200">
-          
           {/* Top Bar: "< Retour aux applications" (Sans logo dupliqué) */}
           <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
             <button
@@ -1266,7 +1289,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 <ChevronLeft className="size-5" />
               </div>
               <span className="text-sm font-semibold text-zinc-300 group-hover:text-white">
-                {onBackToDashboard && initialSubView === "discord" ? "Retour à l'accueil" : "Retour aux applications"}
+                {onBackToDashboard && initialSubView === "discord"
+                  ? "Retour à l'accueil"
+                  : "Retour aux applications"}
               </span>
             </button>
           </div>
@@ -1274,8 +1299,13 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
           {/* Banner if linked from a product */}
           {activeLinkedProduct && (
             <div className="rounded-xl border border-[#5865F2]/20 bg-[#5865F2]/5 px-4 py-3 text-xs text-zinc-300 flex items-center justify-between">
-              <span>Liaison en cours pour le produit : <strong className="text-white">{activeLinkedProduct.title}</strong></span>
-              <span className="text-[11px] text-[#8c97f8] font-semibold">Choisissez ou ajoutez le serveur Discord à associer</span>
+              <span>
+                Liaison en cours pour le produit :{" "}
+                <strong className="text-white">{activeLinkedProduct.title}</strong>
+              </span>
+              <span className="text-[11px] text-[#8c97f8] font-semibold">
+                Choisissez ou ajoutez le serveur Discord à associer
+              </span>
             </div>
           )}
 
@@ -1288,7 +1318,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                   Discord
                 </h2>
                 <p className="text-xs text-zinc-400 mt-0.5">
-                  Gestion des serveurs et synchronisation automatique des rôles VIP via le bot Discord.
+                  Gestion des serveurs et synchronisation automatique des rôles VIP via le bot
+                  Discord.
                 </p>
               </div>
             </div>
@@ -1307,14 +1338,13 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
           {/* Section 1: "Serveurs inclus dans Discord" */}
           <div className="space-y-3 pt-2">
-            <h3 className="text-sm font-bold text-white">
-              Serveurs inclus dans Discord
-            </h3>
+            <h3 className="text-sm font-bold text-white">Serveurs inclus dans Discord</h3>
 
             {discordServers.length === 0 ? (
               <div className="rounded-2xl border border-white/[0.08] bg-[#0c0d0e] p-8 text-center space-y-4">
                 <p className="text-xs text-zinc-400">
-                  Aucun serveur n'est inclus pour le moment. Ajoutez votre premier serveur Discord ci-dessous.
+                  Aucun serveur n'est inclus pour le moment. Ajoutez votre premier serveur Discord
+                  ci-dessous.
                 </p>
                 <button
                   onClick={() => setIsAddDiscordModalOpen(true)}
@@ -1385,11 +1415,14 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
           {/* Section 2: "Serveurs disponibles" */}
           <div className="space-y-3 pt-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">
-                Serveurs disponibles
-              </h3>
+              <h3 className="text-sm font-bold text-white">Serveurs disponibles</h3>
               <span className="text-xs text-zinc-500 font-mono">
-                {availableDiscordServers.filter((s) => s.name.toLowerCase().includes(discordSearchQuery.toLowerCase())).length} disponibles
+                {
+                  availableDiscordServers.filter((s) =>
+                    s.name.toLowerCase().includes(discordSearchQuery.toLowerCase()),
+                  ).length
+                }{" "}
+                disponibles
               </span>
             </div>
 
@@ -1404,10 +1437,14 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
               />
             </div>
 
-            {availableDiscordServers.filter((s) => s.name.toLowerCase().includes(discordSearchQuery.toLowerCase())).length === 0 ? (
+            {availableDiscordServers.filter((s) =>
+              s.name.toLowerCase().includes(discordSearchQuery.toLowerCase()),
+            ).length === 0 ? (
               <div className="rounded-xl border border-white/[0.06] bg-[#0c0d0e]/60 p-4 text-center">
                 <p className="text-xs text-zinc-500">
-                  {discordSearchQuery ? "Aucun serveur ne correspond à votre recherche." : "Tous vos serveurs Discord disponibles sont déjà connectés."}
+                  {discordSearchQuery
+                    ? "Aucun serveur ne correspond à votre recherche."
+                    : "Tous vos serveurs Discord disponibles sont déjà connectés."}
                 </p>
               </div>
             ) : (
@@ -1424,9 +1461,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                           <Server className="size-4" />
                         </div>
                         <div>
-                          <span className="text-xs font-bold text-white block">
-                            {srv.name}
-                          </span>
+                          <span className="text-xs font-bold text-white block">{srv.name}</span>
                           <span className="text-[10px] text-zinc-400 font-mono">
                             {srv.memberCount} membres
                           </span>
@@ -1453,7 +1488,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
               <div className="rounded-xl bg-[#14161c] p-4 border border-white/5 space-y-2">
                 <span className="font-bold text-white block">1. Inviter le bot</span>
                 <p className="text-zinc-400">
-                  Ajoutez le bot officiel Mansa à votre serveur Discord avec les permissions « Gérer les rôles » et « Créer une invitation ».
+                  Ajoutez le bot officiel Mansa à votre serveur Discord avec les permissions « Gérer
+                  les rôles » et « Créer une invitation ».
                 </p>
                 <button
                   onClick={() => {
@@ -1469,12 +1505,12 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
               <div className="rounded-xl bg-[#14161c] p-4 border border-white/5 space-y-2">
                 <span className="font-bold text-white block">2. Hiérarchie des rôles</span>
                 <p className="text-zinc-400">
-                  Dans les paramètres de votre serveur Discord, placez le rôle du bot au-dessus des rôles VIP que vous souhaitez qu'il attribue automatiquement.
+                  Dans les paramètres de votre serveur Discord, placez le rôle du bot au-dessus des
+                  rôles VIP que vous souhaitez qu'il attribue automatiquement.
                 </p>
               </div>
             </div>
           </div>
-
         </div>
       )}
 
@@ -1486,9 +1522,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       >
         <div className="w-full rounded-2xl border border-white/10 bg-[#121316] p-6 shadow-2xl space-y-5">
           <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-            <h3 className="text-base font-bold text-white">
-              Connecter un serveur Discord
-            </h3>
+            <h3 className="text-base font-bold text-white">Connecter un serveur Discord</h3>
             <button
               onClick={() => setIsAddDiscordModalOpen(false)}
               className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/5 cursor-pointer"
@@ -1524,7 +1558,8 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 className="w-full rounded-xl border border-white/[0.08] bg-[#0c0d0e] px-3.5 py-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-[#5865F2] transition-colors"
               />
               <p className="text-[11px] text-zinc-500 mt-1">
-                Le bot officiel attribuera automatiquement ce rôle aux clients dès confirmation de leur commande.
+                Le bot officiel attribuera automatiquement ce rôle aux clients dès confirmation de
+                leur commande.
               </p>
             </div>
 
@@ -1561,9 +1596,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
           <div className="w-full rounded-2xl border border-white/10 bg-[#121316] p-6 shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
               <div>
-                <h3 className="text-base font-bold text-white">
-                  Gérer les rôles Discord
-                </h3>
+                <h3 className="text-base font-bold text-white">Gérer les rôles Discord</h3>
                 <p className="text-xs text-zinc-400 mt-0.5 font-mono">
                   {selectedServerForRoles.name}
                 </p>
@@ -1584,7 +1617,9 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 Rôles synchronisés actuellement
               </label>
               {selectedServerForRoles.rolesManaged.length === 0 ? (
-                <p className="text-xs text-zinc-500 italic">Aucun rôle configuré pour ce serveur.</p>
+                <p className="text-xs text-zinc-500 italic">
+                  Aucun rôle configuré pour ce serveur.
+                </p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
                   {selectedServerForRoles.rolesManaged.map((role, idx) => (
@@ -1607,9 +1642,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
             </div>
 
             <div className="space-y-2 pt-2 border-t border-white/[0.06]">
-              <label className="block text-xs font-semibold text-zinc-300">
-                Ajouter un rôle
-              </label>
+              <label className="block text-xs font-semibold text-zinc-300">Ajouter un rôle</label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -1661,7 +1694,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
       >
         {selectedAppToInstall && (
           <div className="w-full rounded-2xl border border-white/10 bg-[#121316] p-6 shadow-2xl space-y-5">
-            
             {/* Modal Title */}
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div>
@@ -1688,9 +1720,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                   {selectedAppToInstall.icon}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">
-                    {selectedAppToInstall.title}
-                  </h3>
+                  <h3 className="text-sm font-bold text-white">{selectedAppToInstall.title}</h3>
                   <div className="text-[11px] text-zinc-400 font-mono">
                     {selectedAppToInstall.installationsCount} installations
                   </div>
@@ -1709,45 +1739,54 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
 
               <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                 {effectiveProductsList.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-white/10 bg-[#0c0d0e] p-4 text-xs leading-relaxed text-zinc-400" role="status">
-                    Créez d’abord une offre dans cette entreprise pour pouvoir installer cette application.
+                  <p
+                    className="rounded-xl border border-dashed border-white/10 bg-[#0c0d0e] p-4 text-xs leading-relaxed text-zinc-400"
+                    role="status"
+                  >
+                    Créez d’abord une offre dans cette entreprise pour pouvoir installer cette
+                    application.
                   </p>
-                ) : effectiveProductsList.map((prod) => {
-                  const isChecked = selectedProductIdsToLink.includes(prod.id);
-                  return (
-                    <label
-                      key={prod.id}
-                      className={`flex items-center justify-between rounded-xl border p-3 cursor-pointer transition-all ${
-                        isChecked
-                          ? "border-blue-500/60 bg-blue-500/10 text-white"
-                          : "border-white/10 bg-[#0c0d0e] text-zinc-300 hover:border-white/20"
-                      }`}
-                    >
-                      <div className="min-w-0 flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            setSelectedProductIdsToLink((prev) =>
-                              isChecked
-                                ? prev.filter((id) => id !== prod.id)
-                                : [...prev, prod.id]
-                            );
-                          }}
-                          className="size-4 accent-[#0055ff] rounded"
-                        />
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold block truncate text-white">
-                            {prod.title}
-                          </span>
-                          <span className="text-[11px] text-zinc-400 block">
-                            {prod.priceDisplay || "Inclus"} {prod.subscribersCount !== undefined ? `· ${prod.subscribersCount} actif(s)` : ""}
-                          </span>
+                ) : (
+                  effectiveProductsList.map((prod) => {
+                    const isChecked = selectedProductIdsToLink.includes(prod.id);
+                    return (
+                      <label
+                        key={prod.id}
+                        className={`flex items-center justify-between rounded-xl border p-3 cursor-pointer transition-all ${
+                          isChecked
+                            ? "border-blue-500/60 bg-blue-500/10 text-white"
+                            : "border-white/10 bg-[#0c0d0e] text-zinc-300 hover:border-white/20"
+                        }`}
+                      >
+                        <div className="min-w-0 flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setSelectedProductIdsToLink((prev) =>
+                                isChecked
+                                  ? prev.filter((id) => id !== prod.id)
+                                  : [...prev, prod.id],
+                              );
+                            }}
+                            className="size-4 accent-[#0055ff] rounded"
+                          />
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold block truncate text-white">
+                              {prod.title}
+                            </span>
+                            <span className="text-[11px] text-zinc-400 block">
+                              {prod.priceDisplay || "Inclus"}{" "}
+                              {prod.subscribersCount !== undefined
+                                ? `· ${prod.subscribersCount} actif(s)`
+                                : ""}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </label>
-                  );
-                })}
+                      </label>
+                    );
+                  })
+                )}
               </div>
             </div>
 
@@ -1769,11 +1808,10 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 {selectedAppToInstall.id === "telegram"
                   ? "Continuer vers Telegram"
                   : selectedAppToInstall.id === "discord"
-                  ? "Continuer vers Discord"
-                  : "Confirmer et continuer"}
+                    ? "Continuer vers Discord"
+                    : "Confirmer et continuer"}
               </button>
             </div>
-
           </div>
         )}
       </ModalOverlay>
@@ -1826,7 +1864,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
           </div>
         </div>
       </ModalOverlay>
-
     </div>
   );
 };

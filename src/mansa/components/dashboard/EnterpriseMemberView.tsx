@@ -232,7 +232,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setIsAffiliateLinkCopied(true);
       window.setTimeout(() => setIsAffiliateLinkCopied(false), 2500);
     } catch (error) {
-      setAffiliateLinkError(error instanceof Error ? error.message : "Impossible de créer le lien affilié.");
+      setAffiliateLinkError(
+        error instanceof Error ? error.message : "Impossible de créer le lien affilié.",
+      );
     } finally {
       setIsCreatingAffiliateLink(false);
     }
@@ -1212,7 +1214,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setCreatorSaveError("Associez ce contenu à au moins une offre avant de l’enregistrer.");
       return;
     }
-    if (selectedCreatorApp === "courses" && (!creatorCourseName.trim() || !creatorCourseDescription.trim())) {
+    if (
+      selectedCreatorApp === "courses" &&
+      (!creatorCourseName.trim() || !creatorCourseDescription.trim())
+    ) {
       setCreatorSaveError("Renseignez le titre et la description du cours avant de l’enregistrer.");
       return;
     }
@@ -1336,16 +1341,21 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         const storageKey = `mansa_creator_apps_${companyId}`;
         const currentApps = JSON.parse(localStorage.getItem(storageKey) || "[]");
         const appEntries = Array.isArray(currentApps) ? currentApps : [];
-        const existingFileApps = appEntries.filter((app: { appId?: string }) => app.appId === "files");
+        const existingFileApps = appEntries.filter(
+          (app: { appId?: string }) => app.appId === "files",
+        );
         const otherApps = appEntries.filter((app: { appId?: string }) => app.appId !== "files");
         const savedFiles = existingFileApps.flatMap((app: { files?: any[] }) => app.files || []);
         const mergedFiles = [...savedFiles, newFile].filter(
-          (file, index, files) => files.findIndex((candidate) => candidate.id === file.id) === index,
+          (file, index, files) =>
+            files.findIndex((candidate) => candidate.id === file.id) === index,
         );
-        const mergedProductIds = Array.from(new Set([
-          ...existingFileApps.flatMap((app: { productIds?: string[] }) => app.productIds || []),
-          ...linkedCreatorProductIds,
-        ]));
+        const mergedProductIds = Array.from(
+          new Set([
+            ...existingFileApps.flatMap((app: { productIds?: string[] }) => app.productIds || []),
+            ...linkedCreatorProductIds,
+          ]),
+        );
         localStorage.setItem(
           storageKey,
           JSON.stringify([
@@ -2875,88 +2885,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Formulaire de publication réservé au créateur de l'entreprise */}
-                  {canManageCompany && (
-                    <div className="rounded-2xl border border-white/[0.09] bg-[#111318] p-5 space-y-3 shadow-lg">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-white flex items-center gap-2">
-                          <PenLine className="size-4 text-blue-400" />
-                          <span>Publier une actualité pour votre communauté</span>
-                        </span>
-                        {isPostComposerOpen && (
-                          <button
-                            type="button"
-                            onClick={() => setIsPostComposerOpen(false)}
-                            className="text-zinc-500 hover:text-zinc-300 text-xs cursor-pointer"
-                          >
-                            Fermer
-                          </button>
-                        )}
-                      </div>
-
-                      {!isPostComposerOpen ? (
-                        <button
-                          type="button"
-                          onClick={() => setIsPostComposerOpen(true)}
-                          className="w-full text-left px-4 py-3 rounded-xl bg-[#161822] border border-white/5 text-zinc-400 hover:text-zinc-200 hover:border-white/10 text-xs transition-colors cursor-pointer"
-                        >
-                          Partagez une nouvelle annonce, analyse ou mise à jour avec vos membres...
-                        </button>
-                      ) : (
-                        <form onSubmit={handleCreatePost} className="space-y-3 pt-1">
-                          <input
-                            type="text"
-                            value={newPostTitle}
-                            onChange={(e) => setNewPostTitle(e.target.value)}
-                            placeholder="Titre de l'actualité..."
-                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#161822] border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
-                            required
-                          />
-                          <textarea
-                            value={newPostContent}
-                            onChange={(e) => setNewPostContent(e.target.value)}
-                            placeholder="Rédigez le contenu de votre actualité pour vos membres..."
-                            rows={4}
-                            className="w-full px-3.5 py-2.5 rounded-xl bg-[#161822] border border-white/10 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                            required
-                          />
-                          <div className="flex items-center justify-between pt-1">
-                            <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={newPostPinned}
-                                onChange={(e) => setNewPostPinned(e.target.checked)}
-                                className="rounded bg-black/40 border-white/10 text-blue-600 focus:ring-0 cursor-pointer"
-                              />
-                              <span className="flex items-center gap-1.5">
-                                <Pin className="size-3 text-zinc-400" />
-                                <span>Épingler cette publication</span>
-                              </span>
-                            </label>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setIsPostComposerOpen(false)}
-                                className="px-3.5 py-2 rounded-xl text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                              >
-                                Annuler
-                              </button>
-                              <button
-                                type="submit"
-                                disabled={!newPostTitle.trim() || !newPostContent.trim()}
-                                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
-                              >
-                                <Send className="size-3.5" />
-                                <span>Publier l'actualité</span>
-                              </button>
-                            </div>
-                          </div>
-                        </form>
-                      )}
-                    </div>
-                  )}
-
                   {/* Flux des actualités propres à l'entreprise */}
                   {companyPosts.length === 0 ? (
                     <div className="rounded-2xl border border-white/[0.08] bg-[#111318] p-8 text-center space-y-2">
@@ -3282,19 +3210,125 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         {activeTab === "support" && (
           <div className="mansa-keyboard-scroll mansa-safe-bottom mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121316] animate-in fade-in duration-150">
             <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-[#16171b] px-4 py-3 sm:px-5">
-              <button onClick={() => { setActiveTab("accueil"); setCompanyTab("accueil"); setIsMobileCompanyNavOpen(true); setIsMobileSidebarOpen(false); }} className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden" aria-label="Retour"><ChevronLeft className="size-4" /></button>
-              <div className="flex size-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400"><MessageSquare className="size-5" /></div>
-              <div><h1 className="text-sm font-bold text-white">Chats de support</h1><p className="text-[11px] text-zinc-500">Assistance de {subscription.companyName}</p></div>
+              <button
+                onClick={() => {
+                  setActiveTab("accueil");
+                  setCompanyTab("accueil");
+                  setIsMobileCompanyNavOpen(true);
+                  setIsMobileSidebarOpen(false);
+                }}
+                className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden"
+                aria-label="Retour"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <div className="flex size-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                <MessageSquare className="size-5" />
+              </div>
+              <div>
+                <h1 className="text-sm font-bold text-white">Chats de support</h1>
+                <p className="text-[11px] text-zinc-500">
+                  Assistance de {subscription.companyName}
+                </p>
+              </div>
             </header>
             <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[300px_1fr]">
-              <aside className={`min-h-0 border-b border-white/10 lg:border-b-0 lg:border-r ${isSupportConversationOpen ? "hidden lg:block" : "block"}`}>
-                <div className="space-y-2 border-b border-white/10 p-3"><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" /><input placeholder="Rechercher…" className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-blue-400" /></div><select className="rounded-lg border border-white/10 bg-[#0c0d0e] px-2.5 py-2 text-[11px] text-zinc-300 outline-none" defaultValue="recent"><option value="recent">Dernière activité</option></select></div>
-                <button type="button" onClick={() => setIsSupportConversationOpen(true)} className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left ${isSupportConversationOpen ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}><div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{subscription.companyName?.[0]?.toUpperCase() || "A"}</div><div className="min-w-0"><div className="truncate text-xs font-semibold text-white">{subscription.companyName}</div><div className="truncate text-[11px] text-zinc-500">Assistance officielle</div><div className="mt-1 truncate text-[11px] text-zinc-400">{supportChatList.at(-1)?.text}</div></div></button>
+              <aside
+                className={`min-h-0 border-b border-white/10 lg:border-b-0 lg:border-r ${isSupportConversationOpen ? "hidden lg:block" : "block"}`}
+              >
+                <div className="space-y-2 border-b border-white/10 p-3">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                    <input
+                      placeholder="Rechercher…"
+                      className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-blue-400"
+                    />
+                  </div>
+                  <select
+                    className="rounded-lg border border-white/10 bg-[#0c0d0e] px-2.5 py-2 text-[11px] text-zinc-300 outline-none"
+                    defaultValue="recent"
+                  >
+                    <option value="recent">Dernière activité</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSupportConversationOpen(true)}
+                  className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left ${isSupportConversationOpen ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}
+                >
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">
+                    {subscription.companyName?.[0]?.toUpperCase() || "A"}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-xs font-semibold text-white">
+                      {subscription.companyName}
+                    </div>
+                    <div className="truncate text-[11px] text-zinc-500">Assistance officielle</div>
+                    <div className="mt-1 truncate text-[11px] text-zinc-400">
+                      {supportChatList.at(-1)?.text}
+                    </div>
+                  </div>
+                </button>
               </aside>
-              <main className={`min-h-0 flex-1 flex-col ${isSupportConversationOpen ? "flex" : "hidden lg:flex"}`}>
-                <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5"><button type="button" onClick={() => setIsSupportConversationOpen(false)} className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden" aria-label="Retour à la liste"><ChevronLeft className="size-4" /></button><div className="flex size-9 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">{subscription.companyName?.[0]?.toUpperCase() || "A"}</div><div><div className="text-sm font-semibold text-white">{subscription.companyName}</div><div className="text-[11px] text-zinc-500">Assistance officielle</div></div></div>
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">{supportChatList.map((msg) => <div key={msg.id} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${msg.sender === "user" ? "bg-[#0055ff] text-white" : "bg-white/[0.06] text-zinc-200"}`}><div>{msg.text}</div><div className={`mt-1 text-[10px] ${msg.sender === "user" ? "text-blue-100" : "text-zinc-500"}`}>{msg.time}</div></div></div>)}</div>
-                <form onSubmit={handleSendSupport} className="mansa-safe-bottom flex shrink-0 gap-2 border-t border-white/10 p-3 sm:p-4"><textarea value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} rows={2} placeholder="Écrire un message…" className="min-w-0 flex-1 resize-none rounded-xl border border-white/10 bg-[#101114] p-3 text-xs text-white outline-none focus:border-blue-400" /><button type="submit" className="self-end rounded-xl bg-[#0055ff] px-4 py-2.5 text-xs font-bold text-white"><Send className="size-3.5" /></button></form>
+              <main
+                className={`min-h-0 flex-1 flex-col ${isSupportConversationOpen ? "flex" : "hidden lg:flex"}`}
+              >
+                <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
+                  <button
+                    type="button"
+                    onClick={() => setIsSupportConversationOpen(false)}
+                    className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden"
+                    aria-label="Retour à la liste"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+                  <div className="flex size-9 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">
+                    {subscription.companyName?.[0]?.toUpperCase() || "A"}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white">
+                      {subscription.companyName}
+                    </div>
+                    <div className="text-[11px] text-zinc-500">Assistance officielle</div>
+                  </div>
+                </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
+                  {supportChatList.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div
+                        className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${msg.sender === "user" ? "bg-[#0055ff] text-white" : "bg-white/[0.06] text-zinc-200"}`}
+                      >
+                        <div>{msg.text}</div>
+                        <div
+                          className={`mt-1 text-[10px] ${msg.sender === "user" ? "text-blue-100" : "text-zinc-500"}`}
+                        >
+                          {msg.time}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <form
+                  onSubmit={handleSendSupport}
+                  className="mansa-safe-bottom flex shrink-0 gap-2 border-t border-white/10 p-3 sm:p-4"
+                >
+                  <textarea
+                    value={supportMessage}
+                    onChange={(e) => setSupportMessage(e.target.value)}
+                    rows={2}
+                    placeholder="Écrire un message…"
+                    className="min-w-0 flex-1 resize-none rounded-xl border border-white/10 bg-[#101114] p-3 text-xs text-white outline-none focus:border-blue-400"
+                  />
+                  <button
+                    type="submit"
+                    className="self-end rounded-xl bg-[#0055ff] px-4 py-2.5 text-xs font-bold text-white"
+                  >
+                    <Send className="size-3.5" />
+                  </button>
+                </form>
               </main>
             </div>
           </div>
@@ -3304,28 +3338,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         {/* ============================================================ */}
         {activeTab === "telegram" && (
           <div className="flex-1 flex flex-col h-full bg-[#0a0b0e] overflow-y-auto">
-            {/* Top header on mobile for opening sidebar if on small screen */}
-            <div className="lg:hidden w-full h-12 px-3 border-b border-white/[0.08] bg-[#0c0d11] flex items-center justify-between shrink-0 select-none">
-              <button
-                onClick={() => {
-                  setActiveTab("accueil");
-                  setCompanyTab("accueil");
-                  setIsMobileCompanyNavOpen(true);
-                  setIsMobileSidebarOpen(false);
-                }}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white cursor-pointer min-h-[38px] min-w-[38px] flex items-center justify-center"
-                title="Retour à la navigation de l’entreprise"
-                aria-label="Retour à la navigation de l’entreprise"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <div className="flex items-center gap-2">
-                <TelegramIcon className="size-4" />
-                <span className="text-xs font-bold text-white">Telegram</span>
-              </div>
-              <div className="w-8" />
-            </div>
-
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
               {canManageCompany ? (
                 <ConnectedAppsView
@@ -3863,9 +3875,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                         <div className="space-y-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] p-3">
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <div className="text-xs font-bold text-white">Partager ce produit</div>
+                              <div className="text-xs font-bold text-white">
+                                Partager ce produit
+                              </div>
                               <div className="mt-1 text-[11px] text-zinc-400">
-                                Votre lien personnel · commission créateur : {Number(offer.affiliateCommissionRate || 0)} %
+                                Votre lien personnel · commission créateur :{" "}
+                                {Number(offer.affiliateCommissionRate || 0)} %
                               </div>
                             </div>
                             <button
@@ -4051,14 +4066,14 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         <EnterpriseBrandingModal
           isOpen={isBrandingModalOpen}
           onClose={() => setIsBrandingModalOpen(false)}
-            company={{
+          company={{
             id: currentSub.companyId,
             name: currentSub.companyName,
             description: currentSub.productName,
             companyBanner: currentSub.companyBanner,
             companyLogo: currentSub.companyLogo,
             socialLinks: currentSub.socialLinks,
-            }}
+          }}
           ownerUid={user.uid}
           onSave={handleSaveBranding}
           lang={lang}
