@@ -648,6 +648,19 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [isEbookModalOpen, setIsEbookModalOpen] = useState(false);
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<CourseResourceItem | null>(null);
+  const resourceReturnViewRef = React.useRef({ activeTab, companyTab });
+  const openResourceModal = (resource: "files" | "courses") => {
+    resourceReturnViewRef.current = { activeTab, companyTab };
+    if (resource === "courses") setIsCourseModalOpen(true);
+    else setIsEbookModalOpen(true);
+  };
+  const handleResourceBack = () => {
+    const previousView = resourceReturnViewRef.current;
+    setIsEbookModalOpen(false);
+    setIsCourseModalOpen(false);
+    setActiveTab(previousView.activeTab);
+    setCompanyTab(previousView.companyTab);
+  };
   const optionsMenuRef = React.useRef<HTMLDivElement>(null);
 
   const commentReplies: Record<string, Array<{ author: string; text: string; time: string }>> = {
@@ -973,11 +986,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           ) || keywords.some((keyword) => candidate.title.toLowerCase().includes(keyword)),
       ) || enterpriseOffers[0];
     if (!offer) return;
-    setActiveTab("accueil");
-    setCompanyTab("produits");
-    setSelectedProductDetailOffer(null);
-    if (app === "courses") setIsCourseModalOpen(true);
-    else setIsEbookModalOpen(true);
+    openResourceModal(app === "courses" ? "courses" : "files");
   };
 
   // Redirection automatique si onglet non autorisé
@@ -3923,9 +3932,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               setActiveTab("discord");
               setDiscordFlowStep("channels_list");
             } else if (isOfferEb) {
-              setIsEbookModalOpen(true);
+              openResourceModal("files");
             } else if (isOfferCo) {
-              setIsCourseModalOpen(true);
+              openResourceModal("courses");
             } else {
               setActiveTab("accueil");
             }
@@ -4040,29 +4049,32 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
       {/* Modal Consultation E-book (ressources strictement rattachées aux offres débloquées) */}
       {isEbookModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-xl rounded-2xl bg-[#12141c] border border-white/10 p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-white/5">
+        <div className="fixed inset-0 z-[75] flex h-[100dvh] w-full flex-col bg-[#0a0b0e] text-white animate-in fade-in">
+          <div className="flex h-full w-full flex-col bg-[#0a0b0e]">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0c0d11] px-4 py-3 sm:px-6">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400">
+                <button
+                  type="button"
+                  onClick={handleResourceBack}
+                  className="inline-flex items-center gap-2 rounded-lg p-2 text-sm font-semibold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white cursor-pointer"
+                  aria-label="Retour à l’accueil"
+                >
+                  <ChevronLeft className="size-4" />
+                  <span>Retour</span>
+                </button>
+                <div className="flex size-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
                   <BookOpen className="size-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">E-books & Guides Inclus</h3>
+                  <h3 className="text-sm font-bold text-white sm:text-base">Fichiers</h3>
                   <p className="text-xs text-zinc-400">
                     {currentSub.companyName} · Accès selon votre offre
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsEbookModalOpen(false)}
-                className="size-8 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
             </div>
 
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
               {/* E-books débloqués par l'offre achetée */}
               {authorizedEbooks.length > 0 ? (
                 authorizedEbooks.map((eb) => (
@@ -4141,14 +4153,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               )}
             </div>
 
-            <div className="pt-3 border-t border-white/5 flex justify-end">
-              <button
-                onClick={() => setIsEbookModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Fermer
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -4883,29 +4887,32 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
       {/* Modal Consultation Formation / Masterclass (ressources strictement rattachées aux offres débloquées) */}
       {isCourseModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-xl rounded-2xl bg-[#12141c] border border-white/10 p-6 space-y-5 shadow-2xl">
-            <div className="flex items-center justify-between pb-4 border-b border-white/5">
+        <div className="fixed inset-0 z-[75] flex h-[100dvh] w-full flex-col bg-[#0a0b0e] text-white animate-in fade-in">
+          <div className="flex h-full w-full flex-col bg-[#0a0b0e]">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#0c0d11] px-4 py-3 sm:px-6">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-purple-500/10 text-purple-400">
+                <button
+                  type="button"
+                  onClick={handleResourceBack}
+                  className="inline-flex items-center gap-2 rounded-lg p-2 text-sm font-semibold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white cursor-pointer"
+                  aria-label="Retour à l’accueil"
+                >
+                  <ChevronLeft className="size-4" />
+                  <span>Retour</span>
+                </button>
+                <div className="flex size-9 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
                   <GraduationCap className="size-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Formations & Modules Inclus</h3>
+                  <h3 className="text-sm font-bold text-white sm:text-base">Cours & Formations</h3>
                   <p className="text-xs text-zinc-400">
                     {currentSub.companyName} · Accès selon votre offre
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsCourseModalOpen(false)}
-                className="size-8 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-              >
-                ✕
-              </button>
             </div>
 
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
               {/* Formations débloquées par l'offre achetée */}
               {authorizedCourses.length > 0 ? (
                 authorizedCourses.map((co) => (
@@ -4984,14 +4991,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               )}
             </div>
 
-            <div className="pt-3 border-t border-white/5 flex justify-end">
-              <button
-                onClick={() => setIsCourseModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Fermer
-              </button>
-            </div>
           </div>
         </div>
       )}
