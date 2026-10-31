@@ -67,6 +67,7 @@ import {
 } from "lucide-react";
 import { EnterpriseSubscription, TelegramChannelItem, DiscordChannelItem } from "../../types";
 import { ConnectedAppsView, TelegramIcon, DiscordIcon } from "./ConnectedAppsView";
+import { SupportInboxView } from "./SupportInboxView";
 import { OfferCheckoutModal, CreatorPlatformOffer } from "./OfferCheckoutModal";
 import { PLATFORM_CREATOR_OFFERS } from "./DiscoverCreatorsView";
 import {
@@ -1654,7 +1655,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [discordClaimToast, setDiscordClaimToast] = useState(false);
   const [accessDeniedToast, setAccessDeniedToast] = useState<string | null>(null);
 
-  const [supportMessage, setSupportMessage] = useState("");
   const [isSupportConversationOpen, setIsSupportConversationOpen] = useState(false);
   const [supportChatList, setSupportChatList] = useState<
     Array<{
@@ -1860,10 +1860,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     }
   };
 
-  const handleSendSupport = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supportMessage.trim()) return;
-    const textToSend = supportMessage.trim();
+  const handleSendSupport = (message: string) => {
+    const textToSend = message.trim();
+    if (!textToSend) return;
     const newMsg = {
       id: `msg-${Date.now()}`,
       sender: "user" as const,
@@ -1879,7 +1878,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       text: textToSend,
     });
     if (!persistedConversation) setSupportChatList((prev) => [...prev, newMsg]);
-    setSupportMessage("");
 
     // Auto-reply acknowledgment from support if configured by creator
     setTimeout(() => {
@@ -3208,130 +3206,35 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         {/* ============================================================ */}
         {/* VIEW 2: SUPPORT CHAT */}
         {activeTab === "support" && (
-          <div className="mansa-keyboard-scroll mansa-safe-bottom mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#121316] animate-in fade-in duration-150">
-            <header className="flex shrink-0 items-center gap-3 border-b border-white/[0.08] bg-[#16171b] px-4 py-3 sm:px-5">
-              <button
-                onClick={() => {
-                  setActiveTab("accueil");
-                  setCompanyTab("accueil");
-                  setIsMobileCompanyNavOpen(true);
-                  setIsMobileSidebarOpen(false);
-                }}
-                className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden"
-                aria-label="Retour"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              <div className="flex size-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
-                <MessageSquare className="size-5" />
-              </div>
-              <div>
-                <h1 className="text-sm font-bold text-white">Chats de support</h1>
-                <p className="text-[11px] text-zinc-500">
-                  Assistance de {subscription.companyName}
-                </p>
-              </div>
-            </header>
-            <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[300px_1fr]">
-              <aside
-                className={`min-h-0 border-b border-white/10 lg:border-b-0 lg:border-r ${isSupportConversationOpen ? "hidden lg:block" : "block"}`}
-              >
-                <div className="space-y-2 border-b border-white/10 p-3">
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
-                    <input
-                      placeholder="Rechercher…"
-                      className="w-full rounded-xl border border-white/10 bg-[#0c0d0e] py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-blue-400"
-                    />
-                  </div>
-                  <select
-                    className="rounded-lg border border-white/10 bg-[#0c0d0e] px-2.5 py-2 text-[11px] text-zinc-300 outline-none"
-                    defaultValue="recent"
-                  >
-                    <option value="recent">Dernière activité</option>
-                  </select>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsSupportConversationOpen(true)}
-                  className={`flex w-full items-start gap-3 border-b border-white/[0.06] p-4 text-left ${isSupportConversationOpen ? "bg-white/[0.06]" : "hover:bg-white/[0.03]"}`}
-                >
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">
-                    {subscription.companyName?.[0]?.toUpperCase() || "A"}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-xs font-semibold text-white">
-                      {subscription.companyName}
-                    </div>
-                    <div className="truncate text-[11px] text-zinc-500">Assistance officielle</div>
-                    <div className="mt-1 truncate text-[11px] text-zinc-400">
-                      {supportChatList.at(-1)?.text}
-                    </div>
-                  </div>
-                </button>
-              </aside>
-              <main
-                className={`min-h-0 flex-1 flex-col ${isSupportConversationOpen ? "flex" : "hidden lg:flex"}`}
-              >
-                <div className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
-                  <button
-                    type="button"
-                    onClick={() => setIsSupportConversationOpen(false)}
-                    className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden"
-                    aria-label="Retour à la liste"
-                  >
-                    <ChevronLeft className="size-4" />
-                  </button>
-                  <div className="flex size-9 items-center justify-center rounded-full bg-[#252830] text-xs font-bold text-white">
-                    {subscription.companyName?.[0]?.toUpperCase() || "A"}
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-white">
-                      {subscription.companyName}
-                    </div>
-                    <div className="text-[11px] text-zinc-500">Assistance officielle</div>
-                  </div>
-                </div>
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
-                  {supportChatList.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[82%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${msg.sender === "user" ? "bg-[#0055ff] text-white" : "bg-white/[0.06] text-zinc-200"}`}
-                      >
-                        <div>{msg.text}</div>
-                        <div
-                          className={`mt-1 text-[10px] ${msg.sender === "user" ? "text-blue-100" : "text-zinc-500"}`}
-                        >
-                          {msg.time}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <form
-                  onSubmit={handleSendSupport}
-                  className="mansa-safe-bottom flex shrink-0 gap-2 border-t border-white/10 p-3 sm:p-4"
-                >
-                  <textarea
-                    value={supportMessage}
-                    onChange={(e) => setSupportMessage(e.target.value)}
-                    rows={2}
-                    placeholder="Écrire un message…"
-                    className="min-w-0 flex-1 resize-none rounded-xl border border-white/10 bg-[#101114] p-3 text-xs text-white outline-none focus:border-blue-400"
-                  />
-                  <button
-                    type="submit"
-                    className="self-end rounded-xl bg-[#0055ff] px-4 py-2.5 text-xs font-bold text-white"
-                  >
-                    <Send className="size-3.5" />
-                  </button>
-                </form>
-              </main>
-            </div>
-          </div>
+          <SupportInboxView
+            mode="member"
+            companyName={subscription.companyName}
+            conversations={[
+              {
+                id: `${subscription.companyId || subscription.id}:${user?.email || "membre@mansa.app"}`,
+                companyId: subscription.companyId || subscription.id,
+                memberName: user?.name || "Membre",
+                memberEmail: user?.email || "membre@mansa.app",
+                messages: supportChatList.map((message) => ({
+                  ...message,
+                  sender: message.sender === "user" ? ("member" as const) : ("creator" as const),
+                })),
+              },
+            ]}
+            selectedConversationId={`${subscription.companyId || subscription.id}:${user?.email || "membre@mansa.app"}`}
+            mobileConversationOpen={isSupportConversationOpen}
+            onSelectConversation={(conversationId) =>
+              setIsSupportConversationOpen(Boolean(conversationId))
+            }
+            onSendMessage={(_, text) => handleSendSupport(text)}
+            onBack={() => {
+              setActiveTab("accueil");
+              setCompanyTab("accueil");
+              setIsMobileCompanyNavOpen(true);
+              setIsMobileSidebarOpen(false);
+            }}
+            safeArea
+          />
         )}
 
         {/* VIEW 3: TELEGRAM CONNECTED APP & CHANNELS                     */}
@@ -3355,6 +3258,20 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 />
               ) : (
                 <div className="max-w-3xl mx-auto w-full space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("accueil");
+                      setCompanyTab("accueil");
+                      setIsMobileCompanyNavOpen(true);
+                      setIsMobileSidebarOpen(false);
+                    }}
+                    className="inline-flex items-center gap-2 rounded-lg p-2 text-sm font-semibold text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+                    aria-label="Retour à l’accueil"
+                  >
+                    <ChevronLeft className="size-4" />
+                    Retour
+                  </button>
                   <div className="rounded-2xl border border-[#229ED9]/30 bg-[#11151b] p-5">
                     <h2 className="text-base font-bold text-white flex items-center gap-2">
                       <TelegramIcon className="size-5" /> Vos accès Telegram

@@ -680,23 +680,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSubView("telegram")}
-                className="flex items-center gap-2 rounded-xl bg-[#229ED9]/15 hover:bg-[#229ED9]/25 border border-[#229ED9]/30 text-[#229ED9] px-3.5 py-2 text-xs font-bold transition-all cursor-pointer"
-              >
-                <TelegramIcon className="size-4" />
-                <span>Gérer Telegram ({telegramChannels.length})</span>
-              </button>
-
-              <button
-                onClick={() => setSubView("discord")}
-                className="flex items-center gap-2 rounded-xl bg-[#5865F2]/15 hover:bg-[#5865F2]/25 border border-[#5865F2]/30 text-[#8c97f8] px-3.5 py-2 text-xs font-bold transition-all cursor-pointer"
-              >
-                <DiscordIcon className="size-4" />
-                <span>Gérer Discord ({discordServers.length})</span>
-              </button>
-            </div>
           </div>
 
           {/* Connected Apps Highlights Grid */}
@@ -721,9 +704,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                     </div>
                   </div>
 
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/5 text-zinc-300 font-mono">
-                    Officiel Mansa
-                  </span>
                 </div>
 
                 <p className="text-xs text-zinc-400 leading-relaxed">
@@ -775,15 +755,10 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                       </h3>
                       <div className="flex items-center gap-2 text-[11px] text-zinc-400">
                         <span>↓ 2037 installations</span>
-                        <span>•</span>
-                        <span className="text-[#8c97f8] font-semibold">Gestion des rôles</span>
                       </div>
                     </div>
                   </div>
 
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/5 text-zinc-300 font-mono">
-                    Officiel Mansa
-                  </span>
                 </div>
 
                 <p className="text-xs text-zinc-400 leading-relaxed">
@@ -846,7 +821,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 </div>
                 <button
                   onClick={() => handleOpenInstallModal("courses")}
-                  className="w-full py-1.5 rounded-lg border border-white/10 bg-[#16181f] hover:bg-white/10 text-xs font-semibold text-zinc-300 transition-colors cursor-pointer"
+                  className="w-full py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#0047d6] text-xs font-semibold text-white transition-colors cursor-pointer"
                 >
                   + Installer sur un business
                 </button>
@@ -867,7 +842,7 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 </div>
                 <button
                   onClick={() => handleOpenInstallModal("files")}
-                  className="w-full py-1.5 rounded-lg border border-white/10 bg-[#16181f] hover:bg-white/10 text-xs font-semibold text-zinc-300 transition-colors cursor-pointer"
+                  className="w-full py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#0047d6] text-xs font-semibold text-white transition-colors cursor-pointer"
                 >
                   + Installer sur un business
                 </button>

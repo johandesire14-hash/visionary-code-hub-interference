@@ -46,6 +46,33 @@ describe("navigation catalogue Apps Store vers les workspaces créateur", () => 
     expect(getCreatorAppProductIds("courses", offers)).toEqual(["offer-1", "offer-2"]);
   });
 
+  it("retire les commandes et badges pointés sans supprimer la carte Cours", () => {
+    render(<ConnectedAppsView lang="fr" availableProducts={products} />);
+
+    expect(screen.queryByRole("button", { name: /Gérer Telegram/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Gérer Discord/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Officiel Mansa")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gestion des rôles")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Telegram" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Discord" })).toBeInTheDocument();
+
+    const courseHeading = screen.getByRole("heading", { name: "Cours & Formations" });
+    const courseCard = courseHeading.closest<HTMLElement>(".rounded-xl");
+    expect(courseCard).not.toBeNull();
+    const courseInstallButton = within(courseCard!).getByRole("button", {
+      name: "+ Installer sur un business",
+    });
+    expect(courseInstallButton).toHaveClass("bg-[#0055ff]", "hover:bg-[#0047d6]");
+
+    const filesHeading = screen.getByRole("heading", { name: "Fichiers & Téléchargements" });
+    const filesCard = filesHeading.closest<HTMLElement>(".rounded-xl");
+    expect(filesCard).not.toBeNull();
+    const filesInstallButton = within(filesCard!).getByRole("button", {
+      name: "+ Installer sur un business",
+    });
+    expect(filesInstallButton).toHaveClass("bg-[#0055ff]", "hover:bg-[#0047d6]");
+  });
+
   it.each([
     { title: "Cours & Formations", callback: "onOpenCoursesWorkflow" },
     { title: "Fichiers & Téléchargements", callback: "onOpenFilesWorkflow" },
