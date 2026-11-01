@@ -4,10 +4,16 @@ import {
   ArrowLeft,
   Check,
   Copy,
+  CheckCircle2,
+  Clock3,
   ExternalLink,
+  History,
   Link2,
   RefreshCw,
+  Share2,
   ShieldCheck,
+  Users,
+  X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -17,6 +23,10 @@ import {
   getAffiliateEligibleProducts,
   getAffiliateLinksForUser,
 } from "../../services/affiliateService";
+import {
+  AffiliateInvitation,
+  getAffiliateInvitationHistory,
+} from "../../services/affiliateHistoryService";
 import { CurrencyCode, formatCurrency } from "../../utils/currency";
 import { siteUrl } from "@/lib/site";
 
@@ -31,6 +41,23 @@ interface AffiliatesViewProps {
 
 const percentLabel = (rate: number) => `${String(rate)} %`;
 const publicAffiliateUrl = (code: string) => siteUrl(`/affiliate/${encodeURIComponent(code)}`);
+
+const maskEmail = (email: string) => {
+  if (!email || !email.includes("@")) return email || "E-mail non communiqué";
+  const [local, domain] = email.split("@");
+  return `${local.slice(0, 2)}${local.length > 2 ? "•••" : ""}@${domain}`;
+};
+
+const invitationDate = (value: unknown) => {
+  if (!value) return "Date non disponible";
+  const date =
+    typeof value === "object" && value !== null && "toDate" in value
+      ? (value as { toDate: () => Date }).toDate()
+      : new Date(String(value));
+  return Number.isNaN(date.getTime())
+    ? "Date non disponible"
+    : new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium" }).format(date);
+};
 
 const formatProductPrice = (amount: number, currency: string) => {
   try {
@@ -55,6 +82,8 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
   const [createdLink, setCreatedLink] = useState<AffiliateLink | null>(null);
   const [copiedUrl, setCopiedUrl] = useState("");
   const [copyError, setCopyError] = useState("");
+  const [invitations, setInvitations] = useState<AffiliateInvitation[]>([]);
+  const [showInvitationHistory, setShowInvitationHistory] = useState(false);
   const activeCurrency = (currency as CurrencyCode) || "XOF";
 
   const refresh = useCallback(
@@ -62,6 +91,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
       if (!affiliateUid) {
         setProducts([]);
         setLinks([]);
+        setInvitations([]);
         setLoading(false);
         return;
       }
@@ -69,18 +99,21 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
       else setLoading(true);
       setLoadError("");
       try {
-        const [eligibleProducts, ownLinks] = await Promise.all([
+        const [eligibleProducts, ownLinks, invitationHistory] = await Promise.all([
           getAffiliateEligibleProducts(affiliateUid),
           getAffiliateLinksForUser(affiliateUid),
+          getAffiliateInvitationHistory(affiliateUid).catch(() => []),
         ]);
         setProducts(eligibleProducts);
         setLinks(ownLinks);
+        setInvitations(invitationHistory);
       } catch (error) {
         setLoadError(
           error instanceof Error ? error.message : "Impossible de charger les programmes affiliés.",
         );
         setProducts([]);
         setLinks([]);
+        setInvitations([]);
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -137,6 +170,20 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
           : "Copie impossible. Autorisez l’accès au presse-papiers ou copiez le lien manuellement.",
       );
     }
+  };
+
+  const shareUrl = async (link: AffiliateLink) => {
+    const url = publicAffiliateUrl(link.code);
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: link.productName, text: `Découvre ${link.productName}`, url });
+        return;
+      } catch {
+        // L’utilisateur peut avoir annulé le partage : on ne montre pas d’erreur.
+        return;
+      }
+    }
+    await copyUrl(url);
   };
 
   if (selectedProduct) {
@@ -307,14 +354,23 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
             Découvrez les produits actifs dont le créateur a activé un taux d’affiliation.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void refresh(true)}
-          disabled={refreshing || loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/5 disabled:opacity-50"
-        >
-          <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} /> Actualiser
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setShowInvitationHistory(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-400/10"
+          >
+            <History className="size-3.5" /> Historique des invitations
+          </button>
+          <button
+            type="button"
+            onClick={() => void refresh(true)}
+            disabled={refreshing || loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-white/5 disabled:opacity-50"
+          >
+            <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} /> Actualiser
+          </button>
+        </div>
       </div>
       {!affiliateUid && (
         <p
@@ -443,24 +499,112 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
                       comptabilisée
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => void copyUrl(url)}
-                    className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/5"
-                  >
-                    {copiedUrl === url ? (
-                      <Check className="size-3.5" />
-                    ) : (
-                      <Copy className="size-3.5" />
-                    )}
-                    {copiedUrl === url ? "Copié" : "Copier le lien"}
-                  </button>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void copyUrl(url)}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-200 hover:bg-white/5"
+                    >
+                      {copiedUrl === url ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                      {copiedUrl === url ? "Copié" : "Copier le lien"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void shareUrl(link)}
+                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
+                    >
+                      <Share2 className="size-3.5" /> Partager
+                    </button>
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </section>
+      {showInvitationHistory && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="affiliate-invitation-history-title"
+        >
+          <section className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#15171d] shadow-2xl sm:rounded-2xl">
+            <header className="flex shrink-0 items-center justify-between border-b border-white/[0.08] px-5 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-300">
+                  <History className="size-5" />
+                </div>
+                <div>
+                  <h2 id="affiliate-invitation-history-title" className="font-bold text-white">
+                    Historique des invitations
+                  </h2>
+                  <p className="text-xs text-zinc-500">Les événements enregistrés par le paiement sécurisé</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInvitationHistory(false)}
+                aria-label="Fermer l’historique"
+                className="flex size-9 items-center justify-center rounded-xl text-zinc-400 hover:bg-white/5 hover:text-white"
+              >
+                <X className="size-5" />
+              </button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
+              {invitations.length === 0 ? (
+                <div className="flex min-h-64 flex-col items-center justify-center text-center">
+                  <div className="flex size-14 items-center justify-center rounded-full bg-white/[0.04] text-zinc-500">
+                    <Users className="size-7" />
+                  </div>
+                  <h3 className="mt-4 font-semibold text-zinc-200">Aucun historique d’invitation</h3>
+                  <p className="mt-2 max-w-sm text-sm leading-relaxed text-zinc-500">
+                    Les personnes converties via vos liens apparaîtront ici dès qu’un paiement affilié
+                    confirmé sera reçu.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {invitations.map((invitation) => {
+                    const statusLabel =
+                      invitation.status === "converted"
+                        ? "Achat confirmé"
+                        : invitation.status === "pending"
+                          ? "En attente"
+                          : invitation.status === "cancelled"
+                            ? "Annulée"
+                            : "Inscription";
+                    const StatusIcon = invitation.status === "converted" ? CheckCircle2 : Clock3;
+                    return (
+                      <article
+                        key={invitation.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-xs font-bold text-emerald-200">
+                            {invitation.inviteeName.slice(0, 1).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-white">{invitation.inviteeName}</p>
+                            <p className="truncate text-xs text-zinc-500">{maskEmail(invitation.inviteeEmail)}</p>
+                            <p className="mt-1 text-xs text-zinc-400">{invitation.productName}</p>
+                          </div>
+                        </div>
+                        <div className="text-right text-xs">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/10 px-2 py-1 font-semibold text-emerald-200">
+                            <StatusIcon className="size-3" /> {statusLabel}
+                          </span>
+                          <p className="mt-1 text-zinc-500">{invitationDate(invitation.createdAt)}</p>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
       <aside className="mt-7 flex gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-xs leading-relaxed text-amber-100">
         <AlertTriangle className="mt-0.5 size-4 shrink-0" />
         <p>

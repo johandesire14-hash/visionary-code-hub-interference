@@ -106,6 +106,18 @@
   );
 }
 
+@keyframes loader-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(110%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
+}
+
 @media (max-width: 1023px) {
   input,
   textarea,
