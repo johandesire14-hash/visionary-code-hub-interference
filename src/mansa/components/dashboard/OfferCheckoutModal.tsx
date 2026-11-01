@@ -282,7 +282,18 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ amount: currentPlan.price, providerFee: 0, referralCode }),
+            body: JSON.stringify({
+              amount: currentPlan.price,
+              providerFee: 0,
+              referralCode,
+              referralProductId: offer.id,
+              customerUid: user.uid,
+              customerEmail,
+              productId: offer.id,
+              productName: offer.title,
+              companyId: offer.companyId,
+              currency: offer.currency || "XAF",
+            }),
           },
         );
         const confirmationData = await confirmationResponse.json();
