@@ -9,7 +9,6 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  Copy,
   Check,
   QrCode,
   Sparkles,
@@ -202,11 +201,16 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     useState<CreatorPlatformOffer | null>(null);
   const [selectedProductPlanId, setSelectedProductPlanId] = useState<string | null>(null);
   const [expandedProductFaqIndex, setExpandedProductFaqIndex] = useState<number | null>(null);
-  const [affiliateLinkUrl, setAffiliateLinkUrl] = useState<string>("");
-  const [affiliateLinkOfferId, setAffiliateLinkOfferId] = useState<string | null>(null);
   const [affiliateLinkError, setAffiliateLinkError] = useState<string>("");
   const [isCreatingAffiliateLink, setIsCreatingAffiliateLink] = useState(false);
   const [isAffiliateLinkCopied, setIsAffiliateLinkCopied] = useState(false);
+  const affiliateLinkButtonLabel = isCreatingAffiliateLink
+    ? "Création du lien d’affiliation"
+    : affiliateLinkError
+      ? affiliateLinkError
+      : isAffiliateLinkCopied
+        ? "Lien d’affiliation copié"
+        : "Copier le lien d’affiliation";
 
   const handleCopyAffiliateLink = async (offer: CreatorPlatformOffer) => {
     setAffiliateLinkError("");
@@ -227,8 +231,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         affiliateCommissionRate: rate,
       });
       const url = siteUrl(`/affiliate/${encodeURIComponent(link.code)}`);
-      setAffiliateLinkUrl(url);
-      setAffiliateLinkOfferId(offer.id);
       await navigator.clipboard.writeText(url);
       setIsAffiliateLinkCopied(true);
       window.setTimeout(() => setIsAffiliateLinkCopied(false), 2500);
@@ -3641,14 +3643,46 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       <h2 className="truncate text-sm font-bold text-white">{offer.title}</h2>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProductDetailOffer(null)}
-                    aria-label="Fermer la fiche produit"
-                    className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
-                  >
-                    <X className="size-4" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {!isCompanyOwner && (
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyAffiliateLink(offer)}
+                        disabled={isCreatingAffiliateLink}
+                        aria-label={affiliateLinkButtonLabel}
+                        title={affiliateLinkButtonLabel}
+                        className={`flex size-8 items-center justify-center rounded-full border transition-colors ${
+                          isAffiliateLinkCopied
+                            ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-300"
+                            : affiliateLinkError
+                              ? "border-rose-400/40 bg-rose-500/10 text-rose-300"
+                              : "border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                        } disabled:cursor-wait disabled:opacity-60`}
+                      >
+                        <Share2 className="size-4" aria-hidden="true" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProductDetailOffer(null)}
+                      aria-label="Fermer la fiche produit"
+                      className="flex size-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                    >
+                      <X className="size-4" />
+                    </button>
+                    <span
+                      className="sr-only"
+                      role={affiliateLinkError ? "alert" : "status"}
+                      aria-live={affiliateLinkError ? "assertive" : "polite"}
+                    >
+                      {affiliateLinkError ||
+                        (isCreatingAffiliateLink
+                          ? "Création du lien d’affiliation en cours."
+                          : isAffiliateLinkCopied
+                            ? "Lien d’affiliation copié dans le presse-papiers."
+                            : "")}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 p-4 sm:p-8 lg:grid-cols-12 lg:gap-8">
@@ -3773,51 +3807,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                             ))}
                           </div>
                         )}
-                      {!isCompanyOwner && (
-                        <div className="space-y-2 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] p-3">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <div className="text-xs font-bold text-white">
-                                Partager ce produit
-                              </div>
-                              <div className="mt-1 text-[11px] text-zinc-400">
-                                Votre lien personnel · commission créateur :{" "}
-                                {Number(offer.affiliateCommissionRate || 0)} %
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void handleCopyAffiliateLink(offer)}
-                              disabled={isCreatingAffiliateLink}
-                              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white transition hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60"
-                            >
-                              {isAffiliateLinkCopied && affiliateLinkOfferId === offer.id ? (
-                                <Check className="size-3.5" />
-                              ) : (
-                                <Copy className="size-3.5" />
-                              )}
-                              {isCreatingAffiliateLink
-                                ? "Création…"
-                                : isAffiliateLinkCopied && affiliateLinkOfferId === offer.id
-                                  ? "Copié"
-                                  : "Copier le lien"}
-                            </button>
-                          </div>
-                          {affiliateLinkOfferId === offer.id && affiliateLinkUrl && (
-                            <input
-                              readOnly
-                              value={affiliateLinkUrl}
-                              aria-label="Votre lien affilié pour ce produit"
-                              className="w-full rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 font-mono text-[10px] text-zinc-300"
-                            />
-                          )}
-                          {affiliateLinkError && (
-                            <p role="alert" className="text-[11px] leading-relaxed text-rose-300">
-                              {affiliateLinkError}
-                            </p>
-                          )}
-                        </div>
-                      )}
                       {TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany && (
                         <div
                           role="status"
@@ -4003,12 +3992,20 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         companyName={currentSub.companyName || subscription.companyName}
       />
 
-      {/* Toast notification de confirmation : ✅ Lien copié */}
-      {copiedLinkToast && (
-        <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-none">
+      {/* Toast de confirmation pour les liens copiés */}
+      {(copiedLinkToast || isAffiliateLinkCopied) && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-none"
+        >
           <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-900 border border-emerald-500/30 text-white shadow-2xl shadow-black/80">
             <span className="text-base">✅</span>
-            <span className="text-sm font-semibold">Lien copié</span>
+            <span className="text-sm font-semibold">
+              {isAffiliateLinkCopied
+                ? "Lien d’affiliation copié dans le presse-papiers"
+                : "Lien copié"}
+            </span>
           </div>
         </div>
       )}
@@ -4128,7 +4125,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 </div>
               )}
             </div>
-
           </div>
         </div>
       )}
@@ -4966,7 +4962,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                 </div>
               )}
             </div>
-
           </div>
         </div>
       )}
