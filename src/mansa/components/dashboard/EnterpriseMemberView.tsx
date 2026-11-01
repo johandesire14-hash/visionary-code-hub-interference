@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
-  ExternalLink,
   ShieldCheck,
   CheckCircle2,
   Copy,
@@ -65,6 +64,7 @@ import {
   LayoutDashboard,
   Trash2,
 } from "lucide-react";
+import { CompanySocialIcons } from "./CompanySocialIcons";
 import { EnterpriseSubscription, TelegramChannelItem, DiscordChannelItem } from "../../types";
 import { ConnectedAppsView, TelegramIcon, DiscordIcon } from "./ConnectedAppsView";
 import { SupportInboxView } from "./SupportInboxView";
@@ -2736,13 +2736,14 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 pt-1 text-xs sm:text-sm text-zinc-300">
+                    <div className="flex flex-wrap items-center gap-2 pt-1 text-xs sm:text-sm text-zinc-300">
                       <Users className="size-4 text-zinc-400" />
                       <span>
                         {companyMemberCount.toLocaleString(lang === "fr" ? "fr-FR" : "en-US")}{" "}
                         {lang === "fr" ? "membre" : "member"}
                         {companyMemberCount === 1 ? "" : "s"}
                       </span>
+                      <CompanySocialIcons socialLinks={currentSub.socialLinks} />
                     </div>
 
                     {/* Preview vs Joined Notice Banner */}
@@ -2851,35 +2852,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               {/* VUE CONTENU : ONGLET ACCUEIL (Flux de publications ou d'actualités propre à l'entreprise) */}
               {companyTab === "accueil" && (
                 <div className="max-w-4xl space-y-6 animate-in fade-in duration-150">
-                  {Object.values(currentSub.socialLinks || {}).some(Boolean) && (
-                    <div className="rounded-2xl border border-white/[0.09] bg-[#111318] p-4 shadow-lg">
-                      <div className="flex items-center gap-2 mb-3">
-                        <ExternalLink className="size-4 text-emerald-400" />
-                        <span className="text-xs font-bold text-white">
-                          Retrouvez-nous en ligne
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {Object.entries(currentSub.socialLinks || {})
-                          .filter(([, url]) => url)
-                          .map(([key, url]) => (
-                            <a
-                              key={key}
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-emerald-400/50 hover:text-emerald-300 transition-colors"
-                            >
-                              {key === "website"
-                                ? "Site web"
-                                : key === "twitter"
-                                  ? "X / Twitter"
-                                  : key[0].toUpperCase() + key.slice(1)}
-                            </a>
-                          ))}
-                      </div>
-                    </div>
-                  )}
                   {/* Section Fil d'actualité & Publications */}
                   <div id="company-newsfeed" className="pt-2">
                     <div className="flex items-center justify-between mb-4">

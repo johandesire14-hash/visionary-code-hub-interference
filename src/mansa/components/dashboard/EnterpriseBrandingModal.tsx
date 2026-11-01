@@ -321,6 +321,7 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
               {[
                 ["instagram", "Instagram"],
                 ["tiktok", "TikTok"],
+                ["facebook", "Facebook"],
                 ["youtube", "YouTube"],
                 ["linkedin", "LinkedIn"],
                 ["twitter", "X / Twitter"],

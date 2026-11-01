@@ -108,6 +108,7 @@ export interface CategoryCardItem {
 export interface CompanySocialLinks {
   instagram?: string;
   tiktok?: string;
+  facebook?: string;
   youtube?: string;
   linkedin?: string;
   twitter?: string;
