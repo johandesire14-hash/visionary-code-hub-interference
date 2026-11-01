@@ -231,9 +231,7 @@ export function saveCompany(
     companyBanner:
       newCompany.companyBanner ||
       "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1800&q=85",
-    companyLogo:
-      newCompany.companyLogo ||
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80",
+    companyLogo: newCompany.companyLogo || "",
     socialLinks: newCompany.socialLinks || {},
     discoverable: true,
     createdAt: new Date().toISOString(),

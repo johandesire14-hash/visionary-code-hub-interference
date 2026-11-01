@@ -281,12 +281,12 @@ export const CustomerPurchasesView: React.FC<CustomerPurchasesViewProps> = ({
                         }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className="size-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0 overflow-hidden shadow-inner">
+                          <div className="size-10 rounded-xl mansa-profile-avatar flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden shadow-inner">
                             {item.sellerAvatar ? (
                               <img
                                 src={item.sellerAvatar}
                                 alt={item.sellerName}
-                                className="size-full object-cover"
+                                className="size-full object-cover mansa-avatar-image"
                               />
                             ) : (
                               <span>{item.name.charAt(0)}</span>

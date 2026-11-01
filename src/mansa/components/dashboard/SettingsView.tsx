@@ -89,9 +89,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [companyBanner, setCompanyBanner] = useState<string>(
     "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1800&q=85",
   );
-  const [companyLogo, setCompanyLogo] = useState<string>(
-    "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80",
-  );
+  const [companyLogo, setCompanyLogo] = useState<string>("");
 
   const bannerFileInputRef = useRef<HTMLInputElement | null>(null);
   const logoFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -650,14 +648,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     {/* Profile Photo Overlaid */}
                     <div className="absolute bottom-3 left-4 flex items-end gap-3 z-10">
                       <div className="relative size-16 sm:size-20 rounded-2xl border-2 border-black bg-[#121316] shadow-xl overflow-hidden shrink-0">
-                        <img
-                          src={
-                            companyLogo ||
-                            "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80"
-                          }
-                          alt="Aperçu du logo"
-                          className="size-full object-cover"
-                        />
+                        {companyLogo ? (
+                          <img
+                            src={companyLogo}
+                            alt="Aperçu du logo"
+                            className="size-full object-cover mansa-avatar-image"
+                          />
+                        ) : (
+                          <div className="flex size-full items-center justify-center mansa-profile-avatar text-xl font-black">
+                            {storeName.trim().slice(0, 2).toUpperCase() || "AF"}
+                          </div>
+                        )}
                         <span className="absolute bottom-1 right-1 size-2.5 rounded-full bg-emerald-400 ring-2 ring-black" />
                       </div>
                       <div className="text-white drop-shadow-md pb-0.5">
@@ -791,16 +792,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
                         {
-                          label: "Portrait Dirigeant",
-                          url: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80",
-                        },
-                        {
-                          label: "Monogramme Abstrait",
+                          label: "Émeraude abstrait",
                           url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80",
                         },
                         {
-                          label: "Tech Venture",
-                          url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+                          label: "Réseau numérique",
+                          url: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=300&q=80",
+                        },
+                        {
+                          label: "Gradient graphite",
+                          url: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=300&q=80",
                         },
                       ].map((preset) => (
                         <button
@@ -816,7 +817,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           <img
                             src={preset.url}
                             alt={preset.label}
-                            className="size-8 rounded-lg object-cover shrink-0"
+                            className="size-8 rounded-lg object-cover shrink-0 mansa-avatar-image"
                           />
                           <span className="text-[10px] font-semibold text-zinc-200 line-clamp-1">
                             {preset.label}

@@ -51,8 +51,6 @@ export const DISCOVER_CREATOR_ENTERPRISES: CreatorEnterpriseCard[] = [
     companyId: "comp-money-life",
     companyName: "Money Life",
     creatorName: "Ousmane Diallo",
-    companyLogo:
-      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=300&q=80",
     companyInitials: "ML",
     bannerUrl:
       "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?auto=format&fit=crop&w=1200&q=80",
@@ -74,8 +72,6 @@ export const DISCOVER_CREATOR_ENTERPRISES: CreatorEnterpriseCard[] = [
     companyId: "comp-cadre-financier",
     companyName: "Cadre financier",
     creatorName: "Marc-Antoine R.",
-    companyLogo:
-      "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=300&q=80",
     companyInitials: "CF",
     bannerUrl:
       "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=1200&q=80",
@@ -97,8 +93,6 @@ export const DISCOVER_CREATOR_ENTERPRISES: CreatorEnterpriseCard[] = [
     companyId: "comp-fce-africa",
     companyName: "Forex Elite Africa",
     creatorName: "Kofi Mensah",
-    companyLogo:
-      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=300&q=80",
     companyInitials: "FE",
     bannerUrl:
       "https://images.unsplash.com/photo-1642790106117-e829e14a795f?auto=format&fit=crop&w=1200&q=80",
@@ -120,8 +114,6 @@ export const DISCOVER_CREATOR_ENTERPRISES: CreatorEnterpriseCard[] = [
     companyId: "comp-devkreativ",
     companyName: "DevKreativ Lab SaaS",
     creatorName: "Sarah Benali",
-    companyLogo:
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=300&q=80",
     companyInitials: "DK",
     bannerUrl:
       "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80",
@@ -143,8 +135,6 @@ export const DISCOVER_CREATOR_ENTERPRISES: CreatorEnterpriseCard[] = [
     companyId: "comp-ecommerce-mastery",
     companyName: "E-Commerce Mastery UEMOA",
     creatorName: "Mamadou Sow",
-    companyLogo:
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80",
     companyInitials: "EM",
     bannerUrl:
       "https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80",
@@ -166,8 +156,6 @@ export const DISCOVER_CREATOR_ENTERPRISES: CreatorEnterpriseCard[] = [
     companyId: "comp-bs-syndicate",
     companyName: "BS Syndicate Crypto",
     creatorName: "Alexandre K.",
-    companyLogo:
-      "https://images.unsplash.com/photo-1622979135225-d2ba269bc1df?auto=format&fit=crop&w=300&q=80",
     companyInitials: "BS",
     bannerUrl:
       "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80",
@@ -419,15 +407,15 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
                 <div className={`p-4 ${showBanners ? "-mt-7" : "pt-4"} relative z-10 space-y-3`}>
                   <div className="flex items-start justify-between gap-3">
                     {/* Photo de profil (Enterprise Logo) */}
-                    <div className="size-12 rounded-2xl bg-[#2A2929] border-2 border-[#12141c] shadow-md overflow-hidden shrink-0 flex items-center justify-center">
+                    <div className="size-12 rounded-2xl mansa-profile-avatar border-2 border-[#12141c] shadow-md overflow-hidden shrink-0 flex items-center justify-center">
                       {enterprise.companyLogo ? (
                         <img
                           src={enterprise.companyLogo}
                           alt={enterprise.companyName}
-                          className="size-full object-cover"
+                          className="size-full object-cover mansa-avatar-image"
                         />
                       ) : (
-                        <span className="text-xs font-black text-white">
+                        <span className="text-xs font-black text-emerald-100">
                           {enterprise.companyInitials}
                         </span>
                       )}

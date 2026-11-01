@@ -581,7 +581,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
                         className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/10 text-xs font-bold text-emerald-200">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full mansa-profile-avatar text-xs font-bold">
                             {invitation.inviteeName.slice(0, 1).toUpperCase()}
                           </div>
                           <div className="min-w-0">

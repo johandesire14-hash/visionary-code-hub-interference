@@ -1552,9 +1552,7 @@ export async function savePartnerDealToFirestore(
     creatorId,
     companyId,
     partnerName: dealData.partnerName,
-    partnerLogo:
-      dealData.partnerLogo ||
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
+    partnerLogo: dealData.partnerLogo || "",
     partnerHandle:
       dealData.partnerHandle || `@${dealData.partnerName.toLowerCase().replace(/\s+/g, "_")}`,
     type: dealData.type,

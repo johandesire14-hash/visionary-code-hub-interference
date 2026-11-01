@@ -1582,8 +1582,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           companyName: "Cadre financier",
           companyBanner:
             "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1800&q=85",
-          companyLogo:
-            "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&q=80",
+          companyLogo: "",
           companyInitials: "FF",
           productName: "Financial Framework Pro & VIP Discord",
           priceDisplay: "19 100 € /mois",
@@ -1704,7 +1703,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           <div className="relative">
             <button
               onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="flex size-8 items-center justify-center rounded-full bg-[#32363e] text-xs font-bold text-white hover:bg-[#3f444e] transition-colors cursor-pointer border border-white/10"
+              className="flex size-8 items-center justify-center rounded-full mansa-profile-avatar text-xs font-bold hover:brightness-110 transition-[filter] cursor-pointer border border-white/10"
             >
               {user.avatarInitials || "JO"}
             </button>
@@ -1954,13 +1953,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                         <img
                           src={comp.companyLogo}
                           alt={comp.name}
-                          className="size-full object-cover"
+                          className="size-full object-cover mansa-avatar-image"
                         />
                       ) : (
                         <div
-                          className={`size-full bg-gradient-to-br ${
-                            comp.colorGradient || "from-indigo-900 via-purple-900 to-black"
-                          } flex items-center justify-center text-[10px] font-black text-white font-mono`}
+                          className="size-full mansa-profile-avatar flex items-center justify-center text-[10px] font-black font-mono"
                         >
                           <span>
                             {comp.logoInitials || comp.name.substring(0, 2).toUpperCase() || "EN"}
@@ -2400,17 +2397,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           }`}
                           title={`Mon Entreprise : ${comp.name}`}
                         >
-                          {comp.companyLogo ? (
-                            <img
-                              src={comp.companyLogo}
-                              alt={comp.name}
-                              className="size-full object-cover"
-                            />
-                          ) : (
-                            <div
-                              className={`size-full bg-gradient-to-br ${
-                                comp.colorGradient || "from-indigo-900 via-purple-900 to-black"
-                              } flex items-center justify-center text-[10px] font-black text-white font-mono`}
+                            {comp.companyLogo ? (
+                              <img
+                                src={comp.companyLogo}
+                                alt={comp.name}
+                                className="size-full object-cover mansa-avatar-image"
+                              />
+                            ) : (
+                              <div
+                                className="size-full mansa-profile-avatar flex items-center justify-center text-[10px] font-black font-mono"
                             >
                               <span>
                                 {comp.logoInitials ||
@@ -2925,7 +2920,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           className="flex items-center justify-between p-2.5 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="flex size-9 items-center justify-center rounded-full bg-[#32363e] text-xs font-bold text-white border border-white/10">
+                            <div className="flex size-9 items-center justify-center rounded-full mansa-profile-avatar text-xs font-bold border border-white/10">
                               {user.avatarInitials || "JO"}
                             </div>
                             <div>
@@ -4086,7 +4081,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               }}
               className="flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200"
             >
-              <div className="flex size-5 items-center justify-center rounded-full bg-[#32363e] text-[9px] text-white">
+              <div className="flex size-5 items-center justify-center rounded-full mansa-profile-avatar text-[9px]">
                 {user.avatarInitials || "U"}
               </div>
               <span>Compte</span>

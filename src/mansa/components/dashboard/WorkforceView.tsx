@@ -280,7 +280,7 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
                 className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/[0.02] px-2 rounded-xl transition-colors"
               >
                 <div className="flex items-center gap-3.5">
-                  <div className="flex size-10 items-center justify-center rounded-full bg-[#1e2029] border border-white/10 text-xs font-bold text-white font-mono">
+                  <div className="flex size-10 items-center justify-center rounded-full mansa-profile-avatar border border-white/10 text-xs font-bold font-mono">
                     {worker.avatar}
                   </div>
                   <div>

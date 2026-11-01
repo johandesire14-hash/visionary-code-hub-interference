@@ -148,7 +148,7 @@ export const MarketplaceSection: React.FC<MarketplaceSectionProps> = ({
                           <img
                             src={prod.creatorAvatar}
                             alt={prod.creator}
-                            className="size-11 rounded-full object-cover border border-black/10"
+                            className="size-11 rounded-full object-cover border border-black/10 mansa-avatar-image"
                           />
                           {prod.countryCode && (
                             <div className="absolute -bottom-1 -right-1 rounded-[2px] overflow-hidden shadow-xs border border-black/10">

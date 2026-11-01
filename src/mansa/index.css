@@ -94,6 +94,20 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.mansa-profile-avatar {
+  background-image:
+    radial-gradient(circle at 24% 18%, rgba(61, 220, 132, 0.28), transparent 48%),
+    linear-gradient(145deg, #17261e 0%, #17191d 58%, #0d0f10 100%);
+  border-color: rgba(0, 210, 106, 0.38);
+  color: #dcfce7;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(0, 210, 106, 0.12);
+}
+
+.mansa-avatar-image {
+  border-color: rgba(0, 210, 106, 0.4);
+  box-shadow: 0 0 0 1px rgba(0, 210, 106, 0.12);
+}
+
 .mansa-keyboard-scroll {
   min-height: 0;
   scroll-padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
