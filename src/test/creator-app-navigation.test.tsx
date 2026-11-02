@@ -199,7 +199,24 @@ describe("navigation catalogue Apps Store vers les workspaces créateur", () => 
     expect(screen.getByRole("heading", { name: "Cours & Formations" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Ajouter un cours/ }));
     expect(screen.getByRole("heading", { name: "Créer un cours" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Nom du cours")).toBeInTheDocument();
+    expect(screen.getByLabelText("Description")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Titre du chapitre")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Nom du cours"), {
+      target: { value: "Cours de test" },
+    });
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "Description du cours" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Valider et continuer" }));
+
     expect(screen.getByLabelText("Titre du chapitre")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Nom du cours")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Description")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Retour aux informations du cours/ }));
+    expect(screen.getByLabelText("Nom du cours")).toHaveValue("Cours de test");
+    expect(screen.getByLabelText("Description")).toHaveValue("Description du cours");
   });
 
   it("montre le chargement puis l’erreur et réactive l’action après échec de téléversement", async () => {

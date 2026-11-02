@@ -349,6 +349,7 @@ export const CreatorCoursesWorkspace: React.FC<{
     }
   });
   const [editing, setEditing] = useState(false);
+  const [courseCreationStep, setCourseCreationStep] = useState<"details" | "chapters">("details");
   const [editingCourseId, setEditingCourseId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -374,6 +375,7 @@ export const CreatorCoursesWorkspace: React.FC<{
     setActiveChapterId(firstChapter.id);
     setSelectedVideoFiles({});
     setSaveError(null);
+    setCourseCreationStep("details");
     setEditing(true);
   };
   const editCourse = (course: CreatorCourse) => {
@@ -385,6 +387,7 @@ export const CreatorCoursesWorkspace: React.FC<{
     setActiveChapterId(courseChapters[0]?.id || null);
     setSelectedVideoFiles({});
     setSaveError(null);
+    setCourseCreationStep("details");
     setEditing(true);
   };
   const updateChapter = (chapterId: string, updates: Partial<CourseChapter>) => {
@@ -459,7 +462,46 @@ export const CreatorCoursesWorkspace: React.FC<{
             ← Retour aux cours
           </button>
         </div>
-        <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+        {courseCreationStep === "details" ? (
+          <section className="mx-auto w-full max-w-3xl space-y-5 rounded-xl border border-white/10 bg-[#121316] p-5">
+            <div>
+              <h2 className="text-sm font-bold text-white">Informations du cours</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Commencez par nommer votre cours et présenter son contenu.
+              </p>
+            </div>
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold text-zinc-300">Nom du cours</span>
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Ex. Formation Trading débutant"
+                className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold text-zinc-300">Description</span>
+              <textarea
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                rows={3}
+                placeholder="Présentez le contenu et les objectifs du cours"
+                className="w-full resize-none rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+              />
+            </label>
+            <div className="flex justify-end border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={() => setCourseCreationStep("chapters")}
+                disabled={!title.trim() || isSaving}
+                className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Valider et continuer
+              </button>
+            </div>
+          </section>
+        ) : (
+          <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
           <aside className="rounded-xl border border-white/10 bg-[#121316] p-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               Chapitres ({chapters.length})
@@ -516,25 +558,7 @@ export const CreatorCoursesWorkspace: React.FC<{
             </button>
           </aside>
           <main className="space-y-4">
-            <label className="block space-y-2">
-              <span className="text-xs font-semibold text-zinc-300">Nom du cours</span>
-              <input
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Ex. Formation Trading débutant"
-                className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
-              />
-            </label>
-            <label className="block space-y-2">
-              <span className="text-xs font-semibold text-zinc-300">Description</span>
-              <textarea
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={3}
-                placeholder="Présentez le contenu et les objectifs du cours"
-                className="w-full resize-none rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
-              />
-            </label>
+            <h2 className="text-sm font-bold text-white">Chapitres et contenu</h2>
             {activeChapter ? (
               <section className="space-y-4 rounded-xl border border-white/10 bg-[#121316] p-4">
                 <label className="block space-y-2">
@@ -623,7 +647,15 @@ export const CreatorCoursesWorkspace: React.FC<{
                 {saveError}
               </p>
             )}
-            <div className="flex justify-end border-t border-white/10 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={() => setCourseCreationStep("details")}
+                disabled={isSaving}
+                className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-white/5 disabled:opacity-40"
+              >
+                ← Retour aux informations du cours
+              </button>
               <button
                 type="button"
                 onClick={saveCourse}
@@ -635,6 +667,7 @@ export const CreatorCoursesWorkspace: React.FC<{
             </div>
           </main>
         </div>
+        )}
       </div>
     );
   }
