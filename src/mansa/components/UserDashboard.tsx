@@ -2950,26 +2950,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             {/* VIEW: ANALYTIQUE */}
             {activeNav === "analytique" && (
               <div className="mx-auto max-w-[1400px] space-y-6">
-                <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#121316] p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
-                  <div className="space-y-2">
-                    <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-                      Analytique
-                    </h1>
-                    <p className="max-w-2xl text-xs leading-relaxed text-zinc-400 sm:text-sm">
-                      Analysez l’évolution de vos revenus numériques, le volume de vos ventes et les
-                      produits qui contribuent le plus à votre activité.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[#00D26A]/20 bg-[#00D26A]/10 px-3 py-2 text-right">
-                    <span className="block text-[10px] uppercase tracking-wider text-zinc-400">
-                      Solde du contexte
-                    </span>
-                    <span className="block text-sm font-bold text-[#00D26A]">
-                      {formatCurrency(activeBalance, currency)}
-                    </span>
-                  </div>
-                </div>
-
                 <div id="tour-revenue-analytics" className="space-y-3">
                   <div>
                     <h2 className="text-lg font-bold text-white">Analyse des revenus numériques</h2>
