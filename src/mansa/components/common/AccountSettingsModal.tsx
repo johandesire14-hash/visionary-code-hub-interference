@@ -462,7 +462,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       </div>
 
       {/* DESKTOP LEFT SIDEBAR (>= md) */}
-      <aside className="hidden md:flex md:w-64 shrink-0 bg-[#0e0f12] border-r border-white/[0.08] flex-col justify-between p-3.5 select-none">
+      <aside className="hidden md:flex md:w-72 shrink-0 bg-[#0e0f12] border-r border-white/[0.08] flex-col justify-between p-3.5 select-none">
         <div className="space-y-3">
           {/* Title */}
           <div className="px-2 pt-1 pb-0.5">
@@ -504,28 +504,28 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               );
             })}
           </nav>
-          <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
-            <button
-              type="button"
-              onClick={onLogout}
-              disabled={!onLogout}
-              className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-900/30 bg-[#331414] px-1.5 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
-            >
-              <LogOut className="size-3 shrink-0" />
-              <span>{lang === "fr" ? "Déconnexion" : "Log out"}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsDeleteAccountConfirmOpen(true)}
-              disabled={!onDeleteAccount}
-              className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-500/30 bg-red-950/40 px-1.5 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
-            >
-              <Trash2 className="size-3 shrink-0" />
-              <span>{lang === "fr" ? "Supprimer" : "Delete"}</span>
-            </button>
-          </div>
         </div>
-
+        <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
+          <button
+            type="button"
+            onClick={onLogout}
+            disabled={!onLogout}
+            className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-900/30 bg-[#331414] px-1 py-2 text-[9px] font-semibold text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
+          >
+            <LogOut className="size-3 shrink-0" />
+            <span>{lang === "fr" ? "Déconnexion" : "Log out"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDeleteAccountConfirmOpen(true)}
+            disabled={!onDeleteAccount}
+            aria-label={lang === "fr" ? "Supprimer mon compte" : "Delete my account"}
+            className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-500/30 bg-red-950/40 px-1 py-2 text-[9px] font-semibold text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
+          >
+            <Trash2 className="size-3 shrink-0" />
+            <span>{lang === "fr" ? "Supprimer le compte" : "Delete account"}</span>
+          </button>
+        </div>
       </aside>
 
       {/* RIGHT MAIN PANEL */}

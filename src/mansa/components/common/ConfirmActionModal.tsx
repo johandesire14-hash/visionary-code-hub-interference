@@ -66,6 +66,13 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, isProcessing, onClose]);
 
+  const { overlayProps, contentProps } = useModalDismiss({
+    isOpen,
+    onClose,
+    closeOnEscape: true,
+    disabled: isProcessing,
+  });
+
   if (!isOpen) return null;
 
   const isConfirmedDisabled =
@@ -103,13 +110,6 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
       : undefined;
 
   const displayConsequences = consequences || defaultConsequences;
-
-  const { overlayProps, contentProps } = useModalDismiss({
-    isOpen,
-    onClose,
-    closeOnEscape: true,
-    disabled: isProcessing,
-  });
 
   return (
     <div
