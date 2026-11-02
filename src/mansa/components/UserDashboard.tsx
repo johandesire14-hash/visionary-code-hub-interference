@@ -3071,38 +3071,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* INFORMATION RETRAIT & VENTES: Un créateur peut publier et vendre sans moyen de retrait. Les fonds restent sur son solde */}
-                {!payoutConfigured && (
-                  <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-950/30 via-[#0a121a] to-[#0c0d0e] p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg mb-4">
-                    <div className="flex items-start gap-3.5">
-                      <div className="size-10 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center shrink-0 mt-0.5">
-                        <CreditCard className="size-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white">
-                          <span>Ventes & Produits actifs · Retrait non configuré</span>
-                        </h4>
-                        <p className="text-xs text-zinc-300 mt-1 max-w-2xl leading-relaxed">
-                          Vos {contextProducts.length} produit
-                          {contextProducts.length > 1 ? "s sont" : " est"} en vente et peu
-                          {contextProducts.length > 1 ? "vent" : "t"} être acheté
-                          {contextProducts.length > 1 ? "s" : ""} par vos clients. L'argent net de
-                          vos ventes est crédité en toute sécurité sur votre solde créateur.
-                          Renseignez votre moyen de retrait (Wave, Orange Money, MTN MoMo, RIB ou
-                          Crypto) quand vous souhaitez demander vos versements.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveNav("paiements")}
-                      className="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black text-xs font-bold transition-all shrink-0 flex items-center gap-2 shadow-md cursor-pointer"
-                    >
-                      <ArrowUpRight className="size-4" />
-                      <span>Configurer le retrait</span>
-                    </button>
-                  </div>
-                )}
-
                 {/* Products Table matching screenshot */}
                 <div className="w-full rounded-2xl border border-white/[0.08] bg-[#0c0d0e] overflow-hidden shadow-sm">
                   <div className="overflow-x-auto w-full">

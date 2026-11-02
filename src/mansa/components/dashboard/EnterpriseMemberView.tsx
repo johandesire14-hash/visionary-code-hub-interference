@@ -2770,49 +2770,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       <CompanySocialIcons socialLinks={currentSub.socialLinks} />
                     </div>
 
-                    {/* Preview vs Joined Notice Banner */}
-                    {subscription.isCommunityPreview && !subscription.hasJoined ? (
-                      <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-500/15 via-zinc-900/70 to-transparent border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg animate-in fade-in duration-150">
-                        <div className="flex items-start sm:items-center gap-3">
-                          <div className="size-10 rounded-xl bg-blue-500/20 border border-blue-500/40 text-blue-400 flex items-center justify-center shrink-0">
-                            <Users className="size-5" />
-                          </div>
-                          <div className="space-y-0.5">
-                            <div className="text-xs font-bold text-white">
-                              <span>Visite de l'entreprise {subscription.companyName}</span>
-                            </div>
-                            <p className="text-xs text-zinc-400 max-w-2xl leading-relaxed">
-                              Vous explorez cette entreprise depuis l'onglet Découvrir. Si vous
-                              quittez sans rejoindre, elle disparaîtra de votre Communauté.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => {
-                              const userKey = user?.email || "default";
-                              const joinedSub: EnterpriseSubscription = {
-                                ...subscription,
-                                hasJoined: true,
-                                isCommunityPreview: false,
-                                productName: "Membre Officiel",
-                              };
-                              saveSubscription(userKey, joinedSub);
-                              window.dispatchEvent(new CustomEvent("mansa_subscription_updated"));
-                              window.dispatchEvent(
-                                new CustomEvent("mansa_community_joined", {
-                                  detail: { subId: subscription.id },
-                                }),
-                              );
-                            }}
-                            className="ui-btn-primary px-4 py-2 text-xs font-bold transition-all shrink-0 cursor-pointer shadow-md flex items-center gap-1.5"
-                          >
-                            <CheckCircle2 className="size-3.5" />
-                            <span>Rejoindre gratuitement</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
                   </div>
                 </div>
               </>
@@ -3023,20 +2980,18 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                                     aria-pressed={votedPollsMap[post.id] === optionIndex}
                                     className="relative flex w-full items-center justify-between overflow-hidden rounded-lg border border-white/10 px-3 py-2.5 text-left text-xs text-zinc-200 transition-colors hover:border-blue-400/50 hover:bg-blue-400/5 disabled:cursor-default"
                                   >
-                                    {hasVoted && (
-                                      <span
-                                        aria-hidden="true"
-                                        className="absolute inset-y-0 left-0 bg-blue-500/15"
-                                        style={{ width: `${percentage}%` }}
-                                      />
-                                    )}
-                                    <span className="relative">{option}</span>
-                                    {hasVoted && (
-                                      <span className="relative text-[11px] text-zinc-400">
-                                        {percentage}% · {optionVotes} vote
-                                        {optionVotes === 1 ? "" : "s"}
-                                      </span>
-                                    )}
+                                    <span
+                                      aria-hidden="true"
+                                      className="absolute inset-y-0 left-0 bg-blue-500/15"
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                    <span className="relative min-w-0 flex-1 break-words pr-3">
+                                      {option}
+                                    </span>
+                                    <span className="relative z-10 shrink-0 whitespace-nowrap rounded-md bg-zinc-950 px-2 py-1 text-xs font-semibold tabular-nums text-white shadow-sm">
+                                      {percentage}% · {optionVotes} vote
+                                      {optionVotes === 1 ? "" : "s"}
+                                    </span>
                                   </button>
                                 );
                               })}
