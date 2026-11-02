@@ -35,7 +35,7 @@ describe("AccountSettingsModal account actions", () => {
     updateUserProfileMock.mockReset().mockResolvedValue(undefined);
   });
 
-  it("shows logout and delete actions together after Resolution Center and wires them", async () => {
+  it("shows logout and delete actions on the same row immediately after Resolution Center", async () => {
     const onLogout = vi.fn();
     const onDeleteAccount = vi.fn().mockResolvedValue(undefined);
     const { container } = render(
@@ -54,6 +54,7 @@ describe("AccountSettingsModal account actions", () => {
     const logout = sidebar.getByRole("button", { name: "Déconnexion" });
     const deleteAccount = sidebar.getByRole("button", { name: "Supprimer mon compte" });
 
+    expect(resolutionCenter.parentElement).toBe(logout.parentElement);
     expect(resolutionCenter.compareDocumentPosition(logout) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(logout.parentElement).toBe(deleteAccount.parentElement);
     expect(logout).toBeEnabled();

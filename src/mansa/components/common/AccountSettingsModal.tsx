@@ -438,22 +438,20 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               </button>
             );
           })}
-        </div>
-        <div className="flex gap-2 px-1">
           <button
             type="button"
             onClick={onLogout}
             disabled={!onLogout}
-            className="flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-900/30 bg-[#331414] px-2 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
+            className="flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-red-900/30 bg-[#331414] px-3 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
           >
             <LogOut className="size-3.5 shrink-0" />
-            <span>{lang === "fr" ? "Se déconnecter" : "Log out"}</span>
+            <span>{lang === "fr" ? "Déconnexion" : "Log out"}</span>
           </button>
           <button
             type="button"
             onClick={() => setIsDeleteAccountConfirmOpen(true)}
             disabled={!onDeleteAccount}
-            className="flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-950/40 px-2 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
+            className="flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-red-500/30 bg-red-950/40 px-3 py-1.5 text-xs font-semibold text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
           >
             <Trash2 className="size-3.5 shrink-0" />
             <span>{lang === "fr" ? "Supprimer mon compte" : "Delete account"}</span>
@@ -462,7 +460,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       </div>
 
       {/* DESKTOP LEFT SIDEBAR (>= md) */}
-      <aside className="hidden md:flex md:w-72 shrink-0 bg-[#0e0f12] border-r border-white/[0.08] flex-col justify-between p-3.5 select-none">
+      <aside className="hidden md:flex md:w-96 shrink-0 bg-[#0e0f12] border-r border-white/[0.08] flex-col justify-between p-3.5 select-none">
         <div className="space-y-3">
           {/* Title */}
           <div className="px-2 pt-1 pb-0.5">
@@ -484,8 +482,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           </div>
 
           {/* Navigation links */}
-          <nav className="space-y-0.5 mt-2">
-            {filteredNavItems.map((item) => {
+          <nav className="mt-2">
+            <div className="space-y-0.5">
+            {filteredNavItems.filter((item) => item.id !== "resolution").map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
               return (
@@ -503,28 +502,44 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 </button>
               );
             })}
+            </div>
+            {filteredNavItems.some((item) => item.id === "resolution") && (
+              <div className="mt-0.5 flex items-stretch gap-1 border-t border-white/[0.06] pt-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("resolution")}
+                  aria-label="Centre de résolution"
+                  className={`flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[9px] font-medium leading-tight transition-colors cursor-pointer ${
+                    activeTab === "resolution"
+                      ? "bg-[#252830] text-white font-semibold shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  <span className="text-center">Centre de résolution</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  disabled={!onLogout}
+                  className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-red-900/30 bg-[#331414] px-1 py-1 text-[9px] font-semibold leading-tight text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
+                >
+                  <LogOut className="size-3.5 shrink-0" />
+                  <span className="text-center">{lang === "fr" ? "Déconnexion" : "Log out"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteAccountConfirmOpen(true)}
+                  disabled={!onDeleteAccount}
+                  aria-label={lang === "fr" ? "Supprimer mon compte" : "Delete my account"}
+                  className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-red-500/30 bg-red-950/40 px-1 py-1 text-[9px] font-semibold leading-tight text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
+                >
+                  <Trash2 className="size-3.5 shrink-0" />
+                  <span className="text-center">{lang === "fr" ? "Supprimer mon compte" : "Delete account"}</span>
+                </button>
+              </div>
+            )}
           </nav>
-        </div>
-        <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
-          <button
-            type="button"
-            onClick={onLogout}
-            disabled={!onLogout}
-            className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-900/30 bg-[#331414] px-1 py-2 text-[9px] font-semibold text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
-          >
-            <LogOut className="size-3 shrink-0" />
-            <span>{lang === "fr" ? "Déconnexion" : "Log out"}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsDeleteAccountConfirmOpen(true)}
-            disabled={!onDeleteAccount}
-            aria-label={lang === "fr" ? "Supprimer mon compte" : "Delete my account"}
-            className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-500/30 bg-red-950/40 px-1 py-2 text-[9px] font-semibold text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
-          >
-            <Trash2 className="size-3 shrink-0" />
-            <span>{lang === "fr" ? "Supprimer le compte" : "Delete account"}</span>
-          </button>
         </div>
       </aside>
 
