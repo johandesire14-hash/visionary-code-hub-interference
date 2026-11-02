@@ -878,8 +878,8 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
           title={lang === "fr" ? "Bannir ce membre ?" : "Ban this member?"}
           description={
             lang === "fr"
-              ? `L’accès de ${customerToRevoke.name} à cette entreprise sera révoqué. En mode développement, le bannissement est enregistré dans ce navigateur.`
-              : `Access for ${customerToRevoke.name} will be revoked. In development mode, the ban is stored in this browser.`
+              ? `L’accès de ${customerToRevoke.name} à cette entreprise sera révoqué. Cette exclusion sera enregistrée sur cet appareil uniquement.`
+              : `Access for ${customerToRevoke.name} will be revoked. This exclusion is saved on this device only.`
           }
           itemName={customerToRevoke.name}
           itemType={lang === "fr" ? "Client / Membre VIP" : "Customer / VIP Member"}
@@ -900,8 +900,8 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               ? "Son adhésion à cette entreprise sera retirée et il n’apparaîtra plus dans la liste des membres actifs."
               : "Their membership in this company will be removed and they will no longer appear in the active member list.",
             lang === "fr"
-              ? "En mode développement, la liste de bannissement est enregistrée uniquement dans ce navigateur."
-              : "In development mode, the ban list is stored only in this browser.",
+              ? "La liste des membres exclus est enregistrée sur cet appareil uniquement."
+              : "The excluded members list is saved on this device only.",
           ]}
           confirmButtonText={lang === "fr" ? "Bannir et révoquer l’accès" : "Ban and revoke access"}
           cancelButtonText={lang === "fr" ? "Annuler" : "Cancel"}

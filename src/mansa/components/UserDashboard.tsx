@@ -3106,8 +3106,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                                 <div className="space-y-1">
                                   <h3 className="text-base font-bold text-white font-heading">
                                     {lang === "fr"
-                                      ? "Aucun produit dans votre base de données"
-                                      : "No products in database"}
+                                      ? "Aucun produit pour le moment"
+                                      : "No products yet"}
                                   </h3>
                                   <p className="text-xs text-[#B6B5B0] leading-relaxed">
                                     {lang === "fr"

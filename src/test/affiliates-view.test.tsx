@@ -55,7 +55,10 @@ describe("AffiliatesView", () => {
     expect(screen.getByRole("heading", { name: "Cours de commerce" })).toBeInTheDocument();
     expect(screen.getByTestId("accepted-rate")).toHaveTextContent("12.75 %");
     expect(screen.getByText(/n’employez pas de pratiques trompeuses/i)).toBeInTheDocument();
-    expect(screen.getByText(/webhook contrôlé côté serveur/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Les ventes et commissions associées ne sont pas suivies pour le moment/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Firebase|Firestore|backend|webhook|dépôt|UID/i)).not.toBeInTheDocument();
     const acceptButton = screen.getByRole("button", {
       name: /j’accepte les conditions et génère mon lien/i,
     });
@@ -72,13 +75,11 @@ describe("AffiliatesView", () => {
         eligibleProduct,
       ),
     );
-    expect(await screen.findByText(/Lien affilié enregistré dans Firestore/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Lien affilié créé/i)).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Votre lien affilié" })).toHaveValue(
       "/affiliate/QmFzZTY0VXJsU2VjdXJlVG9rZW4xMjM0",
     );
-    expect(
-      screen.getByText(/ne confirme ni ne comptabilise de vente ou de commission/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Vous pouvez le copier et le partager avec votre audience/i)).toBeInTheDocument();
   });
 
   it("loads product and existing links using the authenticated Firebase UID, never the display name", async () => {

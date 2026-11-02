@@ -224,8 +224,8 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
               {percentLabel(selectedProduct.affiliateCommissionRate)}
             </p>
             <p className="mt-2 text-xs leading-relaxed text-zinc-400">
-              Ce pourcentage est affiché tel qu’enregistré dans Firebase. Il s’agit du taux annoncé
-              par le créateur, pas d’une commission gagnée ou garantie.
+              Ce taux est celui proposé par le créateur. Il ne représente pas une commission gagnée
+              ou garantie.
             </p>
           </div>
           <div className="mt-6 space-y-4 text-sm leading-relaxed text-zinc-300">
@@ -244,17 +244,15 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
                 loi ou les règles de la plateforme l’exigent.
               </li>
               <li>
-                Le code associe le lien à votre compte Firebase et à ce produit. Le pourcentage
-                ci-dessus est celui actuellement fixé par le créateur.
+                Le lien associe les recommandations à votre compte et à ce produit. Le taux ci-dessus
+                est celui fixé par le créateur.
               </li>
             </ul>
             <div className="flex gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-amber-100">
               <AlertTriangle className="mt-0.5 size-5 shrink-0" />
               <p className="text-xs leading-relaxed">
-                Limite importante : ce dépôt ne contient pas de backend de paiement confirmé ni de
-                webhook serveur d’attribution. Le lien identifie l’affilié, mais aucune vente ni
-                commission réelle n’est actuellement suivie, créditée ou payée. Une attribution
-                réelle exige un paiement confirmé et un webhook contrôlé côté serveur.
+                Le lien identifie l’affilié, mais ne confirme pas une vente. Les ventes et commissions
+                associées ne sont pas suivies pour le moment.
               </p>
             </div>
           </div>
@@ -302,11 +300,11 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
               role="status"
             >
               <div className="flex items-center gap-2 font-semibold text-emerald-200">
-                <ShieldCheck className="size-5" /> Lien affilié enregistré dans Firestore
+                <ShieldCheck className="size-5" /> Lien affilié créé
               </div>
               <p className="mt-2 text-xs leading-relaxed text-zinc-300">
-                Ce lien contient un code aléatoire associé à votre UID Firebase et au produit. Il
-                identifie l’affilié, mais ne confirme ni ne comptabilise de vente ou de commission.
+                Votre lien est associé à votre compte et au produit sélectionné. Vous pouvez le
+                copier et le partager avec votre audience.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <input
@@ -375,7 +373,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
           role="alert"
           className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100"
         >
-          Connectez-vous avec un compte Firebase pour consulter et créer des liens affiliés.
+          Connectez-vous à votre compte pour consulter et créer des liens affiliés.
         </p>
       )}
       {loadError && (
@@ -395,13 +393,12 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
             role="status"
             className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-zinc-400"
           >
-            Chargement des produits Firebase…
+            Chargement des produits…
           </p>
         ) : !loadError && products.length === 0 ? (
           <p className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm leading-relaxed text-zinc-400">
             Aucun produit actif avec un programme d’affiliation n’est disponible. Les produits dont
-            le taux est nul, absent ou négatif sont exclus. Les produits de votre propre compte
-            Firebase sont également exclus.
+            le taux est nul, absent ou négatif, ainsi que vos propres produits, ne sont pas proposés.
           </p>
         ) : (
           <div className="grid gap-3 lg:grid-cols-2">
@@ -465,8 +462,8 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
           Mes liens affiliés
         </h2>
         <p className="mb-3 text-xs leading-relaxed text-zinc-400">
-          Liens enregistrés sous votre UID Firebase. Les vues, ventes et commissions ne sont pas
-          suivies par ce dépôt.
+          Vos liens sont associés à votre compte. Les vues, ventes et commissions ne sont pas suivies
+          pour le moment.
         </p>
         {copyError && (
           <p
@@ -494,7 +491,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
                     <p className="mt-1 font-mono text-xs text-zinc-400">{url}</p>
                     <p className="mt-1 text-xs text-emerald-300">
                       Taux accepté : {percentLabel(link.commissionRate)} · aucune commission
-                      comptabilisée
+                      enregistrée pour le moment
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
@@ -537,7 +534,7 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
                   <h2 id="affiliate-invitation-history-title" className="font-bold text-white">
                     Historique des invitations
                   </h2>
-                  <p className="text-xs text-zinc-500">Les événements enregistrés par le paiement sécurisé</p>
+                  <p className="text-xs text-zinc-500">Inscriptions et achats associés à vos liens</p>
                 </div>
               </div>
               <button
@@ -557,8 +554,8 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
                   </div>
                   <h3 className="mt-4 font-semibold text-zinc-200">Aucun historique d’invitation</h3>
                   <p className="mt-2 max-w-sm text-sm leading-relaxed text-zinc-500">
-                    Les personnes converties via vos liens apparaîtront ici dès qu’un paiement affilié
-                    confirmé sera reçu.
+                    Le suivi des inscriptions et des achats associés à vos liens n’est pas encore
+                    disponible.
                   </p>
                 </div>
               ) : (
@@ -603,14 +600,6 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
           </section>
         </div>
       )}
-      <aside className="mt-7 flex gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-xs leading-relaxed text-amber-100">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-        <p>
-          Le lien pointe vers une page publique et identifie l’affilié. Il ne réalise pas de vente.
-          Le dépôt ne contient pas de backend de paiement confirmé : une commission réelle nécessite
-          un paiement validé et un webhook serveur qui vérifie puis attribue cette vente.
-        </p>
-      </aside>
     </main>
   );
 };

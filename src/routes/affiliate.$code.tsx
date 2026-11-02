@@ -86,7 +86,7 @@ export function AffiliateLandingContent({
             <h1 className="text-xl font-bold">Lien indisponible</h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-300">
               Ce lien est inconnu, révoqué ou ne pointe plus vers un produit actif avec un programme
-              d’affiliation. Aucune vente ou commission n’a été créée.
+              d’affiliation. Il ne peut donc pas être utilisé pour associer un achat à l’affilié.
             </p>
           </div>
         ) : (
@@ -146,7 +146,8 @@ export function AffiliateLandingContent({
                   </li>
                   <li>
                     Le taux indiqué est celui fixé par le créateur et accepté pour ce lien. Toute
-                    attribution réelle dépend de règles et d’un paiement confirmé côté serveur.
+                    commission éventuelle dépend des conditions de l’offre et de la confirmation d’un
+                    achat.
                   </li>
                 </ul>
               </section>
@@ -164,7 +165,7 @@ export function AffiliateLandingContent({
           </article>
         )}
         <p className="mt-6 text-center text-xs text-zinc-600">
-          Ce lien identifie l’affilié ; il ne constitue pas une confirmation de vente.
+          Ce lien identifie l’affilié, mais ne confirme pas un achat.
         </p>
       </div>
     </main>

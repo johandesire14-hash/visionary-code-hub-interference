@@ -40,5 +40,6 @@ describe("affiliate public route", () => {
     expect(screen.getByText(/Signalez clairement votre lien affilié/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Renseignements sur l’achat" })).toBeInTheDocument();
     expect(screen.getByText(/contactez le créateur/i)).toBeInTheDocument();
+    expect(screen.queryByText(/backend|webhook|côté serveur|Firebase|Firestore/i)).not.toBeInTheDocument();
   });
 });
