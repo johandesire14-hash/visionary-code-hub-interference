@@ -20,10 +20,10 @@ const errorMessage = (error: any) => {
   if (error?.code === "auth/requires-recent-login") return "Reconnectez-vous avant de modifier ce réglage.";
   if (error?.code === "auth/weak-password") return "Le nouveau mot de passe doit contenir au moins 6 caractères.";
   if (error?.code === "auth/wrong-password" || error?.code === "auth/invalid-credential") return "Le mot de passe actuel est incorrect.";
-  if (error?.code === "auth/operation-not-allowed") return "Cette méthode d’authentification n’est pas activée dans Firebase.";
+  if (error?.code === "auth/operation-not-allowed") return "Cette option de sécurité n’est pas disponible pour le moment.";
   if (error?.code === "auth/invalid-phone-number") return "Le numéro de téléphone n’est pas valide.";
   if (error?.code === "auth/invalid-verification-code") return "Le code reçu est incorrect.";
-  return error?.message || "Une erreur est survenue. Réessayez.";
+  return "Une erreur est survenue. Réessayez.";
 };
 
 export const SecuritySettingsPanel: React.FC<SecuritySettingsPanelProps> = ({ email }) => {
@@ -143,7 +143,7 @@ export const SecuritySettingsPanel: React.FC<SecuritySettingsPanelProps> = ({ em
 
       <form onSubmit={activateMfa} className="rounded-xl border border-white/[0.08] bg-[#14161b] p-4 space-y-3">
         <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><ShieldCheck className="size-4 text-emerald-400" /><h4 className="font-semibold text-white">Authentification à deux facteurs</h4></div><span className={mfaActive ? "text-emerald-400" : "text-amber-400"}>{mfaActive ? "Active" : "Non configurée"}</span></div>
-        <p className="text-[11px] text-zinc-500">Un code SMS sera demandé en plus du mot de passe lors des connexions sensibles. Le fournisseur SMS doit être activé dans Firebase.</p>
+        <p className="text-[11px] text-zinc-500">Un code SMS sera demandé en plus du mot de passe lors des connexions sensibles.</p>
         {!mfaActive && <>
           <div className="flex gap-2"><Smartphone className="mt-2.5 size-4 text-zinc-500" /><input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="Numéro avec indicatif, ex. +225..." className="flex-1 rounded-lg border border-white/10 bg-[#101114] p-2.5 text-white outline-none focus:border-emerald-400" /><button type="button" onClick={sendMfaCode} disabled={isMfaSending} className="rounded-lg border border-emerald-500/30 px-3 py-2 font-semibold text-emerald-300 disabled:opacity-50">{isMfaSending ? <Loader2 className="size-4 animate-spin" /> : "Envoyer le code"}</button></div>
           {verificationId && <div className="flex gap-2"><input required inputMode="numeric" value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)} placeholder="Code reçu par SMS" className="flex-1 rounded-lg border border-white/10 bg-[#101114] p-2.5 text-white outline-none focus:border-emerald-400" /><button disabled={isMfaSaving} className="rounded-lg bg-emerald-500 px-3 py-2 font-semibold text-black disabled:opacity-50">{isMfaSaving ? "Activation..." : "Activer"}</button></div>}

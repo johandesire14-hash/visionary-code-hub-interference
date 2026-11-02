@@ -13,6 +13,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 import { CompanySocialLinks } from "../../types";
 import {
   uploadCompanyBrandingAsset,
@@ -202,7 +203,8 @@ export const EnterpriseBrandingModal: React.FC<EnterpriseBrandingModalProps> = (
         onClose();
       }, 650);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "La sauvegarde du branding a échoué.");
+      console.error("Enterprise branding save failed:", error);
+      setSaveError(getUserFacingErrorMessage(error, "La sauvegarde de votre identité visuelle a échoué. Réessayez."));
     } finally {
       setIsSaving(false);
     }

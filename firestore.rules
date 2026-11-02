@@ -146,7 +146,7 @@ service cloud.firestore {
           || request.resource.data.kycStatus == 'pending')
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['payoutVerificationStatus'])
           || request.resource.data.payoutVerificationStatus == 'pending');
-      allow delete: if false;
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // Produits publics actifs; les brouillons ne sont accessibles qu'au créateur.

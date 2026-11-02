@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { AlertCircle, CheckCircle2, Clock3, FileCheck2, Loader2 } from "lucide-react";
 import { addDoc, collection, db, getDoc, doc, setDoc } from "../../services/firebase";
 import { getUserProfile, updateUserProfile } from "../../services/dbService";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 
 interface Props { userId: string; }
 type Status = "not_required" | "pending" | "verified" | "rejected";
@@ -56,7 +57,8 @@ export const AccountVerificationPanel: React.FC<Props> = ({ userId }) => {
       setStatus("pending");
       setFeedback("Votre demande de vérification a été envoyée.");
     } catch (error: any) {
-      setFeedback(error?.message || "Impossible d’enregistrer la demande.");
+      console.error("Account verification submission failed:", error);
+      setFeedback(getUserFacingErrorMessage(error, "Impossible d’enregistrer la demande. Réessayez."));
     } finally {
       setIsSaving(false);
     }

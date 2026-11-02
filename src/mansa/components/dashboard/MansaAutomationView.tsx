@@ -26,6 +26,7 @@ import {
   Terminal,
 } from "lucide-react";
 import { DiscordIcon, TelegramIcon } from "../common/Icons";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 
 interface MansaSubscription {
   id: string;
@@ -157,14 +158,18 @@ export const MansaAutomationView: React.FC<{ lang: "fr" | "en" }> = ({ lang }) =
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      setSimResult(data);
+      setSimResult({
+        ...data,
+        message: res.ok ? "Événement reçu avec succès." : "L’événement n’a pas pu être traité.",
+      });
       setFeedback({
         type: res.ok ? "success" : "error",
-        message: data.message || `Événement ${targetStatus} envoyé au Webhook KPAY !`,
+        message: res.ok ? "Événement envoyé." : "Impossible d’envoyer l’événement. Réessayez.",
       });
       await loadData();
     } catch (err: any) {
-      setFeedback({ type: "error", message: err.message || "Erreur de communication" });
+      console.error("Automation webhook simulation failed:", err);
+      setFeedback({ type: "error", message: getUserFacingErrorMessage(err, "Impossible d’envoyer l’événement. Réessayez.") });
     } finally {
       setIsLoading(false);
     }
@@ -182,11 +187,14 @@ export const MansaAutomationView: React.FC<{ lang: "fr" | "en" }> = ({ lang }) =
       const data = await res.json();
       setFeedback({
         type: data.success ? "success" : "error",
-        message: data.message || `Discord ${action} exécuté`,
+        message: data.success
+          ? action === "grant" ? "Le rôle Discord a été attribué." : "Le rôle Discord a été retiré."
+          : "Impossible de modifier le rôle Discord. Réessayez.",
       });
       await loadData();
     } catch (err: any) {
-      setFeedback({ type: "error", message: err.message });
+      console.error("Discord role test failed:", err);
+      setFeedback({ type: "error", message: getUserFacingErrorMessage(err, "Impossible de contacter Discord. Réessayez.") });
     } finally {
       setIsLoading(false);
     }
@@ -207,11 +215,12 @@ export const MansaAutomationView: React.FC<{ lang: "fr" | "en" }> = ({ lang }) =
       }
       setFeedback({
         type: data.success ? "success" : "error",
-        message: data.message || "Lien Telegram généré",
+        message: data.success ? "Lien Telegram généré." : "Impossible de générer le lien Telegram. Réessayez.",
       });
       await loadData();
     } catch (err: any) {
-      setFeedback({ type: "error", message: err.message });
+      console.error("Telegram invite test failed:", err);
+      setFeedback({ type: "error", message: getUserFacingErrorMessage(err, "Impossible de générer le lien Telegram. Réessayez.") });
     } finally {
       setIsLoading(false);
     }
@@ -228,11 +237,12 @@ export const MansaAutomationView: React.FC<{ lang: "fr" | "en" }> = ({ lang }) =
       const data = await res.json();
       setFeedback({
         type: data.success ? "success" : "error",
-        message: data.message || "Membre expulsé de Telegram",
+        message: data.success ? "Le membre a été retiré de Telegram." : "Impossible de retirer ce membre. Réessayez.",
       });
       await loadData();
     } catch (err: any) {
-      setFeedback({ type: "error", message: err.message });
+      console.error("Telegram member removal failed:", err);
+      setFeedback({ type: "error", message: getUserFacingErrorMessage(err, "Impossible de retirer ce membre. Réessayez.") });
     } finally {
       setIsLoading(false);
     }
@@ -243,14 +253,15 @@ export const MansaAutomationView: React.FC<{ lang: "fr" | "en" }> = ({ lang }) =
     setIsLoading(true);
     try {
       const res = await fetch("/api/mansa/cron/run", { method: "POST" });
-      const data = await res.json();
+      await res.json();
       setFeedback({
-        type: "success",
-        message: `Scan Cron terminé : ${data.revokedCount} abonnement(s) expiré(s) révoqué(s) sur ${data.scannedCount} analysé(s).`,
+        type: res.ok ? "success" : "error",
+        message: res.ok ? "La vérification des abonnements est terminée." : "La vérification n’a pas pu aboutir. Réessayez.",
       });
       await loadData();
     } catch (err: any) {
-      setFeedback({ type: "error", message: err.message });
+      console.error("Subscription check failed:", err);
+      setFeedback({ type: "error", message: getUserFacingErrorMessage(err, "La vérification n’a pas pu aboutir. Réessayez.") });
     } finally {
       setIsLoading(false);
     }
@@ -648,9 +659,8 @@ export const MansaAutomationView: React.FC<{ lang: "fr" | "en" }> = ({ lang }) =
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1.5">
                     <CheckCircle2 className="size-3.5" />
-                    Réponse HTTP 200 OK
+                    Résultat du test
                   </span>
-                  <span className="text-[10px] font-mono text-zinc-400">Temps : 14ms</span>
                 </div>
 
                 <div className="p-3 rounded-xl bg-[#0a0b0e] border border-white/5 font-mono text-[11px] text-zinc-300 space-y-2">
@@ -1157,7 +1167,7 @@ app.post("/webhook/subscription-status", verifyKpaySignature, async (req, res) =
     return res.status(200).json({ status: "success" });
   } catch (error) {
     console.error("Webhook processing error:", error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: "Une erreur est survenue. Réessayez." });
   }
 });
 

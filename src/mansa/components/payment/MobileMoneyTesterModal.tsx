@@ -80,7 +80,7 @@ export const MobileMoneyTesterModal: React.FC<MobileMoneyTesterModalProps> = ({
     } catch (err: any) {
       setServerValidationResponse({
         httpStatus: 500,
-        error: err.message,
+        error: "La vérification n’a pas pu aboutir. Réessayez.",
       });
     } finally {
       setIsCallingServer(false);
@@ -246,7 +246,7 @@ export const MobileMoneyTesterModal: React.FC<MobileMoneyTesterModalProps> = ({
             <div className="flex items-center gap-2">
               <Server className="size-4 text-blue-400" />
               <h4 className="text-xs sm:text-sm font-bold text-white">
-                Vérification Stricte Backend (`/api/payment/validate-phone`)
+                Vérification en ligne du numéro
               </h4>
             </div>
             <button
@@ -266,24 +266,19 @@ export const MobileMoneyTesterModal: React.FC<MobileMoneyTesterModalProps> = ({
 
           {serverValidationResponse && (
             <div
-              className={`p-3 rounded-xl border text-xs font-mono space-y-1.5 ${
+              className={`p-3 rounded-xl border text-xs space-y-1.5 ${
                 serverValidationResponse.data?.isValid
                   ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                   : "bg-red-500/10 border-red-500/30 text-red-300"
               }`}
             >
-              <div className="flex items-center justify-between font-bold">
-                <span>
-                  Réponse Serveur (HTTP {serverValidationResponse.httpStatus}) :{" "}
-                  {serverValidationResponse.data?.isValid ? "✅ VALIDE" : "❌ TRANSACTION REFUSÉE"}
-                </span>
-                <span className="text-[10px] text-zinc-400">
-                  Status: {serverValidationResponse.data?.status}
-                </span>
-              </div>
-              <pre className="text-[11px] overflow-x-auto p-2 bg-black/40 rounded-lg">
-                {JSON.stringify(serverValidationResponse.data, null, 2)}
-              </pre>
+              <p className="font-semibold">
+                {serverValidationResponse.data?.isValid === true
+                  ? "Le numéro est valide."
+                  : serverValidationResponse.data?.isValid === false
+                    ? "Le numéro ne peut pas être validé."
+                    : "La vérification n’a pas pu aboutir. Réessayez."}
+              </p>
             </div>
           )}
         </div>

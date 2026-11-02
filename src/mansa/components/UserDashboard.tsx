@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { safeStorage } from "../utils/storage";
+import { getUserFacingErrorMessage } from "../utils/userFacingError";
 import {
   ProductCreationStudio,
   CreatedProductData,
@@ -428,11 +429,8 @@ export const CreatorCoursesWorkspace: React.FC<{
       setEditingCourseId(null);
       setSelectedVideoFiles({});
     } catch (error) {
-      setSaveError(
-        error instanceof Error
-          ? `Enregistrement impossible : ${error.message}`
-          : "Enregistrement impossible. Vérifiez le stockage local et réessayez.",
-      );
+      console.error("Creator course save failed:", error);
+      setSaveError(getUserFacingErrorMessage(error, "Enregistrement impossible. Réessayez."));
     } finally {
       setIsSaving(false);
     }
@@ -723,7 +721,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [selectedCommunitySubId, setSelectedCommunitySubId] = useState<string | null>(null);
   const [previewCommunitySubId, setPreviewCommunitySubId] = useState<string | null>(null);
 
-  const { profile } = useAuth();
+  const { profile, deleteAccount } = useAuth();
 
   // State for AI Projects / Businesses backed by real Firestore database
   const [projects, setProjects] = useState<BusinessProject[]>([]);
@@ -1357,7 +1355,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [isTelegramLinkModalOpen, setIsTelegramLinkModalOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [accountSettingsInitialTab, setAccountSettingsInitialTab] = useState<
     "profil" | "securite" | "commandes" | "notifications"
   >("profil");
@@ -1699,92 +1696,18 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             <Bell className="size-4" />
           </button>
 
-          {/* User Avatar Circle (JO) */}
-          <div className="relative">
-            <button
-              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-              className="flex size-8 items-center justify-center rounded-full mansa-profile-avatar text-xs font-bold hover:brightness-110 transition-[filter] cursor-pointer border border-white/10"
-            >
-              {user.avatarInitials || "JO"}
-            </button>
-
-            {/* Profile Dropdown Menu */}
-            {isProfileMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-[#16171b] p-2 shadow-2xl z-50 space-y-1">
-                <div className="px-3 py-2 border-b border-white/10">
-                  <div className="text-xs font-bold text-white">{user.name}</div>
-                  <div className="text-[11px] text-zinc-400 truncate">{user.email}</div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setAccountSettingsInitialTab("profil");
-                    setIsAccountSettingsModalOpen(true);
-                    setIsProfileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  <User className="size-3.5 text-[#00D26A]" />
-                  <span>{lang === "fr" ? "Paramètres du compte" : "Account Settings"}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setAccountSettingsInitialTab("commandes");
-                    setIsAccountSettingsModalOpen(true);
-                    setIsProfileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <ShoppingBag className="size-3.5 text-emerald-400" />
-                    <span>{lang === "fr" ? "Commandes & Achats" : "Orders & Purchases"}</span>
-                  </div>
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                    VIP
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setActiveNav("produits");
-                    setIsProfileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <Package className="size-3.5 text-[#00D26A]" />
-                    <span>{lang === "fr" ? "Mes Produits & Boutique" : "Products & Store"}</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-zinc-400 px-1.5 py-0.5 rounded bg-white/5">
-                    {contextProducts.length}
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setActiveNav("parametres_boutique");
-                    setIsProfileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white rounded-lg transition-colors cursor-pointer"
-                >
-                  <Building2 className="size-3.5 text-blue-400" />
-                  <span>{lang === "fr" ? "Paramètres de la boutique" : "Store Settings"}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    onLogout();
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                >
-                  <LogOut className="size-3.5" />
-                  <span>{lang === "fr" ? "Se déconnecter" : "Log out"}</span>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* L’avatar ouvre directement les paramètres du compte, sans menu déroulant. */}
+          <button
+            type="button"
+            onClick={() => {
+              setAccountSettingsInitialTab("profil");
+              setIsAccountSettingsModalOpen(true);
+            }}
+            aria-label={lang === "fr" ? "Ouvrir les paramètres du compte" : "Open account settings"}
+            className="flex size-8 items-center justify-center rounded-full mansa-profile-avatar text-xs font-bold hover:brightness-110 transition-[filter] cursor-pointer border border-white/10"
+          >
+            {user.avatarInitials || "JO"}
+          </button>
         </div>
       </header>
 
@@ -3029,12 +2952,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               <div className="mx-auto max-w-[1400px] space-y-6">
                 <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-[#121316] p-5 sm:flex-row sm:items-end sm:justify-between sm:p-6">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-[#00D26A]">
-                      <TrendingUp className="size-4" />
-                      <span className="text-[11px] font-bold uppercase tracking-[0.18em]">
-                        Performance financière
-                      </span>
-                    </div>
                     <h1 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
                       Analytique
                     </h1>
@@ -3967,6 +3884,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   lang={lang}
                   user={user}
                   onLogout={onLogout}
+                  onDeleteAccount={deleteAccount}
                   initialTab="account"
                   {...(activeCompany
                     ? { activeCompanyId: activeCompany.id, activeCompanyName: activeCompany.name }
@@ -3988,6 +3906,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                   lang={lang}
                   user={user}
                   onLogout={onLogout}
+                  onDeleteAccount={deleteAccount}
                   initialTab="store"
                   key={`${activeWorkspaceId}-company-settings`}
                   {...(activeCompany
@@ -4456,6 +4375,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           onClose={() => setIsAccountSettingsModalOpen(false)}
           user={user}
           onLogout={onLogout}
+          onDeleteAccount={deleteAccount}
           lang={lang}
           initialTab={accountSettingsInitialTab}
         />

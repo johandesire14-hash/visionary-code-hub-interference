@@ -388,9 +388,10 @@ export function createWithdrawalRequest(params: {
       request: newRequest,
     };
   } catch (e: any) {
+    console.error("Withdrawal request creation failed:", e);
     return {
       success: false,
-      error: e?.message || "Erreur lors de l'enregistrement de la demande de retrait.",
+      error: "Impossible d’enregistrer la demande de retrait. Réessayez.",
     };
   }
 }

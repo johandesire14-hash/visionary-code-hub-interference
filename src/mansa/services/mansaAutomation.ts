@@ -127,11 +127,10 @@ export async function grantDiscordAccess(
       };
     } catch (err: any) {
       console.error("[Discord Live Error]", err);
-      // Fallback avec trace claire
       return {
         success: false,
         mode: "live",
-        message: `Erreur Discord: ${err.message}`,
+        message: "Impossible de contacter Discord pour le moment. Réessayez.",
       };
     }
   }
@@ -184,7 +183,8 @@ export async function revokeDiscordAccess(
         message: `Rôle '${roleName}' retiré à l'utilisateur Discord #${discordUserId}.`,
       };
     } catch (err: any) {
-      return { success: false, mode: "live", message: `Erreur Discord: ${err.message}` };
+      console.error("Discord role removal failed:", err);
+      return { success: false, mode: "live", message: "Impossible d’exécuter cette action Discord. Réessayez." };
     }
   }
 
@@ -294,7 +294,8 @@ export async function revokeTelegramAccess(
         message: `Membre Telegram #${telegramUserId} expulsé et débloqué pour réabonnement futur.`,
       };
     } catch (err: any) {
-      return { success: false, mode: "live", message: `Erreur Telegram: ${err.message}` };
+      console.error("Telegram member removal failed:", err);
+      return { success: false, mode: "live", message: "Impossible d’exécuter cette action Telegram. Réessayez." };
     }
   }
 

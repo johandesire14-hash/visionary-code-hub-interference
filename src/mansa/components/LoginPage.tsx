@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { ArrowLeft, Mail, Lock, User, AlertCircle, ArrowRight } from "lucide-react";
 import { AfhubLogo } from "./AfhubLogo";
 import { useAuth } from "../context/AuthContext";
+import { getUserFacingErrorMessage } from "../utils/userFacingError";
 
 interface LoginPageProps {
   onLoginSuccess: (userData?: { name: string; email: string; avatarInitials: string }) => void;
@@ -36,7 +37,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       onLoginSuccess();
     } catch (err: any) {
       console.error("Google Auth failed", err);
-      setLocalError(err.message || "Échec de la connexion avec Google.");
+      setLocalError(getUserFacingErrorMessage(err, "Échec de la connexion avec Google. Réessayez."));
     } finally {
       setIsSubmitting(false);
     }
@@ -62,7 +63,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       onLoginSuccess();
     } catch (err: any) {
       console.error("Auth error:", err);
-      setLocalError(err.message || "Erreur d'authentification.");
+      setLocalError(getUserFacingErrorMessage(err, "Connexion impossible. Vérifiez vos informations et réessayez."));
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +80,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       await resetPassword(email.trim());
       setLocalError("Un lien de réinitialisation a été envoyé à votre adresse email.");
     } catch (err: any) {
-      setLocalError(err.message || "Impossible d'envoyer le lien de réinitialisation.");
+      setLocalError(getUserFacingErrorMessage(err, "Impossible d’envoyer le lien de réinitialisation. Réessayez."));
     }
   };
 

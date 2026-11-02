@@ -30,6 +30,7 @@ import { getSavedCompanies, updateCompanyBranding } from "../../utils/companySto
 import { updateSubscriptionBranding } from "../../utils/subscriptionsStorage";
 import { CurrencySelector } from "./CurrencySelector";
 import { CurrencyCode } from "../../utils/currency";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 import {
   DIAL_CODE_CONFIGS,
   validatePhoneNumber,
@@ -46,6 +47,7 @@ interface SettingsViewProps {
     handle?: string;
   };
   onLogout?: () => void;
+  onDeleteAccount?: () => Promise<void>;
   initialTab?: "account" | "store";
   activeCompanyId?: string;
   activeCompanyName?: string;
@@ -55,6 +57,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   lang = "fr",
   user,
   onLogout,
+  onDeleteAccount,
   initialTab = "account",
   activeCompanyId,
   activeCompanyName,
@@ -284,7 +287,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       setCompanyBanner(await uploadProjectAsset(file, `${user.uid || "anonymous"}/branding`));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Impossible de téléverser la bannière.");
+      console.error("Company banner upload failed:", error);
+      setSaveError(getUserFacingErrorMessage(error, "Impossible de téléverser la bannière. Réessayez."));
     }
   };
 
@@ -294,7 +298,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       setCompanyLogo(await uploadProjectAsset(file, `${user.uid || "anonymous"}/branding`));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "Impossible de téléverser le logo.");
+      console.error("Company logo upload failed:", error);
+      setSaveError(getUserFacingErrorMessage(error, "Impossible de téléverser le logo. Réessayez."));
     }
   };
 
@@ -372,7 +377,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       } else {
         // Personal profile save
         if (!user.uid) {
-          setSaveError("Identifiant utilisateur manquant. Veuillez vous reconnecter.");
+          setSaveError("Reconnectez-vous pour enregistrer ces paramètres.");
           setIsSaving(false);
           return;
         }
@@ -406,9 +411,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setTimeout(() => setSavedSuccess(false), 4000);
     } catch (err: unknown) {
       console.error("Enterprise settings save error:", err);
-      setSaveError(
-        err instanceof Error ? err.message : "Erreur lors de l'enregistrement des paramètres.",
-      );
+      setSaveError(getUserFacingErrorMessage(err, "Impossible d’enregistrer les paramètres. Réessayez."));
     } finally {
       setIsSaving(false);
     }
@@ -481,6 +484,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           isModal={false}
           user={user}
           onLogout={onLogout}
+          onDeleteAccount={onDeleteAccount}
           lang={lang}
           initialTab="profil"
         />

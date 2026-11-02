@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import { getDigitalAssetObjectUrl } from "../../utils/digitalAssetStorage";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 
 interface CourseChapter {
   id?: string;
@@ -113,10 +114,9 @@ export const CourseReaderModal: React.FC<CourseReaderModalProps> = ({
         else URL.revokeObjectURL(url);
       })
       .catch((error) => {
+        console.error("Course video could not be opened:", error);
         if (active)
-          setVideoError(
-            error instanceof Error ? error.message : "La vidéo ne peut pas être ouverte.",
-          );
+          setVideoError(getUserFacingErrorMessage(error, "La vidéo ne peut pas être ouverte. Réessayez."));
       });
     return () => {
       active = false;

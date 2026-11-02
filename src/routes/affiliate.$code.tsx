@@ -25,8 +25,8 @@ function PublicAffiliateLandingPage() {
         if (active) setResult(resolved);
       })
       .catch((reason: unknown) => {
-        if (active)
-          setError(reason instanceof Error ? reason.message : "Ce lien ne peut pas être résolu.");
+        console.error("Affiliate link could not be resolved:", reason);
+        if (active) setError("Ce lien ne peut pas être ouvert. Vérifiez l’adresse ou réessayez plus tard.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -78,8 +78,7 @@ export function AffiliateLandingContent({
           >
             {error}
             <p className="mt-3 text-xs text-amber-200/80">
-              L’accès public au code ou au produit peut être refusé par les règles Firestore
-              configurées.
+              Le lien ou le produit n’est peut-être plus disponible. Vérifiez-le auprès de la personne qui vous l’a envoyé.
             </p>
           </div>
         ) : !result ? (
@@ -154,12 +153,10 @@ export function AffiliateLandingContent({
               <div className="mt-6 flex gap-3 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] p-4 text-amber-100">
                 <AlertTriangle className="mt-0.5 size-5 shrink-0" />
                 <div>
-                  <h2 className="font-semibold">Aucun checkout public connecté</h2>
+                  <h2 className="font-semibold">Renseignements sur l’achat</h2>
                   <p className="mt-1 text-xs leading-relaxed">
-                    Cette page valide le code affilié et présente le produit, mais aucune route de
-                    vente ou de paiement n’est configurée dans ce dépôt. Une visite, un affichage ou
-                    un clic ne crée ni vente ni commission. Une attribution réelle nécessiterait un
-                    paiement confirmé et un webhook serveur sécurisé.
+                    Pour connaître les modalités d’achat et vérifier la disponibilité du produit,
+                    contactez le créateur qui vous a partagé ce lien.
                   </p>
                 </div>
               </div>

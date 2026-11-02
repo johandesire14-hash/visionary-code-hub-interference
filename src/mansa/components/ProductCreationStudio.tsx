@@ -43,6 +43,7 @@ import { ModalOverlay } from "./common/ModalOverlay";
 import { AudioPreview30sPlayer } from "./common/AudioPreview30sPlayer";
 import { CurrencySelector } from "./dashboard/CurrencySelector";
 import { siteUrl } from "@/lib/site";
+import { getUserFacingErrorMessage } from "../utils/userFacingError";
 import { CheckoutPreviewModal } from "./dashboard/CheckoutPreviewModal";
 import { getStoredTelegramChannels, TelegramChannelItem } from "../utils/telegramStorage";
 import type { Company } from "../types";
@@ -678,7 +679,8 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
       );
       setDigitalFiles((prev) => [...prev, ...uploaded]);
     } catch (error) {
-      setFileUploadError(error instanceof Error ? error.message : "Le téléversement a échoué.");
+      console.error("Product asset upload failed:", error);
+      setFileUploadError(getUserFacingErrorMessage(error, "Le téléversement a échoué. Réessayez."));
     } finally {
       setIsUploadingFile(false);
       e.target.value = "";
@@ -826,12 +828,10 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
     } catch (error) {
       console.error("Product save failed:", error);
       window.alert(
-        error instanceof Error &&
-          !/permission-denied|failed-precondition|firebase|firestore|network|internal/i.test(
-            error.message,
-          )
-          ? error.message
-          : "Le produit n’a pas pu être enregistré. Vérifiez vos informations puis réessayez.",
+        getUserFacingErrorMessage(
+          error,
+          "Le produit n’a pas pu être enregistré. Vérifiez vos informations puis réessayez.",
+        ),
       );
     }
   };

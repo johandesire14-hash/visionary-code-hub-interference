@@ -5,6 +5,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  deleteUser as firebaseDeleteUser,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
@@ -31,9 +32,6 @@ const getAuthErrorCode = (error: unknown): string | undefined => {
   return undefined;
 };
 
-const getErrorMessage = (error: unknown): string | undefined =>
-  error instanceof Error ? error.message : undefined;
-
 export type AppUser = Pick<FirebaseUser, "uid" | "email" | "displayName" | "photoURL">;
 
 interface AuthContextType {
@@ -45,6 +43,7 @@ interface AuthContextType {
   signUpWithEmail: (email: string, pass: string, name?: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   error: string | null;
   clearError: () => void;
 }
@@ -193,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     if (!firebaseConfigured || !auth) {
-      const localError = new Error("La connexion Google nécessite la configuration Firebase.");
+      const localError = new Error("La connexion Google n’est pas disponible pour le moment.");
       setError(localError.message);
       throw localError;
     }
@@ -217,9 +216,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (code === "auth/popup-closed-by-user") {
         msg = "Connexion annulée par l'utilisateur.";
       } else if (code === "auth/unauthorized-domain") {
-        msg = "Domaine non autorisé dans la console Firebase.";
-      } else if (getErrorMessage(err)) {
-        msg = getErrorMessage(err)!;
+        msg = "La connexion Google n’est pas disponible pour ce compte. Réessayez plus tard.";
       }
       setError(msg);
       throw err;
@@ -342,7 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         (item) => item.email.toLowerCase() === email.trim().toLowerCase(),
       );
       if (!exists) throw new Error("Aucun compte trouvé avec cette adresse email.");
-      setError("La réinitialisation par email nécessite la configuration Firebase.");
+      setError("La réinitialisation du mot de passe n’est pas disponible pour le moment.");
       return;
     }
     try {
@@ -373,6 +370,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteAccount = async () => {
+    const currentUser = auth?.currentUser;
+    const uid = currentUser?.uid || user?.uid || "";
+    const email = currentUser?.email || user?.email || "";
+    const userKeys = Array.from(new Set([uid, email].filter(Boolean)));
+    const clearLocalAccountData = () => {
+      if (uid) safeStorage.removeItem(`mansa_saved_user_profile_cache_${uid}`);
+      userKeys.forEach((key) => {
+        safeStorage.removeItem(`mansa_enterprise_subscriptions_${key}`);
+        safeStorage.removeItem(`mansa_left_enterprises_${key}`);
+      });
+    };
+
+    if (!firebaseConfigured || !auth) {
+      const remainingAccounts = readLocalAccounts().filter((account) => account.uid !== uid);
+      safeStorage.setItem(LOCAL_ACCOUNTS_KEY, JSON.stringify(remainingAccounts));
+      safeStorage.removeItem(LOCAL_SESSION_KEY);
+      clearLocalAccountData();
+      setUser(null);
+      setProfile(null);
+      setError(null);
+      return;
+    }
+
+    if (!currentUser) {
+      throw new Error("Aucun compte connecté.");
+    }
+
+    const { deleteUserProfile, restoreUserProfile } = await import("../services/dbService");
+    let deletedProfile: FirestoreUserProfile | null = null;
+    try {
+      deletedProfile = await deleteUserProfile(currentUser.uid);
+      try {
+        await firebaseDeleteUser(currentUser);
+      } catch (error) {
+        if (deletedProfile) {
+          try {
+            await restoreUserProfile(currentUser.uid, deletedProfile);
+          } catch (restoreError) {
+            console.error("Unable to restore profile after account deletion failed:", restoreError);
+          }
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error("Account deletion failed:", error);
+      if (getAuthErrorCode(error) === "auth/requires-recent-login") {
+        throw new Error("Pour protéger votre compte, reconnectez-vous puis réessayez.");
+      }
+      throw new Error("Impossible de supprimer votre compte pour le moment. Réessayez plus tard.");
+    }
+
+    clearLocalAccountData();
+    setUser(null);
+    setProfile(null);
+    setError(null);
+  };
+
   const clearError = () => setError(null);
 
   return (
@@ -386,6 +441,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUpWithEmail,
         resetPassword,
         logout,
+        deleteAccount,
         error,
         clearError,
       }}

@@ -96,7 +96,10 @@ describe("EnterpriseBrandingModal file replacement", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer les modifications" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("storage/unauthorized");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "La sauvegarde de votre identité visuelle a échoué. Réessayez.",
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent("storage/unauthorized");
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.queryByText("Enregistré !")).not.toBeInTheDocument();
   });
@@ -107,7 +110,10 @@ describe("EnterpriseBrandingModal file replacement", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer les modifications" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("permission-denied");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "La sauvegarde de votre identité visuelle a échoué. Réessayez.",
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent("permission-denied");
     expect(screen.queryByText("Enregistré !")).not.toBeInTheDocument();
   });
 });

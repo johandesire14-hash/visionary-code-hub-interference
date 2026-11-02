@@ -9,6 +9,7 @@ import {
   LOCAL_SUPPORT_CONVERSATIONS_PREFIX,
 } from "../../utils/localCommunityStore";
 import { getSavedCompanies, updateCompanyAutoReply } from "../../utils/companyStorage";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 import {
   SupportInboxConversation,
   SupportInboxView,
@@ -98,7 +99,8 @@ export const AssistanceView: React.FC<AssistanceViewProps> = ({
       updateCompanyAutoReply(userKey, companyId, { enabled, message: message.trim() });
       setFeedback("Message automatique enregistré.");
     } catch (error: any) {
-      setFeedback(error?.message || "Impossible d’enregistrer le message.");
+      console.error("Automatic reply save failed:", error);
+      setFeedback(getUserFacingErrorMessage(error, "Impossible d’enregistrer le message. Réessayez."));
     } finally {
       setIsSaving(false);
     }

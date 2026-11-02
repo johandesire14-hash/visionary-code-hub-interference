@@ -109,8 +109,9 @@ describe("AffiliatesView", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Copier le lien" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Copie impossible : permission denied",
+      "Copie impossible. Copiez le lien manuellement.",
     );
+    expect(screen.getByRole("alert")).not.toHaveTextContent("permission denied");
     expect(screen.queryByRole("button", { name: "Copié" })).not.toBeInTheDocument();
   });
 });

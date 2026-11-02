@@ -46,11 +46,13 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
 }) => {
   const [typedConfirmation, setTypedConfirmation] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setTypedConfirmation("");
       setIsProcessing(false);
+      setErrorMessage(null);
     }
   }, [isOpen]);
 
@@ -80,6 +82,11 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
     } catch (e) {
       console.error("Error during confirmed action", e);
       setIsProcessing(false);
+      setErrorMessage(
+        lang === "fr"
+          ? "L’action n’a pas pu aboutir. Réessayez dans un instant."
+          : "The action could not be completed. Please try again in a moment.",
+      );
     }
   };
 
@@ -169,6 +176,11 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
         {description && (
           <p className="text-xs text-zinc-300 leading-relaxed font-normal">
             {description}
+          </p>
+        )}
+        {errorMessage && (
+          <p role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
+            {errorMessage}
           </p>
         )}
 

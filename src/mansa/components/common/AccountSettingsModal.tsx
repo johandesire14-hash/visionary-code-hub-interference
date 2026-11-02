@@ -41,6 +41,7 @@ import { CustomerPurchasesView } from "../dashboard/CustomerPurchasesView";
 import { AccountPortfolioTab } from "./AccountPortfolioTab";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
 import { siteUrl } from "@/lib/site";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 import {
   DIAL_CODE_CONFIGS,
   normalizePhoneNumber,
@@ -54,6 +55,7 @@ import {
 import { SecuritySettingsPanel } from "./SecuritySettingsPanel";
 import { AccountVerificationPanel } from "./AccountVerificationPanel";
 import { ResolutionCenterPanel } from "./ResolutionCenterPanel";
+import { ConfirmActionModal } from "./ConfirmActionModal";
 import { AppTheme, getAppTheme, setAppTheme, THEME_CHANGE_EVENT } from "../../utils/theme";
 
 export type AccountSettingsTab =
@@ -80,6 +82,7 @@ interface AccountSettingsModalProps {
     handle?: string;
   };
   onLogout?: () => void;
+  onDeleteAccount?: () => Promise<void>;
   initialTab?: AccountSettingsTab;
   isModal?: boolean;
 }
@@ -96,6 +99,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   lang = "fr",
   user,
   onLogout,
+  onDeleteAccount,
   initialTab = "profil",
   isModal = true,
 }) => {
@@ -103,6 +107,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const [activeTab, setActiveTab] = useState<AccountSettingsTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
   const [appTheme, setAppThemeState] = useState<AppTheme>(() => getAppTheme());
+  const [isDeleteAccountConfirmOpen, setIsDeleteAccountConfirmOpen] = useState(false);
 
   useEffect(() => {
     const syncTheme = (event?: Event) => {
@@ -318,10 +323,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       setAccountPaymentSaveSuccess(true);
       setTimeout(() => setAccountPaymentSaveSuccess(false), 3500);
     } catch (err: unknown) {
+      console.error("Account payment settings save failed:", err);
       setAccountPaymentSaveError(
-        err instanceof Error
-          ? err.message
-          : "Erreur lors de l'enregistrement des méthodes de paiement.",
+        getUserFacingErrorMessage(err, "Impossible d’enregistrer les méthodes de paiement. Réessayez."),
       );
     } finally {
       setIsSavingAccountPayments(false);
@@ -359,7 +363,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       setTimeout(() => setSaveSuccess(false), 3500);
     } catch (err: any) {
       console.error("Error saving user profile:", err);
-      setSaveError(err.message || "Erreur lors de la sauvegarde du profil.");
+      setSaveError(getUserFacingErrorMessage(err, "Impossible d’enregistrer le profil. Réessayez."));
     } finally {
       setIsSaving(false);
     }
@@ -435,6 +439,26 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             );
           })}
         </div>
+        <div className="flex gap-2 px-1">
+          <button
+            type="button"
+            onClick={onLogout}
+            disabled={!onLogout}
+            className="flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-900/30 bg-[#331414] px-2 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
+          >
+            <LogOut className="size-3.5 shrink-0" />
+            <span>{lang === "fr" ? "Se déconnecter" : "Log out"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDeleteAccountConfirmOpen(true)}
+            disabled={!onDeleteAccount}
+            className="flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-500/30 bg-red-950/40 px-2 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
+          >
+            <Trash2 className="size-3.5 shrink-0" />
+            <span>{lang === "fr" ? "Supprimer mon compte" : "Delete account"}</span>
+          </button>
+        </div>
       </div>
 
       {/* DESKTOP LEFT SIDEBAR (>= md) */}
@@ -480,18 +504,28 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               );
             })}
           </nav>
+          <div className="flex gap-1.5 border-t border-white/[0.06] pt-2">
+            <button
+              type="button"
+              onClick={onLogout}
+              disabled={!onLogout}
+              className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-900/30 bg-[#331414] px-1.5 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-[#421a1a] disabled:opacity-50"
+            >
+              <LogOut className="size-3 shrink-0" />
+              <span>{lang === "fr" ? "Déconnexion" : "Log out"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDeleteAccountConfirmOpen(true)}
+              disabled={!onDeleteAccount}
+              className="flex min-h-9 flex-1 items-center justify-center gap-1 rounded-lg border border-red-500/30 bg-red-950/40 px-1.5 py-2 text-[10px] font-semibold text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
+            >
+              <Trash2 className="size-3 shrink-0" />
+              <span>{lang === "fr" ? "Supprimer" : "Delete"}</span>
+            </button>
+          </div>
         </div>
 
-        {/* Bottom: Se déconnecter (Logout) Button */}
-        <div className="pt-3 mt-auto border-t border-white/[0.06]">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full py-2.5 px-4 rounded-xl bg-[#331414] hover:bg-[#421a1a] text-red-400 border border-red-900/30 text-xs font-semibold text-center transition-colors cursor-pointer"
-          >
-            Se déconnecter
-          </button>
-        </div>
       </aside>
 
       {/* RIGHT MAIN PANEL */}
@@ -528,17 +562,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 </span>
               )}
             </button>
-
-            {/* Close modal X button */}
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                title="Fermer"
-              >
-                <X className="size-4" />
-              </button>
-            )}
           </div>
         </div>
 
@@ -1189,6 +1212,36 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
         </div>
 
       </main>
+      <ConfirmActionModal
+        isOpen={isDeleteAccountConfirmOpen}
+        onClose={() => setIsDeleteAccountConfirmOpen(false)}
+        onConfirm={async () => {
+          if (!onDeleteAccount) return;
+          await onDeleteAccount();
+        }}
+        title={lang === "fr" ? "Supprimer définitivement votre compte ?" : "Permanently delete your account?"}
+        description={
+          lang === "fr"
+            ? "Votre compte de connexion et votre profil seront supprimés. Cette action ne peut pas être annulée."
+            : "Your sign-in account and profile will be deleted. This action cannot be undone."
+        }
+        itemName={user?.email || user?.name}
+        itemType={lang === "fr" ? "Compte utilisateur" : "User account"}
+        consequences={
+          lang === "fr"
+            ? [
+                "Vous serez immédiatement déconnecté et ne pourrez plus accéder à ce compte.",
+                "Les contenus et données partagés avec d’autres utilisateurs ne sont pas supprimés automatiquement.",
+              ]
+            : [
+                "You will be signed out immediately and will no longer be able to access this account.",
+                "Content and data shared with other users are not automatically deleted.",
+              ]
+        }
+        confirmButtonText={lang === "fr" ? "Supprimer mon compte" : "Delete my account"}
+        requireTextMatch={lang === "fr" ? "SUPPRIMER" : "DELETE"}
+        lang={lang}
+      />
     </div>
   );
 

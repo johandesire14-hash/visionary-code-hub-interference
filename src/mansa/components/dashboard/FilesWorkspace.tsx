@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, FileText, Pencil, Plus, Replace, Trash2, Upload, X } from "lucide-react";
 import { saveDigitalAsset } from "../../utils/digitalAssetStorage";
 import { getOffersForCompany } from "../../utils/rightsAccessEngine";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 
 interface FilesWorkspaceProps {
   creatorId: string;
@@ -348,9 +349,8 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({
       setSelectedFile(null);
       setScreen("library");
     } catch (error) {
-      setSaveError(
-        error instanceof Error ? error.message : "Le fichier n’a pas pu être enregistré.",
-      );
+      console.error("File save failed:", error);
+      setSaveError(getUserFacingErrorMessage(error, "Le fichier n’a pas pu être enregistré. Réessayez."));
     } finally {
       setIsSaving(false);
     }
@@ -403,11 +403,8 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({
       setFileName("");
       setScreen("library");
     } catch (error) {
-      setSaveError(
-        error instanceof Error
-          ? error.message
-          : "Les modifications n’ont pas pu être enregistrées.",
-      );
+      console.error("File update failed:", error);
+      setSaveError(getUserFacingErrorMessage(error, "Les modifications n’ont pas pu être enregistrées. Réessayez."));
     } finally {
       setIsSaving(false);
     }
@@ -432,7 +429,8 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({
       } catch {
         // Keep the failure visible if metadata rollback itself is unavailable.
       }
-      setSaveError(error instanceof Error ? error.message : "Le fichier n’a pas pu être supprimé.");
+      console.error("File deletion failed:", error);
+      setSaveError(getUserFacingErrorMessage(error, "Le fichier n’a pas pu être supprimé. Réessayez."));
     } finally {
       setIsSaving(false);
     }

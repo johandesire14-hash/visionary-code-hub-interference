@@ -25,6 +25,7 @@ import {
   saveWorkforceMemberToFirestore,
   deleteWorkforceMemberFromFirestore,
 } from "../../services/dbService";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 
 interface WorkforceViewProps {
   lang?: "fr" | "en";
@@ -141,7 +142,7 @@ export const WorkforceView: React.FC<WorkforceViewProps> = ({
       setTimeout(() => setSuccessToast(null), 4000);
     } catch (err: any) {
       console.error("Firestore workforce save error:", err);
-      setErrorMessage(err.message || "Erreur lors de la sauvegarde du collaborateur.");
+      setErrorMessage(getUserFacingErrorMessage(err, "Impossible d’enregistrer ce collaborateur. Réessayez."));
     } finally {
       setIsSubmitting(false);
     }

@@ -301,7 +301,7 @@ export const DeveloperPortalView: React.FC<DeveloperPortalViewProps> = ({
                 <span className="text-[11px]">{wh.lastDelivery}</span>
                 <span className="text-emerald-400 font-bold">{wh.successRate} succès</span>
                 <button
-                  onClick={() => alert(`Test du webhook ${wh.url} exécuté avec succès (200 OK)`)}
+                  onClick={() => alert("Le test du webhook a réussi.")}
                   className="px-2.5 py-1 rounded-lg border border-white/10 hover:bg-white/5 text-zinc-300 hover:text-white cursor-pointer font-sans"
                 >
                   Tester

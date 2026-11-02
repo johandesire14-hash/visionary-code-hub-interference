@@ -595,6 +595,26 @@ export async function updateUserProfile(
   return updatedData;
 }
 
+export async function deleteUserProfile(uid: string): Promise<FirestoreUserProfile | null> {
+  if (!uid) throw new Error("User ID is required for profile deletion");
+  const userRef = doc(db, "users", uid);
+  const snap = await getDoc(userRef);
+  const previousProfile = snap.exists() ? (snap.data() as FirestoreUserProfile) : null;
+  if (snap.exists()) await deleteDoc(userRef);
+  safeStorage.removeItem(`${LOCAL_USER_PROFILE_KEY}${uid}`);
+  return previousProfile;
+}
+
+export async function restoreUserProfile(
+  uid: string,
+  profile: FirestoreUserProfile,
+): Promise<void> {
+  if (!uid || !profile) return;
+  const userRef = doc(db, "users", uid);
+  await setDoc(userRef, profile);
+  safeStorage.setItem(`${LOCAL_USER_PROFILE_KEY}${uid}`, JSON.stringify(profile));
+}
+
 export async function syncUserProfile(user: {
   uid: string;
   email: string | null;

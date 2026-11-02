@@ -29,6 +29,7 @@ import {
 } from "../../services/affiliateHistoryService";
 import { CurrencyCode, formatCurrency } from "../../utils/currency";
 import { siteUrl } from "@/lib/site";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 
 interface AffiliatesViewProps {
   lang?: "fr" | "en";
@@ -108,9 +109,8 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
         setLinks(ownLinks);
         setInvitations(invitationHistory);
       } catch (error) {
-        setLoadError(
-          error instanceof Error ? error.message : "Impossible de charger les programmes affiliés.",
-        );
+        console.error("Affiliate programs load failed:", error);
+        setLoadError(getUserFacingErrorMessage(error, "Impossible de charger les programmes affiliés. Réessayez."));
         setProducts([]);
         setLinks([]);
         setInvitations([]);
@@ -150,7 +150,8 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
       setCreatedLink(link);
       setLinks((existing) => [link, ...existing.filter((item) => item.id !== link.id)]);
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Le lien n’a pas pu être créé.");
+      console.error("Affiliate link creation failed:", error);
+      setCreateError(getUserFacingErrorMessage(error, "Le lien n’a pas pu être créé. Réessayez."));
     } finally {
       setCreating(false);
     }
@@ -164,11 +165,8 @@ export const AffiliatesView: React.FC<AffiliatesViewProps> = ({ currency = "XOF"
       window.setTimeout(() => setCopiedUrl(""), 1800);
     } catch (error) {
       setCopiedUrl("");
-      setCopyError(
-        error instanceof Error
-          ? `Copie impossible : ${error.message}`
-          : "Copie impossible. Autorisez l’accès au presse-papiers ou copiez le lien manuellement.",
-      );
+      console.error("Affiliate link copy failed:", error);
+      setCopyError("Copie impossible. Copiez le lien manuellement.");
     }
   };
 

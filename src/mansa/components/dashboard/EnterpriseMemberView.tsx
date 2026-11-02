@@ -81,6 +81,7 @@ import {
   getMemberAuthorizedEbooks,
   getMemberAuthorizedCourses,
   getOffersForCompany,
+  getMemberAuthorizedOffers,
   normalizeUnlockedOfferIds,
   verifyMemberResourceAccess,
   EbookResourceItem,
@@ -115,6 +116,7 @@ import { ReportEnterpriseModal } from "./ReportEnterpriseModal";
 import { getCreatorAppProductIds } from "../../utils/creatorAppRouting";
 import { createOrGetAffiliateLink } from "../../services/affiliateService";
 import { siteUrl } from "@/lib/site";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 import logoImg from "../../assets/images/afhub_logo_africa_1787956612844.webp";
 
 interface EnterpriseMemberViewProps {
@@ -235,9 +237,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setIsAffiliateLinkCopied(true);
       window.setTimeout(() => setIsAffiliateLinkCopied(false), 2500);
     } catch (error) {
-      setAffiliateLinkError(
-        error instanceof Error ? error.message : "Impossible de créer le lien affilié.",
-      );
+      console.error("Affiliate link creation failed:", error);
+      setAffiliateLinkError(getUserFacingErrorMessage(error, "Impossible de créer le lien affilié. Réessayez."));
     } finally {
       setIsCreatingAffiliateLink(false);
     }
@@ -891,62 +892,65 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     return [];
   }, [currentSub.companyId, currentSub.id, currentSub.companyName, productsRefreshTrigger]);
 
-  // Telegram et Discord sont des apps : elles ne doivent être présentes que si au moins un produit existe pour cette entreprise et inclut l'application
-  const hasTelegramApp = React.useMemo(() => {
-    const configuredApps = [...currentIncludedApps, ...(currentSub.includedApps || [])];
-    return (
-      configuredApps.some((app) => app.toLowerCase().includes("telegram")) ||
-      enterpriseOffers.some((offer) =>
-        offer.includedApps?.some((a) => a.toLowerCase().includes("telegram")),
-      )
+  // Ne montrer au membre que les applications des offres qu'il possède réellement.
+  // Le mode d'accès temporairement gratuit ne doit pas exposer les applications payantes.
+  const purchasedAppOfferIds = React.useMemo(() => {
+    const ids = [
+      ...(Array.isArray(currentSub.unlockedProductIds) ? currentSub.unlockedProductIds : []),
+      ...(Array.isArray(currentSub.purchasedOfferIds) ? currentSub.purchasedOfferIds : []),
+      ...(typeof currentSub.productId === "string" ? [currentSub.productId] : []),
+    ];
+    return Array.from(
+      new Set(ids.filter((id) => typeof id === "string" && id.trim() && !id.toLowerCase().includes("free"))),
     );
-  }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers]);
+  }, [currentSub]);
 
-  const hasDiscordApp = React.useMemo(() => {
-    const configuredApps = [...currentIncludedApps, ...(currentSub.includedApps || [])];
-    return (
-      configuredApps.some((app) => app.toLowerCase().includes("discord")) ||
-      enterpriseOffers.some((offer) =>
-        offer.includedApps?.some((a) => a.toLowerCase().includes("discord")),
-      )
-    );
-  }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers]);
+  const memberOwnedOffers = React.useMemo(
+    () =>
+      getMemberAuthorizedOffers(
+        currentSub.companyId || currentSub.id,
+        purchasedAppOfferIds,
+        enterpriseOffers,
+      ),
+    [currentSub.companyId, currentSub.id, purchasedAppOfferIds, enterpriseOffers],
+  );
+
+  const visibleIncludedAppNames = React.useMemo(() => {
+    const storedSubscriptionApps = [...currentIncludedApps, ...(currentSub.includedApps || [])];
+    if (isCompanyOwner) {
+      return [
+        ...storedSubscriptionApps,
+        ...enterpriseOffers.flatMap((offer) => offer.includedApps || []),
+      ].map((value) => value.toLowerCase());
+    }
+    const purchasedOfferApps = memberOwnedOffers.flatMap((offer) => offer.includedApps || []);
+    const apps = purchasedOfferApps.length > 0 ? purchasedOfferApps : storedSubscriptionApps;
+    return apps.map((value) => value.toLowerCase());
+  }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers, isCompanyOwner, memberOwnedOffers]);
+
+  const hasTelegramApp = React.useMemo(
+    () => visibleIncludedAppNames.some((app) => app.includes("telegram")),
+    [visibleIncludedAppNames],
+  );
+
+  const hasDiscordApp = React.useMemo(
+    () => visibleIncludedAppNames.some((app) => app.includes("discord")),
+    [visibleIncludedAppNames],
+  );
 
   const configuredCompanyApps = React.useMemo(() => {
-    const appNames = [
-      ...currentIncludedApps,
-      ...(currentSub.includedApps || []),
-      ...enterpriseOffers.flatMap((offer) => offer.includedApps || []),
-    ].map((value) => value.toLowerCase());
+    const appNames = visibleIncludedAppNames;
     const hasAny = (keywords: string[]) =>
       appNames.some((value) => keywords.some((keyword) => value.includes(keyword)));
     const apps: Array<"telegram" | "discord" | "files" | "courses" | "chat" | "content"> = [];
-    if (hasTelegramApp || hasAny(["telegram"])) apps.push("telegram");
-    if (hasDiscordApp || hasAny(["discord"])) apps.push("discord");
-    if (
-      hasAny(["fichier", "file", "ebook", "template"]) ||
-      enterpriseOffers.some(
-        (offer) => (offer.digitalFiles?.length || offer.ebooks?.length || 0) > 0,
-      )
-    )
-      apps.push("files");
-    if (
-      hasAny(["cours", "course", "formation", "masterclass"]) ||
-      enterpriseOffers.some(
-        (offer) => (offer.courses?.length || offer.courseModules?.length || 0) > 0,
-      )
-    )
-      apps.push("courses");
+    if (hasAny(["telegram"])) apps.push("telegram");
+    if (hasAny(["discord"])) apps.push("discord");
+    if (hasAny(["fichier", "file", "ebook", "template"])) apps.push("files");
+    if (hasAny(["cours", "course", "formation", "masterclass"])) apps.push("courses");
     if (hasAny(["chat", "messagerie", "message"])) apps.push("chat");
     if (hasAny(["content", "contenu"])) apps.push("content");
     return apps;
-  }, [
-    currentIncludedApps,
-    currentSub.includedApps,
-    enterpriseOffers,
-    hasTelegramApp,
-    hasDiscordApp,
-  ]);
+  }, [visibleIncludedAppNames]);
 
   const openMobileConfiguredApp = (
     app: "telegram" | "discord" | "files" | "courses" | "chat" | "content",
@@ -1405,9 +1409,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setCreatorAppStep("closed");
       setSelectedCreatorApp(null);
     } catch (error) {
-      setCreatorSaveError(
-        error instanceof Error ? error.message : "Le contenu n’a pas pu être enregistré.",
-      );
+      console.error("Creator content save failed:", error);
+      setCreatorSaveError(getUserFacingErrorMessage(error, "Le contenu n’a pas pu être enregistré. Réessayez."));
     } finally {
       setIsSavingCreatorContent(false);
     }
@@ -1571,7 +1574,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setEbookDownloadToast(`Téléchargement lancé : ${ebook.title}`);
       setTimeout(() => setEbookDownloadToast(null), 3500);
     } catch (error) {
-      setAccessDeniedToast(error instanceof Error ? error.message : "Le téléchargement a échoué.");
+      console.error("Member file download failed:", error);
+      setAccessDeniedToast(getUserFacingErrorMessage(error, "Le téléchargement a échoué. Réessayez."));
       setTimeout(() => setAccessDeniedToast(null), 4500);
     }
   };
@@ -1584,9 +1588,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       resourceId: course.id,
     });
     if (!access.isAuthorized) {
-      setAccessDeniedToast(
-        access.error || "Vous ne possédez pas l’offre donnant accès à ce cours.",
-      );
+      setAccessDeniedToast("Cette ressource n’est pas incluse dans votre offre.");
       setTimeout(() => setAccessDeniedToast(null), 4500);
       return;
     }
@@ -1601,7 +1603,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       resourceId: course.id,
     });
     if (!access.isAuthorized) {
-      setAccessDeniedToast(access.error || "Vous n’avez pas accès à cette pièce jointe.");
+      setAccessDeniedToast("Cette pièce jointe n’est pas incluse dans votre offre.");
       setTimeout(() => setAccessDeniedToast(null), 4500);
       return;
     }
@@ -1614,9 +1616,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         authorizedCourse.attachmentFileName || `${authorizedCourse.title}.pdf`,
       );
     } catch (error) {
-      setAccessDeniedToast(
-        error instanceof Error ? error.message : "Le téléchargement de la pièce jointe a échoué.",
-      );
+      console.error("Course attachment download failed:", error);
+      setAccessDeniedToast(getUserFacingErrorMessage(error, "Le téléchargement de la pièce jointe a échoué. Réessayez."));
       setTimeout(() => setAccessDeniedToast(null), 4500);
     }
   };

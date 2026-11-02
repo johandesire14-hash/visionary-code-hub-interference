@@ -13,7 +13,7 @@ describe("affiliate public route", () => {
     expect(matches.at(-1)?.routeId).toBe("/affiliate/$code");
   });
 
-  it("shows creator-set terms and commission without counting a visit as a sale", () => {
+  it("shows creator-set terms, commission and nontechnical purchase guidance", () => {
     render(
       createElement(AffiliateLandingContent, {
         loading: false,
@@ -38,8 +38,7 @@ describe("affiliate public route", () => {
     expect(screen.getByTestId("public-commission-rate")).toHaveTextContent("12.75 %");
     expect(screen.getByRole("heading", { name: "Consignes de promotion" })).toBeInTheDocument();
     expect(screen.getByText(/Signalez clairement votre lien affilié/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Une visite, un affichage ou un clic ne crée ni vente ni commission/i),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Renseignements sur l’achat" })).toBeInTheDocument();
+    expect(screen.getByText(/contactez le créateur/i)).toBeInTheDocument();
   });
 });

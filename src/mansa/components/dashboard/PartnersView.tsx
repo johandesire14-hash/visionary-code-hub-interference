@@ -29,6 +29,7 @@ import {
   savePartnerDealToFirestore,
   deletePartnerDealFromFirestore,
 } from "../../services/dbService";
+import { getUserFacingErrorMessage } from "../../utils/userFacingError";
 
 interface PartnersViewProps {
   lang?: "fr" | "en";
@@ -159,7 +160,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({
       setTimeout(() => setDealSuccessToast(null), 4000);
     } catch (err: any) {
       console.error("Firestore partner deal save error:", err);
-      setErrorMessage(err.message || "Erreur lors de la sauvegarde du partenariat.");
+      setErrorMessage(getUserFacingErrorMessage(err, "Impossible d’enregistrer ce partenariat. Réessayez."));
     } finally {
       setIsSubmitting(false);
     }
