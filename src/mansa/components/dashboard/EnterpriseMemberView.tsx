@@ -114,6 +114,7 @@ import { CourseReaderModal } from "./CourseReaderModal";
 import { ManageMembershipModal } from "./ManageMembershipModal";
 import { ReportEnterpriseModal } from "./ReportEnterpriseModal";
 import { getCreatorAppProductIds } from "../../utils/creatorAppRouting";
+import { getVisibleIncludedAppNames } from "../../utils/memberAppAccess";
 import { createOrGetAffiliateLink } from "../../services/affiliateService";
 import { siteUrl } from "@/lib/site";
 import { getUserFacingErrorMessage } from "../../utils/userFacingError";
@@ -917,15 +918,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
   const visibleIncludedAppNames = React.useMemo(() => {
     const storedSubscriptionApps = [...currentIncludedApps, ...(currentSub.includedApps || [])];
-    if (isCompanyOwner) {
-      return [
-        ...storedSubscriptionApps,
-        ...enterpriseOffers.flatMap((offer) => offer.includedApps || []),
-      ].map((value) => value.toLowerCase());
-    }
-    const purchasedOfferApps = memberOwnedOffers.flatMap((offer) => offer.includedApps || []);
-    const apps = purchasedOfferApps.length > 0 ? purchasedOfferApps : storedSubscriptionApps;
-    return apps.map((value) => value.toLowerCase());
+    return getVisibleIncludedAppNames({
+      isCompanyOwner,
+      subscriptionIncludedApps: storedSubscriptionApps,
+      companyOffers: enterpriseOffers,
+      memberOwnedOffers,
+    });
   }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers, isCompanyOwner, memberOwnedOffers]);
 
   const hasTelegramApp = React.useMemo(
