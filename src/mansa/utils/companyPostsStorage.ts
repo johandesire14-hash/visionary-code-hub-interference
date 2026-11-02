@@ -1,4 +1,3 @@
-// @ts-nocheck
 export interface CompanyPost {
   id: string;
   companyId: string;
@@ -18,6 +17,9 @@ export interface CompanyPost {
     size: string;
     type: string;
   };
+  media?: { url: string; name: string; type: string };
+  poll?: { question: string; options: string[]; votes: number[] };
+  paidPublication?: boolean;
 }
 
 const STORAGE_KEY = "mansa_company_newsfeed_posts";
@@ -70,9 +72,18 @@ export function createCompanyPost(
     authorName: string;
     pinned?: boolean;
     category?: string;
-  }
+    media?: { url: string; name: string; type: string };
+    poll?: { question: string; options: string[]; votes: number[] };
+    paidPublication?: boolean;
+  },
 ): CompanyPost {
   const all = getAllStoredPosts();
+  const pollItems = data.poll?.options
+    .map((option, index) => ({
+      option: option.trim(),
+      votes: Number(data.poll?.votes?.[index] || 0),
+    }))
+    .filter((item) => item.option);
   const newPost: CompanyPost = {
     id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     companyId,
@@ -86,6 +97,17 @@ export function createCompanyPost(
     likesCount: 0,
     commentsCount: 0,
     category: data.category || "Annonce",
+    ...(data.media ? { media: data.media } : {}),
+    ...(data.poll && pollItems
+      ? {
+          poll: {
+            question: data.poll.question.trim(),
+            options: pollItems.map((item) => item.option),
+            votes: pollItems.map((item) => item.votes),
+          },
+        }
+      : {}),
+    ...(data.paidPublication ? { paidPublication: true } : {}),
   };
 
   const updated = [newPost, ...all];
@@ -93,11 +115,36 @@ export function createCompanyPost(
   return newPost;
 }
 
+export function recordCompanyPollVote(
+  postId: string,
+  companyId: string,
+  optionIndex: number,
+): boolean {
+  const normalizedId = (companyId || "").trim().toLowerCase();
+  const all = getAllStoredPosts();
+  const post = all.find(
+    (item) => item.id === postId && (item.companyId || "").trim().toLowerCase() === normalizedId,
+  );
+  if (
+    !post?.poll ||
+    !Number.isInteger(optionIndex) ||
+    optionIndex < 0 ||
+    optionIndex >= post.poll.options.length
+  ) {
+    return false;
+  }
+  const votes = post.poll.options.map((_, index) => Number(post.poll?.votes?.[index] || 0));
+  votes[optionIndex] += 1;
+  post.poll = { ...post.poll, votes };
+  saveAllPosts(all);
+  return true;
+}
+
 export function deleteCompanyPost(postId: string, companyId: string): void {
   const all = getAllStoredPosts();
   const normalizedId = (companyId || "").trim().toLowerCase();
   const updated = all.filter(
-    (p) => !(p.id === postId && (p.companyId.trim().toLowerCase() === normalizedId))
+    (p) => !(p.id === postId && p.companyId.trim().toLowerCase() === normalizedId),
   );
   saveAllPosts(updated);
 }

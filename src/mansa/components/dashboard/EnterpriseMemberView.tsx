@@ -55,8 +55,6 @@ import {
   TrendingUp,
   Layers,
   PenLine,
-  Image as ImageIcon,
-  Smile,
   BarChart3,
   DollarSign,
   Video,
@@ -95,6 +93,7 @@ import {
   deleteCompanyPost,
   getAllStoredPosts,
   saveAllPosts,
+  recordCompanyPollVote,
   CompanyPost,
 } from "../../utils/companyPostsStorage";
 import {
@@ -113,6 +112,7 @@ import { EnterpriseBrandingModal } from "./EnterpriseBrandingModal";
 import { CourseReaderModal } from "./CourseReaderModal";
 import { ManageMembershipModal } from "./ManageMembershipModal";
 import { ReportEnterpriseModal } from "./ReportEnterpriseModal";
+import { CompanyPostComposer, type CompanyPostDraft } from "./CompanyPostComposer";
 import { getCreatorAppProductIds } from "../../utils/creatorAppRouting";
 import { getVisibleIncludedAppNames } from "../../utils/memberAppAccess";
 import { createOrGetAffiliateLink } from "../../services/affiliateService";
@@ -249,7 +249,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   const [currentSub, setCurrentSub] = useState<EnterpriseSubscription>(subscription);
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
   const [isPostComposerOpen, setIsPostComposerOpen] = useState(false);
-  const [postText, setPostText] = useState("");
   const [selectedMemberProductId, setSelectedMemberProductId] = useState<string | null>(
     subscription.productId || null,
   );
@@ -452,18 +451,18 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     setIsPostComposerOpen(false);
   };
 
-  const handlePublishPost = () => {
-    if (!postText.trim()) return;
+  const handlePublishPost = (draft: CompanyPostDraft) => {
     const compId = currentSub.companyId || currentSub.id;
     createCompanyPost(compId, currentSub.companyName, {
       title: "Actualité officielle",
-      content: postText.trim(),
+      content: draft.content,
       authorName: currentSub.companyName,
       pinned: false,
       category: "Actualité",
+      media: draft.media,
+      poll: draft.poll,
+      paidPublication: draft.paidPublication,
     });
-    setPostText("");
-    setIsPostComposerOpen(false);
   };
 
   const handleDeletePost = (postId: string) => {
@@ -496,6 +495,30 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     if (target) {
       target.likesCount = Math.max(0, (target.likesCount || 0) + (currentlyLiked ? 1 : -1));
       saveAllPosts(all);
+    }
+  };
+
+  const [votedPollsMap, setVotedPollsMap] = useState<Record<string, number>>(() => {
+    try {
+      const userKey = user?.uid || user?.email || "default";
+      const raw = localStorage.getItem(`mansa_company_poll_votes_${userKey}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const handleVoteOnPoll = (post: CompanyPost, optionIndex: number) => {
+    if (Object.prototype.hasOwnProperty.call(votedPollsMap, post.id)) return;
+    const compId = currentSub.companyId || currentSub.id;
+    if (!recordCompanyPollVote(post.id, compId, optionIndex)) return;
+    const userKey = user?.uid || user?.email || "default";
+    const nextVotes = { ...votedPollsMap, [post.id]: optionIndex };
+    setVotedPollsMap(nextVotes);
+    try {
+      localStorage.setItem(`mansa_company_poll_votes_${userKey}`, JSON.stringify(nextVotes));
+    } catch {
+      // The vote is still recorded for this session if local persistence is unavailable.
     }
   };
 
@@ -2919,6 +2942,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                                     <span>Publication Épinglée</span>
                                   </div>
                                 )}
+                                {post.paidPublication && (
+                                  <div className="flex items-center gap-1.5 pt-1 text-[11px] font-semibold text-amber-300">
+                                    <DollarSign className="size-3" />
+                                    <span>Publication rémunérée</span>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
@@ -2939,8 +2968,85 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                             <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                               {post.title}
                             </h3>
-                            <p className="whitespace-pre-line text-zinc-300">{post.content}</p>
+                            {post.content && (
+                              <p className="whitespace-pre-line text-zinc-300">{post.content}</p>
+                            )}
                           </div>
+
+                          {post.media?.url && (
+                            <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20">
+                              {post.media.type.startsWith("video/") ? (
+                                <video
+                                  src={post.media.url}
+                                  controls
+                                  preload="metadata"
+                                  aria-label={post.media.name || "Vidéo de la publication"}
+                                  className="max-h-[520px] w-full bg-black object-contain"
+                                />
+                              ) : (
+                                <img
+                                  src={post.media.url}
+                                  alt={post.media.name || "Média de la publication"}
+                                  className="max-h-[520px] w-full object-contain"
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          {post.poll && post.poll.options.length > 0 && (
+                            <section
+                              aria-label={`Sondage : ${post.poll.question}`}
+                              className="space-y-3 rounded-xl border border-white/10 bg-[#161820] p-4"
+                            >
+                              <div className="flex items-start gap-2 text-sm font-semibold text-white">
+                                <BarChart3 className="mt-0.5 size-4 shrink-0 text-blue-300" />
+                                <span>{post.poll.question}</span>
+                              </div>
+                              {post.poll.options.map((option, optionIndex) => {
+                                const totalVotes = (post.poll?.votes || []).reduce(
+                                  (total, count) => total + Number(count || 0),
+                                  0,
+                                );
+                                const optionVotes = Number(post.poll?.votes?.[optionIndex] || 0);
+                                const hasVoted = Object.prototype.hasOwnProperty.call(
+                                  votedPollsMap,
+                                  post.id,
+                                );
+                                const percentage =
+                                  totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0;
+                                return (
+                                  <button
+                                    key={`${post.id}-poll-${optionIndex}`}
+                                    type="button"
+                                    disabled={hasVoted}
+                                    onClick={() => handleVoteOnPoll(post, optionIndex)}
+                                    aria-pressed={votedPollsMap[post.id] === optionIndex}
+                                    className="relative flex w-full items-center justify-between overflow-hidden rounded-lg border border-white/10 px-3 py-2.5 text-left text-xs text-zinc-200 transition-colors hover:border-blue-400/50 hover:bg-blue-400/5 disabled:cursor-default"
+                                  >
+                                    {hasVoted && (
+                                      <span
+                                        aria-hidden="true"
+                                        className="absolute inset-y-0 left-0 bg-blue-500/15"
+                                        style={{ width: `${percentage}%` }}
+                                      />
+                                    )}
+                                    <span className="relative">{option}</span>
+                                    {hasVoted && (
+                                      <span className="relative text-[11px] text-zinc-400">
+                                        {percentage}% · {optionVotes} vote
+                                        {optionVotes === 1 ? "" : "s"}
+                                      </span>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                              <p className="text-[11px] text-zinc-500">
+                                {Object.prototype.hasOwnProperty.call(votedPollsMap, post.id)
+                                  ? "Merci pour votre vote."
+                                  : "Choisissez une réponse pour voter."}
+                              </p>
+                            </section>
+                          )}
 
                           {/* Métriques éventuelles */}
                           {post.metrics && post.metrics.length > 0 && (
@@ -3481,110 +3587,13 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           </button>
 
           {isPostComposerOpen && (
-            <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="post-composer-title"
-                className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-[#111214] shadow-2xl"
-              >
-                <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 items-center justify-center overflow-hidden rounded-full mansa-profile-avatar text-xs font-bold">
-                      {user.avatarInitials || currentSub.companyInitials || "JO"}
-                    </div>
-                    <div>
-                      <h2 id="post-composer-title" className="text-sm font-bold text-white">
-                        Créer une publication
-                      </h2>
-                      <p className="text-[11px] text-zinc-500">
-                        Publication officielle de {currentSub.companyName}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsPostComposerOpen(false)}
-                    aria-label="Fermer la fenêtre de publication"
-                    className="rounded-lg p-2 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
-                  >
-                    <X className="size-5" />
-                  </button>
-                </div>
-
-                <div className="p-5">
-                  <textarea
-                    autoFocus
-                    value={postText}
-                    onChange={(event) => setPostText(event.target.value)}
-                    placeholder="À quoi pensez-vous ?"
-                    aria-label="Texte de la publication"
-                    className="min-h-[180px] w-full resize-none rounded-xl border border-white/10 bg-[#0b0c0e] p-4 text-sm text-white outline-none transition-colors placeholder:text-zinc-600 focus:border-blue-500/70"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-5 py-4">
-                  <button
-                    type="button"
-                    title="Ajouter une image"
-                    aria-label="Ajouter une image"
-                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
-                  >
-                    <ImageIcon className="size-5" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Ajouter un GIF"
-                    aria-label="Ajouter un GIF"
-                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
-                  >
-                    <span className="text-xs font-black">GIF</span>
-                  </button>
-                  <button
-                    type="button"
-                    title="Ajouter un emoji"
-                    aria-label="Ajouter un emoji"
-                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
-                  >
-                    <Smile className="size-5" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Ajouter un sondage ou des statistiques"
-                    aria-label="Ajouter un sondage ou des statistiques"
-                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
-                  >
-                    <BarChart3 className="size-5" />
-                  </button>
-                  <button
-                    type="button"
-                    title="Ajouter une contribution payante"
-                    aria-label="Ajouter une contribution payante"
-                    className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 cursor-pointer"
-                  >
-                    <DollarSign className="size-5" />
-                  </button>
-
-                  <div className="ml-auto flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsPostComposerOpen(false)}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-red-500 cursor-pointer"
-                    >
-                      <Video className="size-4" />
-                      <span>Passer en direct</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePublishPost}
-                      className="rounded-full bg-blue-600 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-500 cursor-pointer"
-                    >
-                      Publier
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <CompanyPostComposer
+              companyId={companyId}
+              companyName={currentSub.companyName}
+              avatarInitials={user.avatarInitials || currentSub.companyInitials || "JO"}
+              onClose={() => setIsPostComposerOpen(false)}
+              onPublish={handlePublishPost}
+            />
           )}
         </>
       )}
