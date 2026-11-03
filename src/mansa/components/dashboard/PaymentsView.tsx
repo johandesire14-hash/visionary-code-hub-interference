@@ -485,7 +485,7 @@ Document généré électroniquement, faisant foi de bordereau officiel de règl
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Centre Financier & Encaissements
+              Paiement
             </h1>
           </div>
           <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">

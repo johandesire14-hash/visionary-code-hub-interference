@@ -68,7 +68,9 @@ describe("SupportInboxView", () => {
     fireEvent.click(screen.getByRole("button", { name: "Envoyer" }));
     expect(onSendMessage).toHaveBeenCalledWith(conversation, "Bonjour, j’ai besoin d’aide.");
 
-    fireEvent.click(screen.getByRole("button", { name: "Retour" }));
+    const backButton = screen.getByRole("button", { name: "Retour" });
+    expect(backButton).not.toHaveClass("lg:hidden");
+    fireEvent.click(backButton);
     expect(onBack).toHaveBeenCalledOnce();
   });
 });

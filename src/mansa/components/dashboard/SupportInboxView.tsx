@@ -95,10 +95,11 @@ export const SupportInboxView: React.FC<SupportInboxViewProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className="rounded-lg p-2 text-zinc-400 hover:bg-white/[0.06] hover:text-white lg:hidden"
+              className="inline-flex items-center gap-2 rounded-lg px-2 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white"
               aria-label="Retour"
             >
               <ArrowLeft className="size-4" />
+              <span>Retour</span>
             </button>
           )}
           <div className="flex size-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">

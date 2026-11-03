@@ -1381,6 +1381,35 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [selectedProductFilter, setSelectedProductFilter] = useState<"all" | "visible" | "hidden">(
     "visible",
   );
+  const [selectedProductAppFilter, setSelectedProductAppFilter] = useState("all");
+  const [isProductFiltersOpen, setIsProductFiltersOpen] = useState(false);
+  const productAppFilterOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          contextProducts
+            .flatMap((product) => product.includedApps || [])
+            .map((app) => app.trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b, lang === "fr" ? "fr" : "en")),
+    [contextProducts, lang],
+  );
+  const filteredContextProducts = useMemo(
+    () =>
+      contextProducts.filter((product) => {
+        const matchesVisibility =
+          selectedProductFilter === "all" ||
+          (selectedProductFilter === "visible"
+            ? product.visibility === "Visible"
+            : product.visibility === "Caché");
+        const matchesIncludedApp =
+          selectedProductAppFilter === "all" ||
+          (product.includedApps || []).some((app) => app.trim() === selectedProductAppFilter);
+        return matchesVisibility && matchesIncludedApp;
+      }),
+    [contextProducts, selectedProductFilter, selectedProductAppFilter],
+  );
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
   const [telegramLinkModalProduct, setTelegramLinkModalProduct] =
@@ -3011,22 +3040,56 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       Produits
                     </h1>
 
-                    {/* Filter Pill: Visibility: Visible +1 x */}
-                    <div className="flex items-center gap-2">
-                      <div className="inline-flex items-center gap-1.5 rounded-lg bg-[#0055ff]/15 border border-[#0055ff]/40 px-3 py-1 text-xs font-semibold text-[#6699ff]">
-                        <span>Visibility: Visible +1</span>
-                        <button
-                          onClick={() =>
-                            setSelectedProductFilter(
-                              selectedProductFilter === "visible" ? "all" : "visible",
-                            )
-                          }
-                          className="hover:text-white ml-0.5 cursor-pointer"
-                          title="Effacer le filtre"
-                        >
-                          ×
-                        </button>
-                      </div>
+                    {/* Active product filters */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {selectedProductFilter !== "all" && (
+                        <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#0055ff]/40 bg-[#0055ff]/15 px-3 py-1 text-xs font-semibold text-[#6699ff]">
+                          <span>
+                            {lang === "fr" ? "Visibilité : " : "Visibility: "}
+                            {selectedProductFilter === "visible"
+                              ? lang === "fr"
+                                ? "Visible"
+                                : "Visible"
+                              : lang === "fr"
+                                ? "Masqué"
+                                : "Hidden"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProductFilter("all")}
+                            className="ml-0.5 cursor-pointer hover:text-white"
+                            title={lang === "fr" ? "Effacer le filtre" : "Clear filter"}
+                            aria-label={
+                              lang === "fr"
+                                ? "Effacer le filtre de visibilité"
+                                : "Clear visibility filter"
+                            }
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                      {selectedProductAppFilter !== "all" && (
+                        <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                          <span>{selectedProductAppFilter}</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProductAppFilter("all")}
+                            className="ml-0.5 cursor-pointer hover:text-white"
+                            title={lang === "fr" ? "Effacer le filtre" : "Clear filter"}
+                            aria-label={
+                              lang === "fr" ? "Effacer le filtre d’application" : "Clear app filter"
+                            }
+                          >
+                            ×
+                          </button>
+                        </div>
+                      )}
+                      {selectedProductFilter === "all" && selectedProductAppFilter === "all" && (
+                        <span className="text-xs text-zinc-500">
+                          {lang === "fr" ? "Tous les produits" : "All products"}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -3061,13 +3124,75 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                       <span>Exporter</span>
                     </button>
 
-                    <button
-                      onClick={() => setActiveNav("parametres")}
-                      className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-[#16181f] hover:bg-[#1f222b] text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                      title="Paramètres des produits"
-                    >
-                      <Settings className="size-4" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsProductFiltersOpen((open) => !open)}
+                        aria-expanded={isProductFiltersOpen}
+                        aria-controls="product-filters-menu"
+                        className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-[#16181f] text-zinc-400 transition-colors hover:bg-[#1f222b] hover:text-white"
+                        title={lang === "fr" ? "Filtres des produits" : "Product filters"}
+                      >
+                        <Settings className="size-4" />
+                      </button>
+                      {isProductFiltersOpen && (
+                        <div
+                          id="product-filters-menu"
+                          role="region"
+                          aria-label={lang === "fr" ? "Filtres des produits" : "Product filters"}
+                          className="absolute right-0 top-full z-30 mt-2 w-72 space-y-4 rounded-xl border border-white/10 bg-[#16181f] p-4 shadow-2xl"
+                        >
+                          <h2 className="text-sm font-semibold text-white">
+                            {lang === "fr" ? "Filtres" : "Filters"}
+                          </h2>
+                          <label className="flex flex-col gap-1.5 text-xs text-zinc-400">
+                            {lang === "fr" ? "Visibilité" : "Visibility"}
+                            <select
+                              value={selectedProductFilter}
+                              onChange={(event) =>
+                                setSelectedProductFilter(
+                                  event.target.value as "all" | "visible" | "hidden",
+                                )
+                              }
+                              className="rounded-lg border border-white/10 bg-[#0c0d0e] px-3 py-2 text-xs text-white outline-none focus:border-blue-400"
+                            >
+                              <option value="all">{lang === "fr" ? "Tous" : "All"}</option>
+                              <option value="visible">
+                                {lang === "fr" ? "Visibles" : "Visible"}
+                              </option>
+                              <option value="hidden">{lang === "fr" ? "Masqués" : "Hidden"}</option>
+                            </select>
+                          </label>
+                          <label className="flex flex-col gap-1.5 text-xs text-zinc-400">
+                            {lang === "fr" ? "Application incluse" : "Included app"}
+                            <select
+                              value={selectedProductAppFilter}
+                              onChange={(event) => setSelectedProductAppFilter(event.target.value)}
+                              className="rounded-lg border border-white/10 bg-[#0c0d0e] px-3 py-2 text-xs text-white outline-none focus:border-blue-400"
+                            >
+                              <option value="all">
+                                {lang === "fr" ? "Toutes les applications" : "All apps"}
+                              </option>
+                              {productAppFilterOptions.map((app) => (
+                                <option key={app} value={app}>
+                                  {app}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedProductFilter("all");
+                              setSelectedProductAppFilter("all");
+                            }}
+                            className="w-full rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white"
+                          >
+                            {lang === "fr" ? "Réinitialiser les filtres" : "Reset filters"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -3169,8 +3294,28 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                               </div>
                             </td>
                           </tr>
+                        ) : filteredContextProducts.length === 0 ? (
+                          <tr>
+                            <td colSpan={9} className="px-4 py-12 text-center">
+                              <p className="text-sm font-medium text-zinc-300">
+                                {lang === "fr"
+                                  ? "Aucun produit ne correspond aux filtres."
+                                  : "No products match these filters."}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedProductFilter("all");
+                                  setSelectedProductAppFilter("all");
+                                }}
+                                className="mt-2 text-xs font-semibold text-blue-300 hover:text-white"
+                              >
+                                {lang === "fr" ? "Effacer les filtres" : "Clear filters"}
+                              </button>
+                            </td>
+                          </tr>
                         ) : (
-                          contextProducts.map((product) => (
+                          filteredContextProducts.map((product) => (
                             <tr
                               key={product.id}
                               onClick={(event) => {
@@ -3296,9 +3441,49 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                                 </div>
                               </td>
 
-                              {/* Applications incluses (Dynamic icons matching exact selected apps) */}
-                              <td className="py-4 px-4 whitespace-nowrap">
-                                <span className="text-zinc-500">Non renseigné</span>
+                              {/* Applications incluses */}
+                              <td className="py-4 px-4">
+                                {(product.includedApps || []).length > 0 ? (
+                                  <div className="flex max-w-[260px] flex-wrap items-center gap-1.5">
+                                    {product.includedApps.map((app, appIndex) => {
+                                      const normalizedApp = app.toLowerCase();
+                                      const appIcon = normalizedApp.includes("telegram") ? (
+                                        <TelegramIcon className="size-3.5 shrink-0" />
+                                      ) : normalizedApp.includes("discord") ? (
+                                        <DiscordIcon className="size-3.5 shrink-0" />
+                                      ) : normalizedApp.includes("fichier") ||
+                                        normalizedApp.includes("file") ? (
+                                        <FileText className="size-3.5 shrink-0" />
+                                      ) : normalizedApp.includes("cours") ||
+                                        normalizedApp.includes("formation") ||
+                                        normalizedApp.includes("course") ? (
+                                        <BookOpen className="size-3.5 shrink-0" />
+                                      ) : normalizedApp.includes("paiement") ||
+                                        normalizedApp.includes("checkout") ? (
+                                        <CreditCard className="size-3.5 shrink-0" />
+                                      ) : normalizedApp.includes("support") ||
+                                        normalizedApp.includes("chat") ||
+                                        normalizedApp.includes("communauté") ||
+                                        normalizedApp.includes("community") ? (
+                                        <MessageSquare className="size-3.5 shrink-0" />
+                                      ) : (
+                                        <Package className="size-3.5 shrink-0" />
+                                      );
+                                      return (
+                                        <span
+                                          key={`${product.id}-app-${appIndex}`}
+                                          title={app}
+                                          className="inline-flex items-center gap-1 rounded-md border border-blue-400/20 bg-blue-400/10 px-2 py-1 text-[10px] font-medium text-blue-100"
+                                        >
+                                          {appIcon}
+                                          <span>{app}</span>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <span className="text-zinc-500">Non renseigné</span>
+                                )}
                               </td>
 
                               {/* Conversion de paiement */}
