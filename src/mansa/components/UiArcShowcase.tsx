@@ -36,7 +36,7 @@ export function UiArcShowcase({ onOpenStudio }: UiArcShowcaseProps) {
     >
       <div className="mx-auto max-w-[1120px]">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#d94322]">
+          <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.22em] text-[#007a43]">
             Un espace, plusieurs revenus
           </p>
           <h2 className="text-4xl font-black leading-[0.98] tracking-[-0.055em] sm:text-6xl">
@@ -53,7 +53,7 @@ export function UiArcShowcase({ onOpenStudio }: UiArcShowcaseProps) {
               key={title}
               className="rounded-[22px] border border-black/10 bg-white p-5 shadow-[0_14px_40px_rgba(23,23,23,0.05)]"
             >
-              <div className="flex size-11 items-center justify-center rounded-2xl bg-[#f0522b]/10 text-[#d94322]">
+              <div className="flex size-11 items-center justify-center rounded-2xl bg-[#00d26a]/10 text-[#007a43]">
                 <Icon className="size-5" />
               </div>
               <h3 className="mt-6 text-lg font-extrabold tracking-tight">{title}</h3>

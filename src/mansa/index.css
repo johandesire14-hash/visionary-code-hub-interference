@@ -423,10 +423,10 @@ button:not(.rounded-full),
   }
 }
 
-/* Wider-inspired public palette. Each public component owns its foreground/background. */
+/* Public palette. Each public component owns its foreground/background. */
 :root {
-  --wider-orange: #f0522b;
-  --wider-orange-deep: #d94322;
+  --wider-green: #00d26a;
+  --wider-green-deep: #007a43;
   --wider-paper: #efede8;
   --wider-surface: #ffffff;
   --wider-ink: #171717;
@@ -458,7 +458,7 @@ html:not(.dark) .mansa-palette {
 }
 
 .afhub-home-hero {
-  background: var(--wider-orange-deep);
+  background: var(--wider-green-deep);
   color: #ffffff;
 }
 

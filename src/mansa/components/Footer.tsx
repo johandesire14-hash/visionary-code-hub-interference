@@ -12,7 +12,7 @@ interface FooterProps {
 export const Footer: React.FC<FooterProps> = ({ onOpenStudio, onOpenAiBuilder }) => (
   <footer className="w-full bg-[#171717] text-white">
     <div className="mx-auto flex max-w-[1120px] flex-col items-center px-5 py-24 text-center sm:px-10 sm:py-32">
-      <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.22em] text-[#f68a68]">
+      <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.22em] text-[#3DDC84]">
         Votre prochaine offre commence ici
       </p>
       <h2 className="max-w-3xl text-5xl font-black leading-[0.94] tracking-[-0.06em] sm:text-7xl">
