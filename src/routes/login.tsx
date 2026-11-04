@@ -12,11 +12,11 @@ export const Route = createFileRoute("/login")({
 
 function AuthLoader() {
   return (
-    <div className="min-h-screen w-full bg-[#2A2929] flex flex-col items-center justify-center space-y-4">
-      <div className="size-12 rounded-2xl bg-[#12141a] border border-white/10 flex items-center justify-center">
-        <div className="size-5 rounded-full border-2 border-[#3DDC84] border-t-transparent animate-spin" />
+    <div className="min-h-screen w-full bg-[#0d0f10] flex flex-col items-center justify-center space-y-4">
+      <div className="size-12 rounded-2xl bg-[#15181b] border border-white/10 flex items-center justify-center">
+        <div className="size-5 rounded-full border-2 border-[#3ddc84] border-t-transparent animate-spin" />
       </div>
-      <p className="text-xs font-mono text-[#B6B5B0]">Mansa · Initialisation sécurisée...</p>
+      <p className="text-xs font-mono text-[#9ba3aa]">Mansa · Initialisation sécurisée...</p>
     </div>
   );
 }

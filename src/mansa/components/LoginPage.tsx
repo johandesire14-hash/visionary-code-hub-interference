@@ -85,11 +85,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#2A2929] text-[#F1F1F1] flex flex-col items-center justify-center px-4 py-12 selection:bg-[#3DDC84]/30 selection:text-[#3DDC84]">
+    <div className="relative min-h-screen w-full bg-[#0d0f10] text-[#f2f4f5] flex flex-col items-center justify-center px-4 py-12 selection:bg-[#3ddc84]/30 selection:text-[#3ddc84]">
       {/* Back button */}
       <button
         onClick={onBackToLanding}
-        className="absolute top-6 left-6 sm:top-8 sm:left-10 flex items-center gap-2 text-xs font-semibold text-[#B6B5B0] hover:text-white transition-colors cursor-pointer"
+        className="absolute top-6 left-6 sm:top-8 sm:left-10 flex items-center gap-2 text-xs font-semibold text-[#9ba3aa] hover:text-[#f2f4f5] transition-colors cursor-pointer"
       >
         <ArrowLeft className="size-4" />
         <span>Retour à l'accueil</span>
@@ -102,10 +102,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <AfhubLogo size="xl" />
           </div>
 
-          <h1 className="text-2xl font-bold tracking-tight text-white font-heading">
+          <h1 className="text-2xl font-bold tracking-tight text-[#f2f4f5] font-heading">
             {mode === "login" ? "Connexion à Mansa" : "Créer votre compte Mansa"}
           </h1>
-          <p className="mt-1 text-xs text-[#B6B5B0]">
+          <p className="mt-1 text-xs text-[#9ba3aa]">
             {mode === "login"
               ? "Gérez vos produits digitaux et vos revenus Mobile Money en direct"
               : "Rejoignez la communauté de créateurs et monétisez en quelques clics"}
@@ -113,7 +113,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
 
         {/* Tab switch between Login & Signup */}
-        <div className="flex rounded-xl bg-[#151515] p-1 border border-white/10">
+        <div className="flex rounded-xl bg-[#1b1f23] p-1 border border-white/10">
           <button
             type="button"
             onClick={() => {
@@ -122,8 +122,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               mode === "login"
-                ? "bg-[#3DDC84] text-black font-bold shadow-sm"
-                : "text-[#B6B5B0] hover:text-white"
+                ? "bg-[#3ddc84] text-black font-bold shadow-sm"
+                : "text-[#9ba3aa] hover:text-[#f2f4f5]"
             }`}
           >
             Se connecter
@@ -136,8 +136,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             }}
             className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
               mode === "signup"
-                ? "bg-[#3DDC84] text-black font-bold shadow-sm"
-                : "text-[#B6B5B0] hover:text-white"
+                ? "bg-[#3ddc84] text-black font-bold shadow-sm"
+                : "text-[#9ba3aa] hover:text-[#f2f4f5]"
             }`}
           >
             Créer un compte
@@ -145,8 +145,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
 
         {/* Login Box */}
-        <div className="rounded-2xl border border-white/10 bg-[#151515] p-6 sm:p-7 shadow-2xl space-y-4">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-[#B6B5B0] text-center">
+        <div className="rounded-2xl border border-white/10 bg-[#15181b] p-6 sm:p-7 shadow-2xl space-y-4">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#9ba3aa] text-center">
             Ou connectez votre compte réel
           </div>
 
@@ -163,7 +163,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             type="button"
             onClick={handleGoogleLogin}
             disabled={isSubmitting}
-            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-white/15 bg-[#2A2929] hover:bg-white/[0.06] hover:border-[#3DDC84]/50 text-xs font-semibold text-white transition-all cursor-pointer shadow-sm group"
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-white/10 bg-[#1b1f23] hover:bg-[#23282d] hover:border-[#3ddc84]/50 text-xs font-semibold text-[#f2f4f5] transition-all cursor-pointer shadow-sm group"
           >
             <svg className="size-4 shrink-0" viewBox="0 0 24 24">
               <path
@@ -194,7 +194,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
           <div className="relative flex items-center justify-center py-1">
             <div className="w-full border-t border-white/10" />
-            <span className="absolute bg-[#151515] px-3 text-[10px] font-mono uppercase text-[#B6B5B0]">
+            <span className="absolute bg-[#15181b] px-3 text-[10px] font-mono uppercase text-[#9ba3aa]">
               ou par email et mot de passe
             </span>
           </div>
@@ -203,34 +203,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {mode === "signup" && (
               <div>
-                <label className="block text-[11px] font-semibold text-[#B6B5B0] uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-[#9ba3aa] uppercase tracking-wider mb-1">
                   Votre nom ou pseudo
                 </label>
                 <div className="relative flex items-center">
-                  <User className="absolute left-3.5 size-4 text-zinc-500" />
+                  <User className="absolute left-3.5 size-4 text-[#9ba3aa]" />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Johan Desire"
-                    className="w-full rounded-xl border border-white/10 bg-[#2A2929] pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:border-[#3DDC84] outline-none transition-all"
+                    className="w-full rounded-xl border border-white/10 bg-[#1b1f23] pl-10 pr-4 py-2.5 text-xs text-[#f2f4f5] placeholder-[#9ba3aa] focus:border-[#3ddc84] outline-none transition-all"
                   />
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-[11px] font-semibold text-[#B6B5B0] uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-[#9ba3aa] uppercase tracking-wider mb-1">
                 Adresse email
               </label>
               <div className="relative flex items-center">
-                <Mail className="absolute left-3.5 size-4 text-zinc-500" />
+                <Mail className="absolute left-3.5 size-4 text-[#9ba3aa]" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="nom@exemple.com"
-                  className="w-full rounded-xl border border-white/10 bg-[#2A2929] pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:border-[#3DDC84] outline-none transition-all"
+                  className="w-full rounded-xl border border-white/10 bg-[#1b1f23] pl-10 pr-4 py-2.5 text-xs text-[#f2f4f5] placeholder-[#9ba3aa] focus:border-[#3ddc84] outline-none transition-all"
                   required
                 />
               </div>
@@ -238,27 +238,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-[11px] font-semibold text-[#B6B5B0] uppercase tracking-wider">
+                <label className="block text-[11px] font-semibold text-[#9ba3aa] uppercase tracking-wider">
                   Mot de passe
                 </label>
                 {mode === "login" && (
                   <button
                     type="button"
                     onClick={handleResetPassword}
-                    className="text-[10px] text-[#B6B5B0] hover:text-[#3DDC84] cursor-pointer"
+                    className="text-[10px] text-[#9ba3aa] hover:text-[#3ddc84] cursor-pointer"
                   >
                     Mot de passe oublié ?
                   </button>
                 )}
               </div>
               <div className="relative flex items-center">
-                <Lock className="absolute left-3.5 size-4 text-zinc-500" />
+                <Lock className="absolute left-3.5 size-4 text-[#9ba3aa]" />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-xl border border-white/10 bg-[#2A2929] pl-10 pr-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:border-[#3DDC84] outline-none transition-all"
+                  className="w-full rounded-xl border border-white/10 bg-[#1b1f23] pl-10 pr-4 py-2.5 text-xs text-[#f2f4f5] placeholder-[#9ba3aa] focus:border-[#3ddc84] outline-none transition-all"
                   required
                 />
               </div>
@@ -285,13 +285,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
 
         {/* Footer info */}
-        <div className="text-center text-[11px] text-[#B6B5B0] leading-relaxed">
+        <div className="text-center text-[11px] text-[#9ba3aa] leading-relaxed">
           En vous connectant à Mansa, vous acceptez nos{" "}
-          <a href="#" className="underline hover:text-white">
+          <a href="#" className="underline hover:text-[#f2f4f5]">
             Conditions Générales
           </a>{" "}
           et notre{" "}
-          <a href="#" className="underline hover:text-white">
+          <a href="#" className="underline hover:text-[#f2f4f5]">
             Politique de Confidentialité
           </a>
           .
