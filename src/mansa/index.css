@@ -462,6 +462,95 @@ html:not(.dark) .mansa-palette {
   color: #ffffff;
 }
 
+.afhub-hero-carousel {
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.afhub-hero-carousel-track {
+  display: flex;
+  width: 600%;
+  height: 100%;
+  animation: afhub-hero-carousel-scroll 18s ease-in-out infinite;
+  will-change: transform;
+}
+
+.afhub-hero-carousel-slide {
+  display: flex;
+  flex: 0 0 16.666667%;
+  align-items: center;
+  justify-content: center;
+}
+
+.afhub-hero-carousel-object {
+  width: min(84%, 430px);
+  height: 82%;
+  object-fit: contain;
+  transform: scale(0.9);
+  opacity: 0.72;
+  animation: afhub-hero-carousel-focus 18s ease-in-out infinite;
+  animation-delay: var(--focus-delay);
+  will-change: transform, opacity, filter;
+}
+
+.afhub-hero-carousel:hover .afhub-hero-carousel-track,
+.afhub-hero-carousel:focus-within .afhub-hero-carousel-track,
+.afhub-hero-carousel:hover .afhub-hero-carousel-object,
+.afhub-hero-carousel:focus-within .afhub-hero-carousel-object {
+  animation-play-state: paused;
+}
+
+@keyframes afhub-hero-carousel-scroll {
+  0%,
+  28% {
+    transform: translateX(0);
+  }
+  33.333%,
+  61.333% {
+    transform: translateX(-16.666667%);
+  }
+  66.667%,
+  94.667% {
+    transform: translateX(-33.333333%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes afhub-hero-carousel-focus {
+  0%,
+  27.999% {
+    transform: scale(1.05);
+    opacity: 1;
+    filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.2));
+  }
+  33.333%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.72;
+    filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .afhub-hero-carousel-track,
+  .afhub-hero-carousel-object {
+    animation: none;
+    will-change: auto;
+  }
+
+  .afhub-hero-carousel-track {
+    transform: translateX(0);
+  }
+
+  .afhub-hero-carousel-object {
+    transform: scale(1);
+    opacity: 1;
+    filter: none;
+  }
+}
+
 .afhub-home > footer {
   background: #171717;
   color: #ffffff;

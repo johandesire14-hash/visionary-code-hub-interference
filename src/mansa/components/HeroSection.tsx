@@ -1,7 +1,9 @@
 import React from "react";
 import { ArrowDown, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import storefront from "@/assets/afhub-storefront.webp";
+import wallet from "@/assets/hero-wallet.webp";
+import storefront from "@/assets/hero-storefront.webp";
+import megaphone from "@/assets/hero-megaphone.webp";
 
 interface HeroSectionProps {
   onOpenStudio: (category?: string) => void;
@@ -40,14 +42,39 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenStudio }) => (
           <ArrowDown className="size-4" />
         </a>
       </div>
-      <img
-        src={storefront}
-        alt="Une boutique afhub, un portefeuille et un mégaphone"
-        width={1536}
-        height={1024}
-        fetchPriority="high"
-        className="mt-8 w-full max-w-[620px] object-contain mix-blend-screen sm:mt-2"
-      />
+      <div
+        className="afhub-hero-carousel mt-8 aspect-[3/2] w-full max-w-[620px] sm:mt-2"
+        role="region"
+        aria-label="Les outils afhub"
+        aria-roledescription="carrousel"
+      >
+        <div className="afhub-hero-carousel-track" aria-live="off">
+          {[
+            { name: "Portefeuille", image: wallet },
+            { name: "Boutique", image: storefront },
+            { name: "Mégaphone", image: megaphone },
+            { name: "Portefeuille", image: wallet },
+            { name: "Boutique", image: storefront },
+            { name: "Mégaphone", image: megaphone },
+          ].map(({ name, image }, index) => (
+            <div
+              className="afhub-hero-carousel-slide"
+              key={`${name}-${index}`}
+              aria-hidden={index > 2}
+              style={{ "--focus-delay": `${index * 6}s` } as React.CSSProperties}
+            >
+              <img
+                src={image}
+                alt={index < 3 ? name : ""}
+                aria-hidden={index > 2}
+                draggable={false}
+                fetchPriority={index === 0 ? "high" : "auto"}
+                className="afhub-hero-carousel-object"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   </section>
 );
