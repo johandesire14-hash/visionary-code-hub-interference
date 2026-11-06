@@ -1912,6 +1912,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     });
     if (!persistedConversation) setSupportChatList((prev) => [...prev, newMsg]);
 
+    const memberMessageCount = persistedConversation?.messages.filter((item) => item.sender === "member").length ?? 1;
+    if (memberMessageCount !== 1) return;
+
     // Auto-reply acknowledgment from support if configured by creator
     setTimeout(() => {
       const compId =

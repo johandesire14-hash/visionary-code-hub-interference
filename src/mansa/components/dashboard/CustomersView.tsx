@@ -45,6 +45,7 @@ import {
   saveCustomerNote,
   setCustomerBanned,
 } from "../../utils/customerManagementStorage";
+import { addUserNotification } from "../../utils/userNotifications";
 
 interface CustomerMember {
   id: string;
@@ -860,6 +861,12 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
           onConfirm={() => {
             if (activeCompanyId) {
               setCustomerBanned(activeCompanyId, customerToRevoke.email, true);
+              addUserNotification(customerToRevoke.email.trim().toLowerCase(), {
+                type: "ban",
+                title: "Accès révoqué",
+                message: `Vous avez été banni de ${activeCompanyName || "cette entreprise"}.`,
+                companyId: activeCompanyId,
+              });
             }
             if (customerToRevoke.id.startsWith("local-member-") && activeCompanyId) {
               removeSubscription(

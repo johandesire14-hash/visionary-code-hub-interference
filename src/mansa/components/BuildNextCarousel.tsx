@@ -13,7 +13,7 @@ const CATEGORIES_DATA: CategoryCardItem[] = [
   {
     id: "community",
     categoryKey: "community",
-    title: "Canaux VIP Telegram & Discord",
+    title: "Communauté payante",
     subtitle: "Vendez des abonnements et automatisez l’invitation de vos membres après paiement.",
     samplePrompt: "Canal Telegram privé avec invitation après paiement",
     icon: Send,

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as CguRouteImport } from './routes/cgu'
+import { Route as DocumentationRouteImport } from './routes/documentation'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MentionsLegalesRouteImport } from './routes/mentions-legales'
 import { Route as PrivacyRouteImport } from './routes/privacy'
@@ -30,6 +31,11 @@ const AppRoute = AppRouteImport.update({
 const CguRoute = CguRouteImport.update({
   id: '/cgu',
   path: '/cgu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentationRoute = DocumentationRouteImport.update({
+  id: '/documentation',
+  path: '/documentation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/cgu': typeof CguRoute
+  '/documentation': typeof DocumentationRoute
   '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/privacy': typeof PrivacyRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/cgu': typeof CguRoute
+  '/documentation': typeof DocumentationRoute
   '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/privacy': typeof PrivacyRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/app': typeof AppRoute
   '/cgu': typeof CguRoute
+  '/documentation': typeof DocumentationRoute
   '/login': typeof LoginRoute
   '/mentions-legales': typeof MentionsLegalesRoute
   '/privacy': typeof PrivacyRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/cgu'
+    | '/documentation'
     | '/login'
     | '/mentions-legales'
     | '/privacy'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/cgu'
+    | '/documentation'
     | '/login'
     | '/mentions-legales'
     | '/privacy'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/cgu'
+    | '/documentation'
     | '/login'
     | '/mentions-legales'
     | '/privacy'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRoute
   CguRoute: typeof CguRoute
+  DocumentationRoute: typeof DocumentationRoute
   LoginRoute: typeof LoginRoute
   MentionsLegalesRoute: typeof MentionsLegalesRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -142,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/cgu'
       fullPath: '/cgu'
       preLoaderRoute: typeof CguRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentation': {
+      id: '/documentation'
+      path: '/documentation'
+      fullPath: '/documentation'
+      preLoaderRoute: typeof DocumentationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRoute,
   CguRoute: CguRoute,
+  DocumentationRoute: DocumentationRoute,
   LoginRoute: LoginRoute,
   MentionsLegalesRoute: MentionsLegalesRoute,
   PrivacyRoute: PrivacyRoute,

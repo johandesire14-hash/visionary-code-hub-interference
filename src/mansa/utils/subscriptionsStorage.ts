@@ -10,6 +10,7 @@ import {
 } from "./rightsAccessEngine";
 
 const SUBSCRIPTIONS_STORAGE_KEY_PREFIX = "mansa_enterprise_subscriptions_";
+const ACTIVITY_ARCHIVE_KEY_PREFIX = "mansa_activity_archive_";
 
 export function deduplicateSubscriptions(subs: EnterpriseSubscription[]): EnterpriseSubscription[] {
   if (!Array.isArray(subs)) return [];
@@ -199,6 +200,13 @@ export function removeSubscription(userKey: string, targetId: string): Enterpris
   const updated = current.filter((sub) => sub.id !== targetId && sub.companyId !== targetId);
 
   if (typeof window !== "undefined") {
+    if (removed) {
+      const archiveKey = ACTIVITY_ARCHIVE_KEY_PREFIX + userKey;
+      const archived = getArchivedSubscriptions(userKey);
+      if (!archived.some((sub) => sub.id === removed.id || sub.companyId === removed.companyId)) {
+        localStorage.setItem(archiveKey, JSON.stringify([removed, ...archived]));
+      }
+    }
     localStorage.setItem(SUBSCRIPTIONS_STORAGE_KEY_PREFIX + userKey, JSON.stringify(updated));
     if (removed?.companyId) unregisterLocalCompanyMember(removed.companyId, userKey);
     window.dispatchEvent(
@@ -206,6 +214,16 @@ export function removeSubscription(userKey: string, targetId: string): Enterpris
     );
   }
   return updated;
+}
+
+export function getArchivedSubscriptions(userKey: string): EnterpriseSubscription[] {
+  if (typeof window === "undefined" || !userKey) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ACTIVITY_ARCHIVE_KEY_PREFIX + userKey) || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export function cancelActiveSubscription(

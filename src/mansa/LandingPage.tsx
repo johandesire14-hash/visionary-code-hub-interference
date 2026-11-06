@@ -3,7 +3,7 @@ import { useAuth } from "./context/AuthContext";
 import { Header } from "./components/Header";
 import { HeroSection } from "./components/HeroSection";
 import { BuildNextCarousel } from "./components/BuildNextCarousel";
-import { MarketplaceSection } from "./components/MarketplaceSection";
+import { ReviewsSection } from "./components/ReviewsSection";
 import { FaqSection } from "./components/FaqSection";
 import { Footer } from "./components/Footer";
 import { UiArcShowcase } from "./components/UiArcShowcase";
@@ -51,11 +51,7 @@ export default function LandingPage() {
           onOpenStudio={() => openStudio()}
           lang="fr"
         />
-        <MarketplaceSection
-          onSelectProduct={() => undefined}
-          onOpenStudio={() => openStudio()}
-          lang="fr"
-        />
+        <ReviewsSection />
         <FaqSection onOpenStudio={() => openStudio()} lang="fr" />
         <Footer onOpenStudio={() => openStudio()} lang="fr" />
       </main>

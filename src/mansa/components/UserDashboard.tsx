@@ -154,6 +154,7 @@ import {
   FirestoreCustomer,
 } from "../services/dbService";
 import { isCreatorPayoutConfigured } from "../utils/payoutConfig";
+import { getUserNotifications, UserNotification } from "../utils/userNotifications";
 import type { CreatorEnterpriseCard } from "./dashboard/DiscoverCreatorsView";
 
 interface UserDashboardProps {
@@ -1450,6 +1451,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
   const [creatorAppsLoadAttempt, setCreatorAppsLoadAttempt] = useState(0);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMemberCheckoutOpen, setIsMemberCheckoutOpen] = useState(false);
+  const [userNotifications, setUserNotifications] = useState<UserNotification[]>(() =>
+    getUserNotifications(user.email.trim().toLowerCase()),
+  );
+
+  useEffect(() => {
+    const refreshNotifications = () =>
+      setUserNotifications(getUserNotifications(user.email.trim().toLowerCase()));
+    window.addEventListener("mansa_user_notifications_updated", refreshNotifications);
+    return () => window.removeEventListener("mansa_user_notifications_updated", refreshNotifications);
+  }, [user.email]);
 
   // Tab change with skeleton loading transition
   const switchTab = (tab: typeof activeNav) => {
@@ -1606,6 +1617,34 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
       setPrivateConversations((previous) =>
         previous.map((conversation) => (conversation.id === saved.id ? saved : conversation)),
       );
+
+      const memberMessageCount = saved.messages.filter((item) => item.sender === "member").length;
+      if (!isCreatorInbox && memberMessageCount === 1) {
+        const userKey = user.uid || user.email || "default";
+        const company = getSavedCompanies(userKey).find(
+          (item) => item.id === selected.companyId || item.name === selected.companyId,
+        );
+        if (company?.supportAutoReplyEnabled !== false) {
+          const autoReply = (company?.supportAutoReplyMessage ||
+            `Message bien reçu. L'équipe de ${company?.name || "l’entreprise"} vous répondra dans les plus brefs délais.`)
+            .replace(/\{nom\}/gi, user.name)
+            .replace(/\{entreprise\}/gi, company?.name || "l’entreprise");
+          window.setTimeout(() => {
+            const reply = appendLocalPrivateMessage({
+              companyId: selected.companyId,
+              memberEmail: selected.memberEmail,
+              memberName: selected.memberName,
+              sender: "creator",
+              text: autoReply,
+            });
+            if (reply) {
+              setPrivateConversations((previous) =>
+                previous.map((conversation) => (conversation.id === reply.id ? reply : conversation)),
+              );
+            }
+          }, 1000);
+        }
+      }
     }
     setNewChatInput("");
   };
@@ -2285,7 +2324,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               {/* Paramètres Entreprise */}
               <button
                 onClick={() => switchTab("parametres_entreprise")}
-                className={`${activeWorkspaceId === "personnel" ? "hidden" : ""} w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                className={`${!activeCompany ? "hidden" : ""} w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   activeNav === "parametres_entreprise" || activeNav === "parametres_boutique"
                     ? "bg-[#22252c] text-[#00D26A] font-bold"
                     : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
@@ -2727,7 +2766,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <div className="border-t border-white/[0.07] pt-3 mt-4 space-y-2 shrink-0">
                   <button
                     onClick={() => switchTab("parametres_entreprise")}
-                    className={`${activeWorkspaceId === "personnel" ? "hidden" : ""} w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] ${
+                    className={`${!activeCompany ? "hidden" : ""} w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-colors cursor-pointer min-h-[44px] ${
                       activeNav === "parametres_entreprise" || activeNav === "parametres_boutique"
                         ? "bg-[#22252c] text-[#00D26A] font-bold"
                         : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
@@ -2759,6 +2798,15 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
           {/* 3. MAIN CENTER WORKSPACE */}
           <main className="dashboard-canvas flex-1 overflow-y-auto bg-[#0f1012] p-6 lg:p-8">
+            {userNotifications[0] && !userNotifications[0].read && (
+              <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-500/10 p-4 text-sm text-red-100">
+                <Bell className="mt-0.5 size-4 shrink-0 text-red-300" />
+                <div>
+                  <p className="font-bold">{userNotifications[0].title}</p>
+                  <p className="mt-1 text-xs text-red-100/80">{userNotifications[0].message}</p>
+                </div>
+              </div>
+            )}
             {/* VIEW: COMMUNAUTÉ (EMPTY STATE LORSQUE L'UTILISATEUR A QUITTÉ LES ENTREPRISES) */}
             {activeNav === "communaute" && !currentCommunitySub && (
               <div className="py-20 flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto">
@@ -4344,9 +4392,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               >
                 <span className="flex items-center gap-2">
                   <ShoppingBag className="size-3.5 text-emerald-400" />
-                  <span>Mes Commandes & Achats (Fichiers, beats, accès VIP)</span>
+                <span>Activité</span>
                 </span>
-                <span className="font-mono text-[10px] text-emerald-400">Paramètres</span>
+                <span className="font-mono text-[10px] text-emerald-400">Entreprises et produits</span>
               </div>
               {isCreatorCompanySelected && (
                 <div

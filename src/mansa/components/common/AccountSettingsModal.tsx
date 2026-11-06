@@ -38,6 +38,7 @@ import {
   type AccountPaymentSettings,
 } from "../../services/dbService";
 import { CustomerPurchasesView } from "../dashboard/CustomerPurchasesView";
+import { ActivityView } from "./ActivityView";
 import { AccountPortfolioTab } from "./AccountPortfolioTab";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
 import { siteUrl } from "@/lib/site";
@@ -381,7 +382,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     { id: "invitations", label: "Invitations", icon: Mail },
     { id: "comptes_connectes", label: "Comptes connectés", icon: Link2 },
     { id: "securite", label: "Sécurité du compte", icon: ShieldCheck },
-    { id: "commandes", label: "Commandes & Achats", fullLabel: "Mes Commandes et Achats", icon: Bookmark },
+    { id: "commandes", label: "Activité", fullLabel: "Mon activité", icon: Bookmark },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "paiements", label: "Méthodes de paie...", fullLabel: "Méthodes de paiement", icon: CreditCard },
     { id: "portefeuille", label: "Portefeuille", icon: Folder },
@@ -554,7 +555,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               {activeTab === "invitations" && "Invitations"}
               {activeTab === "comptes_connectes" && "Comptes connectés"}
               {activeTab === "securite" && "Sécurité du compte"}
-              {activeTab === "commandes" && "Mes Commandes & Achats"}
+              {activeTab === "commandes" && "Mon activité"}
               {activeTab === "notifications" && "Notifications"}
               {activeTab === "paiements" && "Méthodes de paiement"}
               {activeTab === "portefeuille" && "Portefeuille"}
@@ -896,8 +897,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           {/* 5. TAB: COMMANDES & ACHATS */}
           {/* ================================================================= */}
           {activeTab === "commandes" && (
-            <div className="space-y-4">
-              <CustomerPurchasesView lang={lang} isEmbeddedInSettings={true} />
+            <div className="h-full overflow-y-auto p-4 sm:p-6">
+              <ActivityView userKey={userId} />
+              <div className="mt-8 border-t border-white/10 pt-6">
+                <CustomerPurchasesView lang={lang} isEmbeddedInSettings={true} />
+              </div>
             </div>
           )}
 
