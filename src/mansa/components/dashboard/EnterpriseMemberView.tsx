@@ -85,7 +85,10 @@ import {
   EbookResourceItem,
   CourseResourceItem,
 } from "../../utils/rightsAccessEngine";
-import { TEMPORARY_FREE_ACCESS_ENABLED } from "../../utils/temporaryFreeAccess";
+import {
+  prepareTemporaryFreeCheckoutOffer,
+  TEMPORARY_FREE_ACCESS_ENABLED,
+} from "../../utils/temporaryFreeAccess";
 import { downloadDigitalAsset, saveDigitalAsset } from "../../utils/digitalAssetStorage";
 import {
   getPostsForCompany,
@@ -3784,13 +3787,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          if (TEMPORARY_FREE_ACCESS_ENABLED && !canManageCompany) {
-                            setSelectedProductDetailOffer(null);
-                            setActiveTab("accueil");
-                            setCompanyTab("accueil");
-                            return;
-                          }
-                          setCheckoutModalOffer(offer);
+                          setCheckoutModalOffer(
+                            prepareTemporaryFreeCheckoutOffer(offer, canManageCompany),
+                          );
                           setSelectedProductDetailOffer(null);
                         }}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0066FF] py-4 text-base font-black text-white shadow-xl hover:bg-[#0055EE]"
