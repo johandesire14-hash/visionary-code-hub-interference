@@ -20,6 +20,7 @@ import { PLATFORM_OFFERS_CATALOG } from "../../utils/rightsAccessEngine";
 import { loadDiscoverableCompanies } from "../../utils/companyStorage";
 import { LOCAL_COMPANY_MEMBERS_PREFIX } from "../../utils/localCommunityStore";
 import { loadDiscoverableProducts } from "../../services/dbService";
+import { DISCOVERABLE_PRODUCTS_UPDATED_EVENT } from "../../utils/productUpdateEvents";
 
 export const PLATFORM_CREATOR_OFFERS: CreatorPlatformOffer[] = PLATFORM_OFFERS_CATALOG;
 
@@ -233,7 +234,7 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
     };
     refreshDiscoverableContent();
     window.addEventListener("mansa_discoverable_companies_updated", refreshDiscoverableContent);
-    window.addEventListener("mansa_discoverable_products_updated", refreshDiscoverableContent);
+    window.addEventListener(DISCOVERABLE_PRODUCTS_UPDATED_EVENT, refreshDiscoverableContent);
     const handleStorage = (event: StorageEvent) => {
       if (event.key?.startsWith(LOCAL_COMPANY_MEMBERS_PREFIX)) {
         void refreshDiscoverableContent();
@@ -246,7 +247,7 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
         "mansa_discoverable_companies_updated",
         refreshDiscoverableContent,
       );
-      window.removeEventListener("mansa_discoverable_products_updated", refreshDiscoverableContent);
+      window.removeEventListener(DISCOVERABLE_PRODUCTS_UPDATED_EVENT, refreshDiscoverableContent);
       window.removeEventListener("storage", handleStorage);
     };
   }, []);

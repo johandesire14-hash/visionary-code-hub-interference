@@ -27,6 +27,7 @@ import { BusinessProject, LiveEvent, MarketplaceItem } from "../types";
 import { safeStorage } from "../utils/storage";
 import { getSavedCompanies } from "../utils/companyStorage";
 import { filterPersonalTransactions } from "../utils/companyScope";
+import { dispatchProductUpdates } from "../utils/productUpdateEvents";
 
 export interface AccountPaymentMethodConfig {
   dialCode?: string;
@@ -340,8 +341,7 @@ export async function saveProductPrivateContent(
     localProducts[index] = { ...localProducts[index], digitalFiles, courseModules };
     saveCreatorLocalProducts(creatorId, localProducts);
   }
-  if (typeof window !== "undefined")
-    window.dispatchEvent(new Event("mansa_discoverable_products_updated"));
+  dispatchProductUpdates();
 }
 
 export async function loadDiscoverableProducts(): Promise<BusinessProject[]> {
@@ -1047,9 +1047,7 @@ export async function saveProductToFirestore(
   if (existingIdx >= 0) localList[existingIdx] = newProject;
   else localList.unshift(newProject);
   saveCreatorLocalProducts(creatorId, localList);
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("mansa_discoverable_products_updated"));
-  }
+  dispatchProductUpdates();
   return productId;
 }
 
@@ -1073,9 +1071,7 @@ export async function deleteProductFromFirestore(
   } catch (err) {
     console.warn("Firestore delete warning (removed locally):", err);
   }
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("mansa_discoverable_products_updated"));
-  }
+  dispatchProductUpdates();
 }
 
 // ----------------- TRANSACTIONS (REAL FIRESTORE & CACHE) -----------------

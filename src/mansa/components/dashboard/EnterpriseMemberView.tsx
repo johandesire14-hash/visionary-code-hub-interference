@@ -100,6 +100,7 @@ import {
   recordCompanyPollVote,
   CompanyPost,
 } from "../../utils/companyPostsStorage";
+import { PRODUCTS_UPDATED_EVENT } from "../../utils/productUpdateEvents";
 import {
   updateCompanyBranding,
   getSavedCompanies,
@@ -891,10 +892,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     const handleProductsUpdated = () => {
       setProductsRefreshTrigger((prev) => prev + 1);
     };
-    window.addEventListener("mansa_products_updated", handleProductsUpdated);
+    window.addEventListener(PRODUCTS_UPDATED_EVENT, handleProductsUpdated);
     window.addEventListener("storage", handleProductsUpdated);
     return () => {
-      window.removeEventListener("mansa_products_updated", handleProductsUpdated);
+      window.removeEventListener(PRODUCTS_UPDATED_EVENT, handleProductsUpdated);
       window.removeEventListener("storage", handleProductsUpdated);
     };
   }, []);

@@ -3,6 +3,7 @@ import { ChevronLeft, FileText, Pencil, Plus, Replace, Trash2, Upload, X } from 
 import { saveDigitalAsset } from "../../utils/digitalAssetStorage";
 import { getOffersForCompany } from "../../utils/rightsAccessEngine";
 import { getUserFacingErrorMessage } from "../../utils/userFacingError";
+import { dispatchProductUpdates } from "../../utils/productUpdateEvents";
 
 interface FilesWorkspaceProps {
   creatorId: string;
@@ -307,7 +308,7 @@ export const FilesWorkspace: React.FC<FilesWorkspaceProps> = ({
 
       localStorage.setItem(offersKey, JSON.stringify(nextOffers));
       localStorage.setItem(appsKey, JSON.stringify(nextApps));
-      window.dispatchEvent(new CustomEvent("mansa_products_updated"));
+      dispatchProductUpdates();
     } catch (error) {
       try {
         if (previousOffers === null) localStorage.removeItem(offersKey);
