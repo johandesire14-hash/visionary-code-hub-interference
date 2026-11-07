@@ -23,11 +23,12 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "./firebase";
-import { BusinessProject, LiveEvent, MarketplaceItem } from "../types";
+import { BusinessProject, CreatorPlatformOffer, LiveEvent, MarketplaceItem } from "../types";
 import { safeStorage } from "../utils/storage";
 import { getSavedCompanies } from "../utils/companyStorage";
 import { filterPersonalTransactions } from "../utils/companyScope";
-import { dispatchProductUpdates } from "../utils/productUpdateEvents";
+import { PRODUCTS_UPDATED_EVENT, dispatchProductUpdates } from "../utils/productUpdateEvents";
+import { convertProjectToPlatformOffer, getOffersForCompany } from "../utils/rightsAccessEngine";
 
 export interface AccountPaymentMethodConfig {
   dialCode?: string;
@@ -749,6 +750,56 @@ export async function getMemberProductsByIds(productIds: string[]): Promise<Busi
     }),
   );
   return products.filter((product): product is BusinessProject => Boolean(product));
+}
+
+/** Subscribe to active company offers from Firestore only; do not fall back to browser storage. */
+export function subscribeToCompanyOffers(
+  companyId: string,
+  callback: (offers: CreatorPlatformOffer[]) => void,
+) {
+  if (!companyId) {
+    callback([]);
+    return () => {};
+  }
+
+  if (!db) {
+    const emitLocalOffers = () => callback(getOffersForCompany(companyId));
+    emitLocalOffers();
+
+    if (typeof window === "undefined") return () => {};
+
+    window.addEventListener(PRODUCTS_UPDATED_EVENT, emitLocalOffers);
+    window.addEventListener("storage", emitLocalOffers);
+    return () => {
+      window.removeEventListener(PRODUCTS_UPDATED_EVENT, emitLocalOffers);
+      window.removeEventListener("storage", emitLocalOffers);
+    };
+  }
+
+  const offersQuery = query(
+    collection(db, "products"),
+    where("companyId", "==", companyId),
+    where("status", "==", "active"),
+  );
+
+  return onSnapshot(
+    offersQuery,
+    (snapshot) => {
+      const offers = snapshot.docs.map((productDoc) => {
+        const data = productDoc.data();
+        return convertProjectToPlatformOffer(
+          { ...data, id: productDoc.id },
+          companyId,
+          data.companyName,
+        );
+      });
+      callback(offers);
+    },
+    (error) => {
+      console.warn("Unable to subscribe to company offers in Firestore:", error);
+      callback([]);
+    },
+  );
 }
 
 export function subscribeToCreatorProducts(

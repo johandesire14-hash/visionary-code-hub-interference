@@ -66,7 +66,6 @@ import { EnterpriseSubscription, TelegramChannelItem, DiscordChannelItem } from 
 import { ConnectedAppsView, TelegramIcon, DiscordIcon } from "./ConnectedAppsView";
 import { SupportInboxView } from "./SupportInboxView";
 import { OfferCheckoutModal, CreatorPlatformOffer } from "./OfferCheckoutModal";
-import { PLATFORM_CREATOR_OFFERS } from "./DiscoverCreatorsView";
 import {
   saveSubscription,
   updateSubscriptionBranding,
@@ -78,7 +77,6 @@ import {
   getMemberAuthorizedDiscordChannels,
   getMemberAuthorizedEbooks,
   getMemberAuthorizedCourses,
-  getOffersForCompany,
   getMemberAuthorizedOffers,
   isGenericFreeMembershipProductId,
   normalizeUnlockedOfferIds,
@@ -100,7 +98,7 @@ import {
   recordCompanyPollVote,
   CompanyPost,
 } from "../../utils/companyPostsStorage";
-import { PRODUCTS_UPDATED_EVENT } from "../../utils/productUpdateEvents";
+import { subscribeToCompanyOffers } from "../../services/dbService";
 import {
   updateCompanyBranding,
   getSavedCompanies,
@@ -886,40 +884,25 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     }
   };
 
-  // Synchronize dynamic products updates
-  const [productsRefreshTrigger, setProductsRefreshTrigger] = useState(0);
-  React.useEffect(() => {
-    const handleProductsUpdated = () => {
-      setProductsRefreshTrigger((prev) => prev + 1);
-    };
-    window.addEventListener(PRODUCTS_UPDATED_EVENT, handleProductsUpdated);
-    window.addEventListener("storage", handleProductsUpdated);
-    return () => {
-      window.removeEventListener(PRODUCTS_UPDATED_EVENT, handleProductsUpdated);
-      window.removeEventListener("storage", handleProductsUpdated);
-    };
-  }, []);
+  // Firestore is the source of truth for the offers shown to company members.
+  const companyOffersId = currentSub.companyId || currentSub.id;
+  const [enterpriseOffers, setEnterpriseOffers] = React.useState<CreatorPlatformOffer[]>([]);
+  const [enterpriseOffersLoading, setEnterpriseOffersLoading] = React.useState(true);
 
-  // 1. Offres réelles de l'entreprise : récupérées depuis rightsAccessEngine / PLATFORM_CREATOR_OFFERS
-  const enterpriseOffers = React.useMemo<CreatorPlatformOffer[]>(() => {
-    const compId = currentSub.companyId || currentSub.id;
-    const configured = getOffersForCompany(compId);
-    if (configured.length > 0) {
-      return configured;
+  React.useEffect(() => {
+    setEnterpriseOffers([]);
+    setEnterpriseOffersLoading(true);
+
+    if (!companyOffersId) {
+      setEnterpriseOffersLoading(false);
+      return;
     }
-    const registered = PLATFORM_CREATOR_OFFERS.filter(
-      (o) =>
-        o.companyId === compId ||
-        o.companyId === currentSub.id ||
-        (o.companyName &&
-          currentSub.companyName &&
-          o.companyName.toLowerCase() === currentSub.companyName.toLowerCase()),
-    );
-    if (registered.length > 0) {
-      return registered;
-    }
-    return [];
-  }, [currentSub.companyId, currentSub.id, currentSub.companyName, productsRefreshTrigger]);
+
+    return subscribeToCompanyOffers(companyOffersId, (offers) => {
+      setEnterpriseOffers(offers);
+      setEnterpriseOffersLoading(false);
+    });
+  }, [companyOffersId]);
 
   // Ne montrer au membre que les applications des offres qu'il possède réellement.
   // Le mode d'accès temporairement gratuit ne doit pas exposer les applications payantes.
@@ -1339,7 +1322,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
         localStorage.setItem(`mansa_creator_offers_${companyId}`, JSON.stringify(updatedOffers));
         localStorage.setItem(`mansa_creator_courses_${companyId}`, JSON.stringify(nextCourses));
         setCreatorCourses(nextCourses);
-        setProductsRefreshTrigger((prev) => prev + 1);
         setEditingCreatorCourseId(null);
         setCourseCreationStep("library");
         setCreatorAppStep("closed");
@@ -1418,7 +1400,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
           ]),
         );
         setCreatorFiles((files) => [...files, { ...newFile, productIds: linkedCreatorProductIds }]);
-        setProductsRefreshTrigger((prev) => prev + 1);
         setCreatorFilesScreen("library");
         setCreatorSelectedFile(null);
         setCreatorFileName("");
@@ -2165,7 +2146,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             </button>
             {isPreviewMenuOpen && (
               <div className="mt-1 border-t border-white/10 pt-1">
-                {enterpriseOffers.length === 0 ? (
+                {enterpriseOffersLoading ? null : enterpriseOffers.length === 0 ? (
                   <div className="px-2.5 py-2 text-[11px] text-zinc-500">
                     Aucun produit disponible
                   </div>
@@ -3173,7 +3154,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
               {companyTab === "produits" && (
                 <div className="space-y-6 animate-in fade-in duration-150 max-w-5xl">
                   <div className="grid grid-cols-2 gap-4 sm:gap-5">
-                    {enterpriseOffers.length === 0 ? (
+                    {enterpriseOffersLoading ? null : enterpriseOffers.length === 0 ? (
                       <div className="col-span-1 md:col-span-2 py-12 px-6 rounded-2xl border border-white/10 bg-[#111318] text-center space-y-3">
                         <ShoppingBag className="size-10 text-zinc-500 mx-auto" />
                         <h4 className="text-base font-bold text-white">

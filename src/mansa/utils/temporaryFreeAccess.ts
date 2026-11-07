@@ -5,7 +5,7 @@
  */
 import type { CreatorPlatformOffer } from "../types";
 
-export const TEMPORARY_FREE_ACCESS_ENABLED = true;
+export const TEMPORARY_FREE_ACCESS_ENABLED = false;
 
 export function prepareTemporaryFreeCheckoutOffer(
   offer: CreatorPlatformOffer,
