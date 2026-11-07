@@ -80,6 +80,7 @@ import {
   getMemberAuthorizedCourses,
   getOffersForCompany,
   getMemberAuthorizedOffers,
+  isGenericFreeMembershipProductId,
   normalizeUnlockedOfferIds,
   verifyMemberResourceAccess,
   EbookResourceItem,
@@ -928,7 +929,14 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       ...(typeof currentSub.productId === "string" ? [currentSub.productId] : []),
     ];
     return Array.from(
-      new Set(ids.filter((id) => typeof id === "string" && id.trim() && !id.toLowerCase().includes("free"))),
+      new Set(
+        ids.filter(
+          (id) =>
+            typeof id === "string" &&
+            id.trim() &&
+            !isGenericFreeMembershipProductId(id, currentSub.companyId),
+        ),
+      ),
     );
   }, [currentSub]);
 
@@ -3877,7 +3885,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             const newOfferIds = [
               ...(newSub.unlockedProductIds || []),
               ...(newSub.purchasedOfferIds || []),
-              ...(newSub.productId && !newSub.productId.includes("free") ? [newSub.productId] : []),
+              ...(newSub.productId &&
+              !isGenericFreeMembershipProductId(newSub.productId, newSub.companyId)
+                ? [newSub.productId]
+                : []),
             ];
             const updatedUnlockedIds = Array.from(new Set([...unlockedProductIds, ...newOfferIds]));
             setCurrentIncludedApps(updatedApps);

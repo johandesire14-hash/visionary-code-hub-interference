@@ -96,8 +96,7 @@ export function saveSubscription(
       }
     });
 
-    const isPaid =
-      mergedUnlockedProducts.length > 0 || Boolean(prev.hasPaidOffer || newSub.hasPaidOffer);
+    const isPaid = Boolean(prev.hasPaidOffer || newSub.hasPaidOffer);
 
     const merged: EnterpriseSubscription = {
       ...prev,
@@ -150,7 +149,7 @@ export function saveSubscription(
       discordChannels: authorizedDiscord,
       ebooks: authorizedEbooks,
       courses: authorizedCourses,
-      hasPaidOffer: initialUnlocked.length > 0 || Boolean(newSub.hasPaidOffer),
+      hasPaidOffer: Boolean(newSub.hasPaidOffer),
     };
 
     updated = [populatedSub, ...current];

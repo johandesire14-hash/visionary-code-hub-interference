@@ -509,7 +509,11 @@ export function normalizeUnlockedOfferIds(sub?: Partial<EnterpriseSubscription> 
     });
   }
 
-  if (sub.productId && typeof sub.productId === "string" && !sub.productId.includes("free")) {
+  if (
+    sub.productId &&
+    typeof sub.productId === "string" &&
+    !isGenericFreeMembershipProductId(sub.productId, sub.companyId)
+  ) {
     set.add(sub.productId);
   }
 
@@ -518,6 +522,14 @@ export function normalizeUnlockedOfferIds(sub?: Partial<EnterpriseSubscription> 
   }
 
   return Array.from(set);
+}
+
+export function isGenericFreeMembershipProductId(
+  productId?: string | null,
+  companyId?: string | null,
+): boolean {
+  if (!productId?.trim() || !companyId?.trim()) return false;
+  return productId.trim().toLowerCase() === `free-member-${companyId.trim().toLowerCase()}`;
 }
 
 /**
