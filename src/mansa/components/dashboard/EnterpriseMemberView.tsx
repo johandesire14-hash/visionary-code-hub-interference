@@ -243,7 +243,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       window.setTimeout(() => setIsAffiliateLinkCopied(false), 2500);
     } catch (error) {
       console.error("Affiliate link creation failed:", error);
-      setAffiliateLinkError(getUserFacingErrorMessage(error, "Impossible de créer le lien affilié. Réessayez."));
+      setAffiliateLinkError(
+        getUserFacingErrorMessage(error, "Impossible de créer le lien affilié. Réessayez."),
+      );
     } finally {
       setIsCreatingAffiliateLink(false);
     }
@@ -355,14 +357,15 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       Array.from(
         new Set(
           memberUnlockedOfferIds.filter(
-            (offerId) =>
-              offerId.trim() && !isGenericFreeMembershipProductId(offerId, companyId),
+            (offerId) => offerId.trim() && !isGenericFreeMembershipProductId(offerId, companyId),
           ),
         ),
       ),
     [companyId, memberUnlockedOfferIds],
   );
-  const [memberPurchasedOffers, setMemberPurchasedOffers] = React.useState<CreatorPlatformOffer[]>([]);
+  const [memberPurchasedOffers, setMemberPurchasedOffers] = React.useState<CreatorPlatformOffer[]>(
+    [],
+  );
   const [memberPurchasedOffersLoading, setMemberPurchasedOffersLoading] = React.useState(
     purchasedProductIds.length > 0,
   );
@@ -421,11 +424,19 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
   }, [companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers]);
 
   const authorizedEbooks = React.useMemo(() => {
-    return getMemberAuthorizedEbooks(companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers);
+    return getMemberAuthorizedEbooks(
+      companyId,
+      scopedMemberUnlockedOfferIds,
+      memberPurchasedOffers,
+    );
   }, [companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers]);
 
   const authorizedCourses = React.useMemo(() => {
-    return getMemberAuthorizedCourses(companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers);
+    return getMemberAuthorizedCourses(
+      companyId,
+      scopedMemberUnlockedOfferIds,
+      memberPurchasedOffers,
+    );
   }, [companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers]);
 
   // Vérification d'accès stricte : débloqué uniquement si l'offre achetée accorde la ressource précise
@@ -526,7 +537,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       category: "Actualité",
       media: draft.media,
       poll: draft.poll,
-      paidPublication: draft.paidPublication,
     });
   };
 
@@ -991,12 +1001,17 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
   const memberOwnedOffers = React.useMemo(
     () =>
-      getMemberAuthorizedOffers(
-        currentSub.companyId || currentSub.id,
-        purchasedAppOfferIds,
-        [...enterpriseOffers, ...memberPurchasedOffers],
-      ),
-    [currentSub.companyId, currentSub.id, purchasedAppOfferIds, enterpriseOffers, memberPurchasedOffers],
+      getMemberAuthorizedOffers(currentSub.companyId || currentSub.id, purchasedAppOfferIds, [
+        ...enterpriseOffers,
+        ...memberPurchasedOffers,
+      ]),
+    [
+      currentSub.companyId,
+      currentSub.id,
+      purchasedAppOfferIds,
+      enterpriseOffers,
+      memberPurchasedOffers,
+    ],
   );
 
   const visibleIncludedAppNames = React.useMemo(() => {
@@ -1007,7 +1022,13 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       companyOffers: enterpriseOffers,
       memberOwnedOffers,
     });
-  }, [currentIncludedApps, currentSub.includedApps, enterpriseOffers, isCompanyOwner, memberOwnedOffers]);
+  }, [
+    currentIncludedApps,
+    currentSub.includedApps,
+    enterpriseOffers,
+    isCompanyOwner,
+    memberOwnedOffers,
+  ]);
 
   const hasTelegramApp = React.useMemo(
     () => visibleIncludedAppNames.some((app) => app.includes("telegram")),
@@ -1489,7 +1510,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setSelectedCreatorApp(null);
     } catch (error) {
       console.error("Creator content save failed:", error);
-      setCreatorSaveError(getUserFacingErrorMessage(error, "Le contenu n’a pas pu être enregistré. Réessayez."));
+      setCreatorSaveError(
+        getUserFacingErrorMessage(error, "Le contenu n’a pas pu être enregistré. Réessayez."),
+      );
     } finally {
       setIsSavingCreatorContent(false);
     }
@@ -1654,7 +1677,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       setTimeout(() => setEbookDownloadToast(null), 3500);
     } catch (error) {
       console.error("Member file download failed:", error);
-      setAccessDeniedToast(getUserFacingErrorMessage(error, "Le téléchargement a échoué. Réessayez."));
+      setAccessDeniedToast(
+        getUserFacingErrorMessage(error, "Le téléchargement a échoué. Réessayez."),
+      );
       setTimeout(() => setAccessDeniedToast(null), 4500);
     }
   };
@@ -1696,7 +1721,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       );
     } catch (error) {
       console.error("Course attachment download failed:", error);
-      setAccessDeniedToast(getUserFacingErrorMessage(error, "Le téléchargement de la pièce jointe a échoué. Réessayez."));
+      setAccessDeniedToast(
+        getUserFacingErrorMessage(
+          error,
+          "Le téléchargement de la pièce jointe a échoué. Réessayez.",
+        ),
+      );
       setTimeout(() => setAccessDeniedToast(null), 4500);
     }
   };
@@ -1970,7 +2000,8 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     });
     if (!persistedConversation) setSupportChatList((prev) => [...prev, newMsg]);
 
-    const memberMessageCount = persistedConversation?.messages.filter((item) => item.sender === "member").length ?? 1;
+    const memberMessageCount =
+      persistedConversation?.messages.filter((item) => item.sender === "member").length ?? 1;
     if (memberMessageCount !== 1) return;
 
     // Auto-reply acknowledgment from support if configured by creator
@@ -2830,7 +2861,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                       </span>
                       <CompanySocialIcons socialLinks={currentSub.socialLinks} />
                     </div>
-
                   </div>
                 </div>
               </>
@@ -2958,12 +2988,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
                                   <div className="flex items-center gap-1.5 text-[11px] text-blue-400 font-semibold pt-0.5">
                                     <Pin className="size-3" />
                                     <span>Publication Épinglée</span>
-                                  </div>
-                                )}
-                                {post.paidPublication && (
-                                  <div className="flex items-center gap-1.5 pt-1 text-[11px] font-semibold text-amber-300">
-                                    <DollarSign className="size-3" />
-                                    <span>Publication rémunérée</span>
                                   </div>
                                 )}
                               </div>
@@ -3771,9 +3795,6 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
                   <div className="order-1 space-y-5 lg:order-none lg:col-span-5">
                     <div className="space-y-5 rounded-3xl border border-white/15 bg-[#14161f] p-4 shadow-2xl sm:p-6">
-                      <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-                        Rappel du produit
-                      </span>
                       <div className="relative aspect-[16/7] overflow-hidden rounded-2xl border border-white/10 bg-[#0d0e12]">
                         {offer.bannerUrl || offer.imageUrl ? (
                           <img
@@ -4073,9 +4094,17 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
               {/* E-books débloqués par l'offre achetée */}
               {memberPurchasedOffersLoading ? (
-                <div role="status" className="flex items-center justify-center gap-2 p-4 text-xs text-zinc-400">
-                  <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
-                  {lang === "en" ? "Loading your purchased content…" : "Chargement de vos contenus achetés…"}
+                <div
+                  role="status"
+                  className="flex items-center justify-center gap-2 p-4 text-xs text-zinc-400"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-4 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent"
+                  />
+                  {lang === "en"
+                    ? "Loading your purchased content…"
+                    : "Chargement de vos contenus achetés…"}
                 </div>
               ) : authorizedEbooks.length > 0 ? (
                 authorizedEbooks.map((eb) => (
@@ -4915,9 +4944,17 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
               {/* Formations débloquées par l'offre achetée */}
               {memberPurchasedOffersLoading ? (
-                <div role="status" className="flex items-center justify-center gap-2 p-4 text-xs text-zinc-400">
-                  <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
-                  {lang === "en" ? "Loading your purchased content…" : "Chargement de vos contenus achetés…"}
+                <div
+                  role="status"
+                  className="flex items-center justify-center gap-2 p-4 text-xs text-zinc-400"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="size-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent"
+                  />
+                  {lang === "en"
+                    ? "Loading your purchased content…"
+                    : "Chargement de vos contenus achetés…"}
                 </div>
               ) : authorizedCourses.length > 0 ? (
                 authorizedCourses.map((co) => (

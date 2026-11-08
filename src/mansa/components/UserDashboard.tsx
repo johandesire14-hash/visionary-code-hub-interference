@@ -503,171 +503,171 @@ export const CreatorCoursesWorkspace: React.FC<{
           </section>
         ) : (
           <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
-          <aside className="rounded-xl border border-white/10 bg-[#121316] p-4">
-            <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              Chapitres ({chapters.length})
-            </div>
-            <div className="mt-3 space-y-2">
-              {chapters.map((chapter, index) => (
-                <div
-                  key={chapter.id}
-                  className={`flex items-center gap-2 rounded-lg px-2 py-2 ${activeChapterId === chapter.id ? "bg-blue-500/10" : ""}`}
-                >
-                  <button
-                    type="button"
-                    onClick={() => setActiveChapterId(chapter.id)}
-                    className="min-w-0 flex-1 px-1 py-1 text-left text-sm font-semibold text-white"
+            <aside className="rounded-xl border border-white/10 bg-[#121316] p-4">
+              <div className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                Chapitres ({chapters.length})
+              </div>
+              <div className="mt-3 space-y-2">
+                {chapters.map((chapter, index) => (
+                  <div
+                    key={chapter.id}
+                    className={`flex items-center gap-2 rounded-lg px-2 py-2 ${activeChapterId === chapter.id ? "bg-blue-500/10" : ""}`}
                   >
-                    <span className="block text-[10px] text-zinc-500">Chapitre {index + 1}</span>
-                    <span className="block truncate">
-                      {chapter.title || `Chapitre ${index + 1}`}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Supprimer ${chapter.title || `le chapitre ${index + 1}`}`}
-                    title="Supprimer ce chapitre"
-                    onClick={() => {
-                      const remaining = chapters.filter((item) => item.id !== chapter.id);
-                      setChapters(remaining);
-                      setSelectedVideoFiles((files) => {
-                        const nextFiles = { ...files };
-                        delete nextFiles[chapter.id];
-                        return nextFiles;
-                      });
-                      if (activeChapterId === chapter.id) {
-                        setActiveChapterId(remaining[0]?.id || null);
+                    <button
+                      type="button"
+                      onClick={() => setActiveChapterId(chapter.id)}
+                      className="min-w-0 flex-1 px-1 py-1 text-left text-sm font-semibold text-white"
+                    >
+                      <span className="block text-[10px] text-zinc-500">Chapitre {index + 1}</span>
+                      <span className="block truncate">
+                        {chapter.title || `Chapitre ${index + 1}`}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Supprimer ${chapter.title || `le chapitre ${index + 1}`}`}
+                      title="Supprimer ce chapitre"
+                      onClick={() => {
+                        const remaining = chapters.filter((item) => item.id !== chapter.id);
+                        setChapters(remaining);
+                        setSelectedVideoFiles((files) => {
+                          const nextFiles = { ...files };
+                          delete nextFiles[chapter.id];
+                          return nextFiles;
+                        });
+                        if (activeChapterId === chapter.id) {
+                          setActiveChapterId(remaining[0]?.id || null);
+                        }
+                      }}
+                      className="rounded-md p-2 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const chapter = newChapter(chapters.length);
+                  setChapters((current) => [...current, chapter]);
+                  setActiveChapterId(chapter.id);
+                }}
+                className="mt-3 w-full rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs text-zinc-400 hover:border-blue-500/50 hover:text-white"
+              >
+                + Ajouter un nouveau chapitre
+              </button>
+            </aside>
+            <main className="space-y-4">
+              <h2 className="text-sm font-bold text-white">Chapitres et contenu</h2>
+              {activeChapter ? (
+                <section className="space-y-4 rounded-xl border border-white/10 bg-[#121316] p-4">
+                  <label className="block space-y-2">
+                    <span className="text-xs font-semibold text-zinc-300">Titre du chapitre</span>
+                    <input
+                      value={activeChapter.title}
+                      onChange={(event) =>
+                        updateChapter(activeChapter.id, { title: event.target.value })
                       }
-                    }}
-                    className="rounded-md p-2 text-zinc-500 hover:bg-red-500/10 hover:text-red-300"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const chapter = newChapter(chapters.length);
-                setChapters((current) => [...current, chapter]);
-                setActiveChapterId(chapter.id);
-              }}
-              className="mt-3 w-full rounded-lg border border-dashed border-white/20 px-3 py-3 text-xs text-zinc-400 hover:border-blue-500/50 hover:text-white"
-            >
-              + Ajouter un nouveau chapitre
-            </button>
-          </aside>
-          <main className="space-y-4">
-            <h2 className="text-sm font-bold text-white">Chapitres et contenu</h2>
-            {activeChapter ? (
-              <section className="space-y-4 rounded-xl border border-white/10 bg-[#121316] p-4">
-                <label className="block space-y-2">
-                  <span className="text-xs font-semibold text-zinc-300">Titre du chapitre</span>
-                  <input
-                    value={activeChapter.title}
-                    onChange={(event) =>
-                      updateChapter(activeChapter.id, { title: event.target.value })
-                    }
-                    placeholder="Titre du chapitre"
-                    className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </label>
-                <label className="block space-y-2">
-                  <span className="text-xs font-semibold text-zinc-300">Texte du chapitre</span>
-                  <textarea
-                    value={activeChapter.content}
-                    onChange={(event) =>
-                      updateChapter(activeChapter.id, { content: event.target.value })
-                    }
-                    rows={7}
-                    placeholder="Rédigez le contenu de ce chapitre"
-                    className="w-full resize-y rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </label>
-                <label className="block space-y-2">
-                  <span className="text-xs font-semibold text-zinc-300">
-                    URL YouTube (facultatif)
-                  </span>
-                  <input
-                    type="url"
-                    value={activeChapter.youtubeUrl || ""}
-                    onChange={(event) =>
-                      updateChapter(activeChapter.id, { youtubeUrl: event.target.value })
-                    }
-                    placeholder="https://www.youtube.com/watch?v=…"
-                    className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
-                  />
-                </label>
-                <div className="space-y-2">
-                  <label
-                    className="block text-xs font-semibold text-zinc-300"
-                    htmlFor={`video-${activeChapter.id}`}
-                  >
-                    Ou téléverser une vidéo
+                      placeholder="Titre du chapitre"
+                      className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+                    />
                   </label>
-                  <input
-                    id={`video-${activeChapter.id}`}
-                    type="file"
-                    accept="video/*"
-                    onChange={(event) => {
-                      const file = event.currentTarget.files?.[0];
-                      if (file) {
-                        setSelectedVideoFiles((current) => ({
-                          ...current,
-                          [activeChapter.id]: file,
-                        }));
-                        setSaveError(null);
+                  <label className="block space-y-2">
+                    <span className="text-xs font-semibold text-zinc-300">Texte du chapitre</span>
+                    <textarea
+                      value={activeChapter.content}
+                      onChange={(event) =>
+                        updateChapter(activeChapter.id, { content: event.target.value })
                       }
-                    }}
-                    className="block w-full text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
-                  />
-                  {activeVideoFile ? (
-                    <p className="text-xs text-blue-200">
-                      Fichier sélectionné : {activeVideoFile.name} — enregistré lors de la
-                      sauvegarde.
-                    </p>
-                  ) : activeChapter.videoStorageKey ? (
-                    <p className="text-xs text-emerald-300">
-                      Vidéo enregistrée sur cet appareil :{" "}
-                      {activeChapter.videoFileName || "fichier vidéo"}
-                    </p>
-                  ) : null}
-                </div>
-              </section>
-            ) : (
-              <p className="rounded-xl border border-dashed border-white/15 p-5 text-center text-sm text-zinc-400">
-                Aucun chapitre. Ajoutez-en un pour saisir son contenu.
-              </p>
-            )}
-            {saveError && (
-              <p
-                role="alert"
-                className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"
-              >
-                {saveError}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-              <button
-                type="button"
-                onClick={() => setCourseCreationStep("details")}
-                disabled={isSaving}
-                className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-white/5 disabled:opacity-40"
-              >
-                ← Retour aux informations du cours
-              </button>
-              <button
-                type="button"
-                onClick={saveCourse}
-                disabled={!title.trim() || isSaving}
-                className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
-              >
-                {isSaving ? "Enregistrement…" : "Enregistrer le cours"}
-              </button>
-            </div>
-          </main>
-        </div>
+                      rows={7}
+                      placeholder="Rédigez le contenu de ce chapitre"
+                      className="w-full resize-y rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+                    />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className="text-xs font-semibold text-zinc-300">
+                      URL YouTube (facultatif)
+                    </span>
+                    <input
+                      type="url"
+                      value={activeChapter.youtubeUrl || ""}
+                      onChange={(event) =>
+                        updateChapter(activeChapter.id, { youtubeUrl: event.target.value })
+                      }
+                      placeholder="https://www.youtube.com/watch?v=…"
+                      className="w-full rounded-xl border border-white/10 bg-[#161822] px-3 py-3 text-sm text-white outline-none focus:border-blue-500"
+                    />
+                  </label>
+                  <div className="space-y-2">
+                    <label
+                      className="block text-xs font-semibold text-zinc-300"
+                      htmlFor={`video-${activeChapter.id}`}
+                    >
+                      Ou téléverser une vidéo
+                    </label>
+                    <input
+                      id={`video-${activeChapter.id}`}
+                      type="file"
+                      accept="video/*"
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0];
+                        if (file) {
+                          setSelectedVideoFiles((current) => ({
+                            ...current,
+                            [activeChapter.id]: file,
+                          }));
+                          setSaveError(null);
+                        }
+                      }}
+                      className="block w-full text-xs text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-white"
+                    />
+                    {activeVideoFile ? (
+                      <p className="text-xs text-blue-200">
+                        Fichier sélectionné : {activeVideoFile.name} — enregistré lors de la
+                        sauvegarde.
+                      </p>
+                    ) : activeChapter.videoStorageKey ? (
+                      <p className="text-xs text-emerald-300">
+                        Vidéo enregistrée sur cet appareil :{" "}
+                        {activeChapter.videoFileName || "fichier vidéo"}
+                      </p>
+                    ) : null}
+                  </div>
+                </section>
+              ) : (
+                <p className="rounded-xl border border-dashed border-white/15 p-5 text-center text-sm text-zinc-400">
+                  Aucun chapitre. Ajoutez-en un pour saisir son contenu.
+                </p>
+              )}
+              {saveError && (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200"
+                >
+                  {saveError}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setCourseCreationStep("details")}
+                  disabled={isSaving}
+                  className="rounded-xl border border-white/10 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-white/5 disabled:opacity-40"
+                >
+                  ← Retour aux informations du cours
+                </button>
+                <button
+                  type="button"
+                  onClick={saveCourse}
+                  disabled={!title.trim() || isSaving}
+                  className="rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-bold text-white disabled:opacity-40"
+                >
+                  {isSaving ? "Enregistrement…" : "Enregistrer le cours"}
+                </button>
+              </div>
+            </main>
+          </div>
         )}
       </div>
     );
@@ -1459,7 +1459,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
     const refreshNotifications = () =>
       setUserNotifications(getUserNotifications(user.email.trim().toLowerCase()));
     window.addEventListener("mansa_user_notifications_updated", refreshNotifications);
-    return () => window.removeEventListener("mansa_user_notifications_updated", refreshNotifications);
+    return () =>
+      window.removeEventListener("mansa_user_notifications_updated", refreshNotifications);
   }, [user.email]);
 
   // Tab change with skeleton loading transition
@@ -1625,8 +1626,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           (item) => item.id === selected.companyId || item.name === selected.companyId,
         );
         if (company?.supportAutoReplyEnabled !== false) {
-          const autoReply = (company?.supportAutoReplyMessage ||
-            `Message bien reçu. L'équipe de ${company?.name || "l’entreprise"} vous répondra dans les plus brefs délais.`)
+          const autoReply = (
+            company?.supportAutoReplyMessage ||
+            `Message bien reçu. L'équipe de ${company?.name || "l’entreprise"} vous répondra dans les plus brefs délais.`
+          )
             .replace(/\{nom\}/gi, user.name)
             .replace(/\{entreprise\}/gi, company?.name || "l’entreprise");
           window.setTimeout(() => {
@@ -1639,7 +1642,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             });
             if (reply) {
               setPrivateConversations((previous) =>
-                previous.map((conversation) => (conversation.id === reply.id ? reply : conversation)),
+                previous.map((conversation) =>
+                  conversation.id === reply.id ? reply : conversation,
+                ),
               );
             }
           }, 1000);
@@ -1980,9 +1985,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           className="size-full object-cover mansa-avatar-image"
                         />
                       ) : (
-                        <div
-                          className="size-full mansa-profile-avatar flex items-center justify-center text-[10px] font-black font-mono"
-                        >
+                        <div className="size-full mansa-profile-avatar flex items-center justify-center text-[10px] font-black font-mono">
                           <span>
                             {comp.logoInitials || comp.name.substring(0, 2).toUpperCase() || "EN"}
                           </span>
@@ -2421,16 +2424,14 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                           }`}
                           title={`Mon Entreprise : ${comp.name}`}
                         >
-                            {comp.companyLogo ? (
-                              <img
-                                src={comp.companyLogo}
-                                alt={comp.name}
-                                className="size-full object-cover mansa-avatar-image"
-                              />
-                            ) : (
-                              <div
-                                className="size-full mansa-profile-avatar flex items-center justify-center text-[10px] font-black font-mono"
-                            >
+                          {comp.companyLogo ? (
+                            <img
+                              src={comp.companyLogo}
+                              alt={comp.name}
+                              className="size-full object-cover mansa-avatar-image"
+                            />
+                          ) : (
+                            <div className="size-full mansa-profile-avatar flex items-center justify-center text-[10px] font-black font-mono">
                               <span>
                                 {comp.logoInitials ||
                                   comp.name.substring(0, 2).toUpperCase() ||
@@ -2877,7 +2878,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             </div>
                           </div>
                           <div className="flex items-baseline gap-3">
-                            <div className="dashboard-data-number text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white break-all sm:break-normal">
+                            <div className="dashboard-data-number text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white break-all sm:break-normal">
                               {formatCurrency(activeBalance, currency)}
                             </div>
                           </div>
@@ -2966,7 +2967,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-zinc-200">
+                          <div className="flex items-center gap-1.5 font-mono text-base sm:text-lg font-bold text-zinc-200">
                             <span>{formatCurrency(activeBalance, currency)}</span>
                             <ChevronRight className="size-3.5 text-zinc-500 group-hover:translate-x-0.5 transition-transform" />
                           </div>
@@ -4392,9 +4393,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
               >
                 <span className="flex items-center gap-2">
                   <ShoppingBag className="size-3.5 text-emerald-400" />
-                <span>Activité</span>
+                  <span>Activité</span>
                 </span>
-                <span className="font-mono text-[10px] text-emerald-400">Entreprises et produits</span>
+                <span className="font-mono text-[10px] text-emerald-400">
+                  Entreprises et produits
+                </span>
               </div>
               {isCreatorCompanySelected && (
                 <div
@@ -4592,6 +4595,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           onDeleteAccount={deleteAccount}
           lang={lang}
           initialTab={accountSettingsInitialTab}
+          onOpenCompany={handleVisitEnterpriseFromDiscover}
         />
       )}
 

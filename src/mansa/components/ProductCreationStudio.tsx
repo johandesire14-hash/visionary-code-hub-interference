@@ -199,17 +199,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
   const [descTab, setDescTab] = useState<"write" | "preview">("write");
 
   // Single Synchronized Source of Truth for Offer Name & Title
-  const [productName, setProductName] = useState(
-    initialData?.name ||
-      initialData?.title ||
-      (productType === "membership"
-        ? "Accès Club VIP Scalping"
-        : productType === "digital"
-          ? "Pack Templates & Ressources Digitales"
-          : productType === "course"
-            ? "Masterclass Pro & Cursus Vidéo"
-            : "E-book : Guide Ultime du Créateur"),
-  );
+  const [productName, setProductName] = useState(initialData?.name || initialData?.title || "");
 
   // Store/Enterprise Name (Locked to effective company name)
   const [storeName, setStoreName] = useState(effectiveCompanyName);
@@ -221,16 +211,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
   }, [effectiveCompanyName]);
 
   // Product Description (fully synchronized between left form and right preview)
-  const [productDescription, setProductDescription] = useState(
-    initialData?.description ||
-      (productType === "membership"
-        ? "Rejoins le cercle privé : accès au Discord VIP + Telegram exclusif, ressources et fiches pratiques partagées chaque semaine, accompagnement et communauté active pour progresser ensemble."
-        : productType === "digital"
-          ? "Téléchargez immédiatement l'ensemble des fichiers sources, templates et outils numériques prêts à l'emploi dès la confirmation de votre commande."
-          : productType === "course"
-            ? "Accédez à un cursus complet de modules vidéo pas-à-pas avec exercices pratiques, fiches récapitulatives et mises à jour continues."
-            : "Un livre numérique complet aux formats PDF haute qualité et ePub, optimisé pour liseuses (Kindle, Kobo), tablettes, smartphones et ordinateurs."),
-  );
+  const [productDescription, setProductDescription] = useState(initialData?.description || "");
 
   // Tags
   const [tags, setTags] = useState<string[]>(
@@ -600,43 +581,7 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
   // Handle product category switch
   const handleSelectProductType = (type: ProductTypeCategory) => {
     setProductType(type);
-    // Pas de pré-sélection arbitraire d'applications lors du changement de type
-
-    if (type === "digital") {
-      const name = "Pack Templates & Ressources Digitales";
-      setProductName(name);
-      setProductDescription(
-        "Téléchargez immédiatement tous les fichiers sources, templates et outils numériques prêts à l'emploi dès la confirmation de votre commande.",
-      );
-      setBillingCycle("one_time");
-      setCtaButtonText("Télécharger maintenant");
-    } else if (type === "course") {
-      const name = "Masterclass Pro & Cursus Vidéo";
-      setProductName(name);
-      setProductDescription(
-        "Accédez à l'ensemble des modules de cours vidéo, exercices pratiques et suivi de progression pas-à-pas.",
-      );
-      setBillingCycle("one_time");
-      setCtaButtonText("Accéder à la formation");
-    } else if (type === "ebook") {
-      const name = "E-book : Guide Pratique & Stratégies";
-      setProductName(name);
-      setProductDescription(
-        "Un livre numérique complet aux formats PDF et ePub optimisé pour liseuse (Kindle, Kobo), tablette, smartphone et ordinateur.",
-      );
-      setBillingCycle("one_time");
-      setCtaButtonText("Acheter l'e-book");
-    } else if (type === "membership") {
-      const name = "Accès Club VIP Scalping";
-      setProductName(name);
-      setProductDescription(
-        "Rejoins le cercle privé : accès au Discord VIP + Telegram exclusif, analyses régulières, méthode concrète, et communauté active pour échanger et progresser ensemble.",
-      );
-      setBillingCycle("monthly");
-      setCtaButtonText("Rejoindre maintenant");
-    }
   };
-
   const handleAddTag = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && tagInput.trim()) {
       e.preventDefault();
@@ -2034,9 +1979,6 @@ export const ProductCreationStudio: React.FC<ProductCreationStudioProps> = ({
                     className={`${viewMode === "mobile" ? "" : "sticky top-4"} rounded-3xl border border-white/15 bg-[#14161f] ${viewMode === "mobile" ? "p-4" : "p-6"} shadow-2xl space-y-5`}
                   >
                     <div className="space-y-2.5">
-                      <span className="text-[10px] uppercase font-bold tracking-widest text-zinc-400 block">
-                        Rappel du produit
-                      </span>
                       <div className="relative aspect-[16/7] overflow-hidden rounded-2xl border border-white/10 bg-[#0d0e12]">
                         {reminderImage ? (
                           <img

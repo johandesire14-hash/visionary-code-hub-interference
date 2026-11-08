@@ -19,7 +19,6 @@ export interface CompanyPost {
   };
   media?: { url: string; name: string; type: string };
   poll?: { question: string; options: string[]; votes: number[] };
-  paidPublication?: boolean;
 }
 
 const STORAGE_KEY = "mansa_company_newsfeed_posts";
@@ -74,7 +73,6 @@ export function createCompanyPost(
     category?: string;
     media?: { url: string; name: string; type: string };
     poll?: { question: string; options: string[]; votes: number[] };
-    paidPublication?: boolean;
   },
 ): CompanyPost {
   const all = getAllStoredPosts();
@@ -107,7 +105,6 @@ export function createCompanyPost(
           },
         }
       : {}),
-    ...(data.paidPublication ? { paidPublication: true } : {}),
   };
 
   const updated = [newPost, ...all];

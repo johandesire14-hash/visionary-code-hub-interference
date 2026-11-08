@@ -679,7 +679,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                 serveurs Discord et cours vidéo.
               </p>
             </div>
-
           </div>
 
           {/* Connected Apps Highlights Grid */}
@@ -703,7 +702,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                       </div>
                     </div>
                   </div>
-
                 </div>
 
                 <p className="text-xs text-zinc-400 leading-relaxed">
@@ -758,7 +756,6 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
                       </div>
                     </div>
                   </div>
-
                 </div>
 
                 <p className="text-xs text-zinc-400 leading-relaxed">
@@ -799,54 +796,47 @@ export const ConnectedAppsView: React.FC<ConnectedAppsViewProps> = ({
             </div>
           </div>
 
-          {/* More Available Apps in the Marketplace */}
-          <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-              Autres applications disponibles à installer
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {/* Courses App */}
-              <div className="rounded-xl border border-white/[0.06] bg-[#0c0d0e] p-4 flex flex-col justify-between space-y-3 hover:border-white/20 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="size-9 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0 font-bold">
-                    🎓
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white">Cours & Formations</h4>
-                    <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">
-                      Module e-learning vidéo avec chapitres et suivi de progression des membres.
-                    </p>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {/* Courses App */}
+            <div className="rounded-xl border border-white/[0.06] bg-[#0c0d0e] p-4 flex flex-col justify-between space-y-3 hover:border-white/20 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="size-9 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0 font-bold">
+                  🎓
                 </div>
-                <button
-                  onClick={() => handleOpenInstallModal("courses")}
-                  className="w-full py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#0047d6] text-xs font-semibold text-white transition-colors cursor-pointer"
-                >
-                  + Installer sur un business
-                </button>
-              </div>
-
-              {/* Files / Downloads */}
-              <div className="rounded-xl border border-white/[0.06] bg-[#0c0d0e] p-4 flex flex-col justify-between space-y-3 hover:border-white/20 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="size-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 shrink-0 font-bold">
-                    📁
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white">Fichiers & Téléchargements</h4>
-                    <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">
-                      Distribuez des fichiers PDF, templates, logiciels et archives protégés.
-                    </p>
-                  </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Cours & Formations</h4>
+                  <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">
+                    Module e-learning vidéo avec chapitres et suivi de progression des membres.
+                  </p>
                 </div>
-                <button
-                  onClick={() => handleOpenInstallModal("files")}
-                  className="w-full py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#0047d6] text-xs font-semibold text-white transition-colors cursor-pointer"
-                >
-                  + Installer sur un business
-                </button>
               </div>
+              <button
+                onClick={() => handleOpenInstallModal("courses")}
+                className="w-full py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#0047d6] text-xs font-semibold text-white transition-colors cursor-pointer"
+              >
+                + Installer sur un business
+              </button>
+            </div>
+
+            {/* Files / Downloads */}
+            <div className="rounded-xl border border-white/[0.06] bg-[#0c0d0e] p-4 flex flex-col justify-between space-y-3 hover:border-white/20 transition-colors">
+              <div className="flex items-start gap-3">
+                <div className="size-9 rounded-lg bg-pink-500/10 border border-pink-500/20 flex items-center justify-center text-pink-400 shrink-0 font-bold">
+                  📁
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Fichiers & Téléchargements</h4>
+                  <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">
+                    Distribuez des fichiers PDF, templates, logiciels et archives protégés.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleOpenInstallModal("files")}
+                className="w-full py-1.5 rounded-lg bg-[#0055ff] hover:bg-[#0047d6] text-xs font-semibold text-white transition-colors cursor-pointer"
+              >
+                + Installer sur un business
+              </button>
             </div>
           </div>
         </div>

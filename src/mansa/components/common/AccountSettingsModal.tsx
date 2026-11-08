@@ -86,6 +86,7 @@ interface AccountSettingsModalProps {
   onDeleteAccount?: () => Promise<void>;
   initialTab?: AccountSettingsTab;
   isModal?: boolean;
+  onOpenCompany?: (company: unknown) => void;
 }
 
 const createDefaultAccountPaymentSettings = (): AccountPaymentSettings => ({
@@ -103,6 +104,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   onDeleteAccount,
   initialTab = "profil",
   isModal = true,
+  onOpenCompany,
 }) => {
   const userId = user?.uid || "user_default";
   const [activeTab, setActiveTab] = useState<AccountSettingsTab>(initialTab);
@@ -122,11 +124,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
   // Profil Form State
   const [username, setUsername] = useState(
-    user.handle || (user.email ? user.email.split("@")[0] : "johandesire16")
+    user.handle || (user.email ? user.email.split("@")[0] : "johandesire16"),
   );
   const [bio, setBio] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  
+
   // Toggles for "Plus de détails"
   const [showTotalEarned, setShowTotalEarned] = useState(true);
   const [showLocation, setShowLocation] = useState(true);
@@ -236,8 +238,8 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
   const accountMobileOperator =
     selectedAccountPaymentMethod &&
     ["wave", "orange", "mtn", "moov"].includes(selectedAccountPaymentMethod.id)
-    ? selectedAccountPaymentMethod.id
-    : null;
+      ? selectedAccountPaymentMethod.id
+      : null;
   const accountPaymentCountries = accountMobileOperator
     ? Object.values(DIAL_CODE_CONFIGS).filter((country) =>
         country.operators.some((operator) => operator.id === accountMobileOperator),
@@ -326,7 +328,10 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     } catch (err: unknown) {
       console.error("Account payment settings save failed:", err);
       setAccountPaymentSaveError(
-        getUserFacingErrorMessage(err, "Impossible d’enregistrer les méthodes de paiement. Réessayez."),
+        getUserFacingErrorMessage(
+          err,
+          "Impossible d’enregistrer les méthodes de paiement. Réessayez.",
+        ),
       );
     } finally {
       setIsSavingAccountPayments(false);
@@ -364,7 +369,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       setTimeout(() => setSaveSuccess(false), 3500);
     } catch (err: any) {
       console.error("Error saving user profile:", err);
-      setSaveError(getUserFacingErrorMessage(err, "Impossible d’enregistrer le profil. Réessayez."));
+      setSaveError(
+        getUserFacingErrorMessage(err, "Impossible d’enregistrer le profil. Réessayez."),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -384,15 +391,21 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
     { id: "securite", label: "Sécurité du compte", icon: ShieldCheck },
     { id: "commandes", label: "Activité", fullLabel: "Mon activité", icon: Bookmark },
     { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "paiements", label: "Méthodes de paie...", fullLabel: "Méthodes de paiement", icon: CreditCard },
+    {
+      id: "paiements",
+      label: "Méthodes de paie...",
+      fullLabel: "Méthodes de paiement",
+      icon: CreditCard,
+    },
     { id: "portefeuille", label: "Portefeuille", icon: Folder },
     { id: "verifications", label: "Vérifications", icon: CheckCircle2 },
     { id: "resolution", label: "Centre de résolution", icon: AlertCircle },
   ];
 
-  const filteredNavItems = navItems.filter((item) =>
-    item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (item.fullLabel && item.fullLabel.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredNavItems = navItems.filter(
+    (item) =>
+      item.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.fullLabel && item.fullLabel.toLowerCase().includes(searchQuery.toLowerCase())),
   );
 
   const containerContent = (
@@ -406,9 +419,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
       {/* MOBILE TOP TAB BAR (< md) */}
       <div className="md:hidden w-full shrink-0 bg-[#0e0f12] border-b border-white/[0.08] p-3 space-y-2 select-none">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-white tracking-tight">
-            Paramètres du compte
-          </h2>
+          <h2 className="text-sm font-bold text-white tracking-tight">Paramètres du compte</h2>
           {isModal && onClose && (
             <button
               onClick={onClose}
@@ -485,24 +496,26 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           {/* Navigation links */}
           <nav className="mt-2">
             <div className="space-y-0.5">
-            {filteredNavItems.filter((item) => item.id !== "resolution").map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id as AccountSettingsTab)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
-                    isActive
-                      ? "bg-[#252830] text-white font-semibold shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
-                  }`}
-                >
-                  <Icon className={`size-4 ${isActive ? "text-white" : "text-zinc-400"}`} />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
+              {filteredNavItems
+                .filter((item) => item.id !== "resolution")
+                .map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id as AccountSettingsTab)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer text-left ${
+                        isActive
+                          ? "bg-[#252830] text-white font-semibold shadow-sm"
+                          : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <Icon className={`size-4 ${isActive ? "text-white" : "text-zinc-400"}`} />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  );
+                })}
             </div>
             {filteredNavItems.some((item) => item.id === "resolution") && (
               <div className="mt-0.5 flex items-stretch gap-1 border-t border-white/[0.06] pt-1">
@@ -536,7 +549,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                   className="flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg border border-red-500/30 bg-red-950/40 px-1 py-1 text-[9px] font-semibold leading-tight text-red-300 transition-colors hover:bg-red-900/50 disabled:opacity-50"
                 >
                   <Trash2 className="size-3.5 shrink-0" />
-                  <span className="text-center">{lang === "fr" ? "Supprimer mon compte" : "Delete account"}</span>
+                  <span className="text-center">
+                    {lang === "fr" ? "Supprimer mon compte" : "Delete account"}
+                  </span>
                 </button>
               </div>
             )}
@@ -546,7 +561,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
       {/* RIGHT MAIN PANEL */}
       <main className="flex-1 bg-[#111216] flex flex-col overflow-hidden">
-        
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] shrink-0">
           <div className="flex items-center gap-2">
@@ -571,7 +585,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-white/5 transition-colors cursor-pointer relative"
               title="Copier le lien public de votre profil"
             >
-              {copiedLink ? <Check className="size-4 text-[#00D26A]" /> : <Link2 className="size-4" />}
+              {copiedLink ? (
+                <Check className="size-4 text-[#00D26A]" />
+              ) : (
+                <Link2 className="size-4" />
+              )}
               {copiedLink && (
                 <span className="absolute -bottom-7 right-0 text-[10px] bg-zinc-900 border border-white/10 text-emerald-400 px-2 py-0.5 rounded shadow-lg whitespace-nowrap">
                   Lien copié !
@@ -583,7 +601,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
         {/* Tab Body Content (Scrollable) */}
         <div className="flex-1 p-6 overflow-y-auto space-y-6">
-
           {/* ================================================================= */}
           {/* 1. TAB: PROFIL */}
           {/* ================================================================= */}
@@ -604,11 +621,15 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 <button
                   type="button"
                   aria-pressed={appTheme === "dark"}
-                  aria-label={appTheme === "dark" ? "Activer le mode clair" : "Activer le mode sombre"}
+                  aria-label={
+                    appTheme === "dark" ? "Activer le mode clair" : "Activer le mode sombre"
+                  }
                   onClick={() => setAppTheme(appTheme === "dark" ? "light" : "dark")}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors ${appTheme === "dark" ? "bg-[#0055ff]" : "bg-zinc-700"}`}
                 >
-                  <span className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md transition-transform ${appTheme === "dark" ? "translate-x-5" : "translate-x-0"}`} />
+                  <span
+                    className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md transition-transform ${appTheme === "dark" ? "translate-x-5" : "translate-x-0"}`}
+                  />
                 </button>
               </section>
 
@@ -636,9 +657,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 <form onSubmit={handleSaveProfile} className="space-y-4">
                   {/* Field: Nom d'utilisateur */}
                   <div className="rounded-xl border border-white/[0.08] bg-[#14161b] p-3 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white">
-                      Nom d'utilisateur
-                    </span>
+                    <span className="text-xs font-semibold text-white">Nom d'utilisateur</span>
                     <div className="flex items-center rounded-lg bg-[#191b22] border border-white/[0.08] px-3 py-1.5 text-xs text-white font-mono">
                       <span className="text-zinc-400">@</span>
                       <input
@@ -652,9 +671,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                   {/* Field: Bio */}
                   <div className="space-y-1.5">
-                    <label className="block text-xs font-semibold text-white">
-                      Bio
-                    </label>
+                    <label className="block text-xs font-semibold text-white">Bio</label>
                     <div className="rounded-xl border border-white/[0.08] bg-[#14161b] p-3">
                       <textarea
                         value={bio}
@@ -668,9 +685,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                   {/* Field: Date de naissance */}
                   <div className="rounded-xl border border-white/[0.08] bg-[#14161b] p-3 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white">
-                      Date de naissance
-                    </span>
+                    <span className="text-xs font-semibold text-white">Date de naissance</span>
                     <div className="flex items-center rounded-lg bg-[#191b22] border border-white/[0.08] px-3 py-1.5 text-xs text-zinc-300 font-mono">
                       <input
                         type="text"
@@ -684,25 +699,21 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
                   {/* Section: Plus de détails */}
                   <div className="space-y-2 pt-1">
-                    <h3 className="text-xs font-bold text-white">
-                      Plus de détails
-                    </h3>
+                    <h3 className="text-xs font-bold text-white">Plus de détails</h3>
                     <p className="text-[11px] text-zinc-400">
-                      Choisissez ce qui apparaît sur votre profil et d'autres surfaces de découverte.
+                      Choisissez ce qui apparaît sur votre profil et d'autres surfaces de
+                      découverte.
                     </p>
 
                     {/* Switch list items */}
                     <div className="rounded-xl border border-white/[0.08] bg-[#14161b] divide-y divide-white/[0.06] overflow-hidden">
-                      
                       {/* 1. Total gagné */}
                       <div className="flex items-center justify-between p-3.5">
                         <div className="flex items-center gap-3">
                           <div className="flex size-8 items-center justify-center rounded-lg bg-[#1d2027] text-zinc-300">
                             <DollarSign className="size-4" />
                           </div>
-                          <span className="text-xs font-semibold text-white">
-                            Total gagné
-                          </span>
+                          <span className="text-xs font-semibold text-white">Total gagné</span>
                         </div>
 
                         <button
@@ -797,7 +808,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                           />
                         </button>
                       </div>
-
                     </div>
                   </div>
 
@@ -820,7 +830,6 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                   </div>
                 </form>
               )}
-
             </div>
           )}
 
@@ -833,7 +842,9 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-semibold text-white">Inviter des membres & co-créateurs</h4>
-                    <p className="text-zinc-400 text-[11px]">Partagez votre lien d'invitation personnel pour débloquer des commissions.</p>
+                    <p className="text-zinc-400 text-[11px]">
+                      Partagez votre lien d'invitation personnel pour débloquer des commissions.
+                    </p>
                   </div>
                   <button
                     onClick={handleCopyProfileLink}
@@ -856,12 +867,43 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           {activeTab === "comptes_connectes" && (
             <div className="space-y-3">
               {[
-                { name: "Discord", desc: "Synchronisation des rôles et accès aux serveurs VIP", connected: discordConnected, toggle: () => setDiscordConnected(!discordConnected), icon: Users, color: "text-[#5865F2]" },
-                { name: "Telegram", desc: "Livraison des canaux secrets et alertes de vente", connected: telegramConnected, toggle: () => setTelegramConnected(!telegramConnected), icon: Smartphone, color: "text-[#229ED9]" },
-                { name: "Google", desc: "Authentification rapide et synchronisation Drive", connected: googleConnected, toggle: () => setGoogleConnected(!googleConnected), icon: Globe, color: "text-red-400" },
-                { name: "X (Twitter)", desc: "Partage automatique et badges créateur", connected: xConnected, toggle: () => setXConnected(!xConnected), icon: Link2, color: "text-zinc-300" },
+                {
+                  name: "Discord",
+                  desc: "Synchronisation des rôles et accès aux serveurs VIP",
+                  connected: discordConnected,
+                  toggle: () => setDiscordConnected(!discordConnected),
+                  icon: Users,
+                  color: "text-[#5865F2]",
+                },
+                {
+                  name: "Telegram",
+                  desc: "Livraison des canaux secrets et alertes de vente",
+                  connected: telegramConnected,
+                  toggle: () => setTelegramConnected(!telegramConnected),
+                  icon: Smartphone,
+                  color: "text-[#229ED9]",
+                },
+                {
+                  name: "Google",
+                  desc: "Authentification rapide et synchronisation Drive",
+                  connected: googleConnected,
+                  toggle: () => setGoogleConnected(!googleConnected),
+                  icon: Globe,
+                  color: "text-red-400",
+                },
+                {
+                  name: "X (Twitter)",
+                  desc: "Partage automatique et badges créateur",
+                  connected: xConnected,
+                  toggle: () => setXConnected(!xConnected),
+                  icon: Link2,
+                  color: "text-zinc-300",
+                },
               ].map((acc) => (
-                <div key={acc.name} className="rounded-xl border border-white/[0.08] bg-[#14161b] p-3.5 flex items-center justify-between">
+                <div
+                  key={acc.name}
+                  className="rounded-xl border border-white/[0.08] bg-[#14161b] p-3.5 flex items-center justify-between"
+                >
                   <div className="flex items-center gap-3">
                     <div className={`p-2 rounded-lg bg-[#1e2027] ${acc.color}`}>
                       <acc.icon className="size-4" />
@@ -889,16 +931,14 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           {/* ================================================================= */}
           {/* 4. TAB: SÉCURITÉ DU COMPTE */}
           {/* ================================================================= */}
-          {activeTab === "securite" && (
-            <SecuritySettingsPanel email={user.email} />
-          )}
+          {activeTab === "securite" && <SecuritySettingsPanel email={user.email} />}
 
           {/* ================================================================= */}
           {/* 5. TAB: COMMANDES & ACHATS */}
           {/* ================================================================= */}
           {activeTab === "commandes" && (
             <div className="h-full overflow-y-auto p-4 sm:p-6">
-              <ActivityView userKey={userId} />
+              <ActivityView userKey={userId} onOpenCompany={onOpenCompany} />
               <div className="mt-8 border-t border-white/10 pt-6">
                 <CustomerPurchasesView lang={lang} isEmbeddedInSettings={true} />
               </div>
@@ -912,8 +952,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
             <div className="space-y-3 text-xs">
               <div className="rounded-xl border border-white/[0.08] bg-[#14161b] p-4 flex items-center justify-between">
                 <div>
-                  <span className="font-semibold text-white block">Alertes de ventes instantanées</span>
-                  <span className="text-[11px] text-zinc-400">Recevez un ping à chaque nouveau paiement Wave ou Mobile Money.</span>
+                  <span className="font-semibold text-white block">
+                    Alertes de ventes instantanées
+                  </span>
+                  <span className="text-[11px] text-zinc-400">
+                    Recevez un ping à chaque nouveau paiement Wave ou Mobile Money.
+                  </span>
                 </div>
                 <button className="h-6 w-11 rounded-full bg-[#0055ff] p-0.5 relative inline-flex cursor-pointer">
                   <span className="size-5 rounded-full bg-white translate-x-5 transition-transform" />
@@ -922,8 +966,12 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
 
               <div className="rounded-xl border border-white/[0.08] bg-[#14161b] p-4 flex items-center justify-between">
                 <div>
-                  <span className="font-semibold text-white block">Rapports hebdomadaires de revenus</span>
-                  <span className="text-[11px] text-zinc-400">Récapitulatif chaque lundi matin par email.</span>
+                  <span className="font-semibold text-white block">
+                    Rapports hebdomadaires de revenus
+                  </span>
+                  <span className="text-[11px] text-zinc-400">
+                    Récapitulatif chaque lundi matin par email.
+                  </span>
                 </div>
                 <button className="h-6 w-11 rounded-full bg-[#0055ff] p-0.5 relative inline-flex cursor-pointer">
                   <span className="size-5 rounded-full bg-white translate-x-5 transition-transform" />
@@ -1213,9 +1261,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           {/* ================================================================= */}
           {/* 9. TAB: VÉRIFICATIONS */}
           {/* ================================================================= */}
-          {activeTab === "verifications" && (
-            <AccountVerificationPanel userId={userId} />
-          )}
+          {activeTab === "verifications" && <AccountVerificationPanel userId={userId} />}
 
           {/* ================================================================= */}
           {/* 10. TAB: CENTRE DE RÉSOLUTION */}
@@ -1227,9 +1273,7 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
               customerEmail={user?.email || ""}
             />
           )}
-
         </div>
-
       </main>
       <ConfirmActionModal
         isOpen={isDeleteAccountConfirmOpen}
@@ -1238,7 +1282,11 @@ export const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({
           if (!onDeleteAccount) return;
           await onDeleteAccount();
         }}
-        title={lang === "fr" ? "Supprimer définitivement votre compte ?" : "Permanently delete your account?"}
+        title={
+          lang === "fr"
+            ? "Supprimer définitivement votre compte ?"
+            : "Permanently delete your account?"
+        }
         description={
           lang === "fr"
             ? "Votre compte de connexion et votre profil seront supprimés. Cette action ne peut pas être annulée."

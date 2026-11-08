@@ -463,16 +463,7 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
                 </div>
               </div>
 
-              {/* Card Footer: CTA to visit Community page */}
-              <div className="p-4 pt-2 border-t border-white/[0.06] flex items-center justify-between gap-2 mt-auto">
-                <div className="text-[11px] text-zinc-500 font-mono">
-                  <span>
-                    {enterprise.offersCount} offre{enterprise.offersCount > 1 ? "s" : ""}
-                  </span>
-                  <span className="mx-1.5">•</span>
-                  <span className="text-zinc-300 font-bold">{enterprise.startingPrice}</span>
-                </div>
-
+              <div className="p-4 pt-2 border-t border-white/[0.06] flex justify-end">
                 <div className="flex items-center gap-1 text-xs font-bold text-white group-hover:text-[#00D26A] transition-colors">
                   <span>Visiter</span>
                   <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -496,10 +487,6 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
               const enterprise = enterpriseCatalog.find(
                 (item) => item.companyId === product.companyId,
               );
-              const price =
-                product.pricingAmount > 0
-                  ? `${product.pricingAmount.toLocaleString("fr-FR")} ${product.currency || "XOF"}${product.pricingModel === "subscription" ? " / mois" : ""}`
-                  : "Gratuit";
               return (
                 <button
                   key={product.id}
@@ -525,7 +512,6 @@ export const DiscoverCreatorsView: React.FC<DiscoverCreatorsViewProps> = ({
                     <span className="truncate text-[11px] text-zinc-400">
                       {product.companyName || enterprise?.companyName}
                     </span>
-                    <span className="shrink-0 text-xs font-bold text-white">{price}</span>
                   </div>
                   <div className="mt-3 flex items-center gap-1 text-xs font-bold text-zinc-300 group-hover:text-emerald-300">
                     Visiter l’entreprise <ArrowRight className="size-3.5" />

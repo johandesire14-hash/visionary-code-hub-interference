@@ -1,5 +1,6 @@
 import React from "react";
 import { CreditCard, Lock, RotateCcw } from "lucide-react";
+import { BrandLogo } from "./BrandLogo";
 
 export type PaymentMethodCategory = "all" | "card" | "transfers" | "wallet" | "other";
 
@@ -110,12 +111,21 @@ export const PaymentMethodsTemplate: React.FC<PaymentMethodsTemplateProps> = ({
             className={`flex items-center gap-3 px-4 py-4 sm:px-5 ${index > 0 ? "border-t border-white/[0.08]" : ""}`}
           >
             <Lock className="size-5 shrink-0 text-zinc-600" />
-            <span
-              className="flex size-9 shrink-0 items-center justify-center rounded-lg text-xs font-black text-white"
-              style={{ backgroundColor: method.color }}
-            >
-              {method.name.slice(0, 2).toUpperCase()}
-            </span>
+            <BrandLogo
+              name={
+                method.id === "orange"
+                  ? "orange"
+                  : method.id === "mtn"
+                    ? "mtn"
+                    : method.id === "moov"
+                      ? "moov"
+                      : method.id === "card"
+                        ? "visa"
+                        : method.id === "bank"
+                          ? "mastercard"
+                          : "wave"
+              }
+            />
             <span className="min-w-0 flex-1 truncate text-base font-medium text-white">
               {method.name}
             </span>

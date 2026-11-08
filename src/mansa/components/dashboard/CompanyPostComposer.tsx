@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { BarChart3, DollarSign, Image as ImageIcon, Smile, X } from "lucide-react";
+import { BarChart3, Image as ImageIcon, Smile, X } from "lucide-react";
 import {
   uploadCompanyPostMedia,
   validateCompanyPostMedia,
@@ -10,7 +10,6 @@ export interface CompanyPostDraft {
   content: string;
   media?: CompanyPostMedia;
   poll?: CompanyPostPoll;
-  paidPublication: boolean;
 }
 
 interface CompanyPostComposerProps {
@@ -36,7 +35,6 @@ export const CompanyPostComposer: React.FC<CompanyPostComposerProps> = ({
   const [pollEnabled, setPollEnabled] = useState(false);
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
-  const [paidPublication, setPaidPublication] = useState(false);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [isPublishing, setIsPublishing] = useState(false);
@@ -122,7 +120,7 @@ export const CompanyPostComposer: React.FC<CompanyPostComposerProps> = ({
             votes: normalizedOptions.map(() => 0),
           }
         : undefined;
-      await onPublish({ content: content.trim(), media, poll, paidPublication });
+      await onPublish({ content: content.trim(), media, poll });
       onClose();
     } catch (publishError) {
       console.error("Company post publishing failed:", publishError);
@@ -278,14 +276,6 @@ export const CompanyPostComposer: React.FC<CompanyPostComposerProps> = ({
               </section>
             )}
 
-            {paidPublication && (
-              <p
-                role="status"
-                className="rounded-lg border border-amber-400/20 bg-amber-400/[0.06] px-3 py-2 text-xs text-amber-100"
-              >
-                Cette publication sera signalée comme rémunérée auprès des membres.
-              </p>
-            )}
             {error && (
               <p
                 role="alert"
@@ -334,17 +324,6 @@ export const CompanyPostComposer: React.FC<CompanyPostComposerProps> = ({
             >
               <BarChart3 className="size-5" />
             </button>
-            <button
-              type="button"
-              onClick={() => setPaidPublication((enabled) => !enabled)}
-              title="Marquer comme publication rémunérée"
-              aria-label="Marquer comme publication rémunérée"
-              aria-pressed={paidPublication}
-              className={`rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-400/10 ${paidPublication ? "bg-blue-400/10" : ""}`}
-            >
-              <DollarSign className="size-5" />
-            </button>
-
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
