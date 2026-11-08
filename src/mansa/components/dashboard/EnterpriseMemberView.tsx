@@ -73,6 +73,7 @@ import {
   cancelActiveSubscription,
 } from "../../utils/subscriptionsStorage";
 import {
+  convertProjectToPlatformOffer,
   getMemberAuthorizedTelegramChannels,
   getMemberAuthorizedDiscordChannels,
   getMemberAuthorizedEbooks,
@@ -98,7 +99,7 @@ import {
   recordCompanyPollVote,
   CompanyPost,
 } from "../../utils/companyPostsStorage";
-import { subscribeToCompanyOffers } from "../../services/dbService";
+import { getMemberProductsByIds, subscribeToCompanyOffers } from "../../services/dbService";
 import {
   updateCompanyBranding,
   getSavedCompanies,
@@ -349,22 +350,83 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
     );
   }, [memberUnlockedOfferIds, selectedMemberProductId]);
 
+  const purchasedProductIds = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          memberUnlockedOfferIds.filter(
+            (offerId) =>
+              offerId.trim() && !isGenericFreeMembershipProductId(offerId, companyId),
+          ),
+        ),
+      ),
+    [companyId, memberUnlockedOfferIds],
+  );
+  const [memberPurchasedOffers, setMemberPurchasedOffers] = React.useState<CreatorPlatformOffer[]>([]);
+  const [memberPurchasedOffersLoading, setMemberPurchasedOffersLoading] = React.useState(
+    purchasedProductIds.length > 0,
+  );
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setMemberPurchasedOffers([]);
+
+    if (!user?.uid || purchasedProductIds.length === 0) {
+      setMemberPurchasedOffersLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setMemberPurchasedOffersLoading(true);
+    getMemberProductsByIds(purchasedProductIds)
+      .then((products) => {
+        if (cancelled) return;
+        const requestedIds = new Set(purchasedProductIds);
+        const offers = products
+          .filter((product) => product.companyId === companyId && requestedIds.has(product.id))
+          .map((product) =>
+            convertProjectToPlatformOffer(product, companyId, currentSub.companyName),
+          );
+        setMemberPurchasedOffers(offers);
+      })
+      .catch((error) => {
+        console.warn("Could not load purchased offer content from Firestore:", error);
+        if (!cancelled) setMemberPurchasedOffers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMemberPurchasedOffersLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, currentSub.companyName, purchasedProductIds, user?.uid]);
+
   // Ressources strictement autorisées pour ce membre et cette entreprise
   const authorizedTelegramChannels = React.useMemo(() => {
-    return getMemberAuthorizedTelegramChannels(companyId, scopedMemberUnlockedOfferIds);
-  }, [companyId, scopedMemberUnlockedOfferIds]);
+    return getMemberAuthorizedTelegramChannels(
+      companyId,
+      scopedMemberUnlockedOfferIds,
+      memberPurchasedOffers,
+    );
+  }, [companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers]);
 
   const authorizedDiscordChannels = React.useMemo(() => {
-    return getMemberAuthorizedDiscordChannels(companyId, scopedMemberUnlockedOfferIds);
-  }, [companyId, scopedMemberUnlockedOfferIds]);
+    return getMemberAuthorizedDiscordChannels(
+      companyId,
+      scopedMemberUnlockedOfferIds,
+      memberPurchasedOffers,
+    );
+  }, [companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers]);
 
   const authorizedEbooks = React.useMemo(() => {
-    return getMemberAuthorizedEbooks(companyId, scopedMemberUnlockedOfferIds);
-  }, [companyId, scopedMemberUnlockedOfferIds]);
+    return getMemberAuthorizedEbooks(companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers);
+  }, [companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers]);
 
   const authorizedCourses = React.useMemo(() => {
-    return getMemberAuthorizedCourses(companyId, scopedMemberUnlockedOfferIds);
-  }, [companyId, scopedMemberUnlockedOfferIds]);
+    return getMemberAuthorizedCourses(companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers);
+  }, [companyId, scopedMemberUnlockedOfferIds, memberPurchasedOffers]);
 
   // Vérification d'accès stricte : débloqué uniquement si l'offre achetée accorde la ressource précise
   const hasTelegramAccess = authorizedTelegramChannels.length > 0;
@@ -730,7 +792,10 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
   const renderCommentReplies = (postId: string) => {
     if (!expandedCommentPosts[postId]) return null;
-    if (!hasPaidOffer && !isCompanyOwner) {
+    const hasOwnedProductOffer = memberUnlockedOfferIds.some(
+      (offerId) => !isGenericFreeMembershipProductId(offerId, companyId),
+    );
+    if (!hasPaidOffer && !hasOwnedProductOffer && !isCompanyOwner) {
       return (
         <div className="mt-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-300">
           Les réponses sont disponibles après l'achat d'un produit.
@@ -929,9 +994,9 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
       getMemberAuthorizedOffers(
         currentSub.companyId || currentSub.id,
         purchasedAppOfferIds,
-        enterpriseOffers,
+        [...enterpriseOffers, ...memberPurchasedOffers],
       ),
-    [currentSub.companyId, currentSub.id, purchasedAppOfferIds, enterpriseOffers],
+    [currentSub.companyId, currentSub.id, purchasedAppOfferIds, enterpriseOffers, memberPurchasedOffers],
   );
 
   const visibleIncludedAppNames = React.useMemo(() => {
@@ -3878,7 +3943,7 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
             setSelectedMemberProductId(checkoutModalOffer.id);
             const hasPaidMembership = Boolean(currentSub.hasPaidOffer || newSub.hasPaidOffer);
             setHasPaidOffer(hasPaidMembership);
-            const userKey = user?.email || "default";
+            const userKey = user?.uid || user?.email || "default";
             const updatedSubscription: EnterpriseSubscription = {
               ...currentSub,
               hasPaidOffer: hasPaidMembership,
@@ -4007,7 +4072,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
               {/* E-books débloqués par l'offre achetée */}
-              {authorizedEbooks.length > 0 ? (
+              {memberPurchasedOffersLoading ? (
+                <div role="status" className="flex items-center justify-center gap-2 p-4 text-xs text-zinc-400">
+                  <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+                  {lang === "en" ? "Loading your purchased content…" : "Chargement de vos contenus achetés…"}
+                </div>
+              ) : authorizedEbooks.length > 0 ? (
                 authorizedEbooks.map((eb) => (
                   <div
                     key={eb.id}
@@ -4844,7 +4914,12 @@ export const EnterpriseMemberView: React.FC<EnterpriseMemberViewProps> = ({
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
               {/* Formations débloquées par l'offre achetée */}
-              {authorizedCourses.length > 0 ? (
+              {memberPurchasedOffersLoading ? (
+                <div role="status" className="flex items-center justify-center gap-2 p-4 text-xs text-zinc-400">
+                  <span aria-hidden="true" className="size-4 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                  {lang === "en" ? "Loading your purchased content…" : "Chargement de vos contenus achetés…"}
+                </div>
+              ) : authorizedCourses.length > 0 ? (
                 authorizedCourses.map((co) => (
                   <div
                     key={co.id}

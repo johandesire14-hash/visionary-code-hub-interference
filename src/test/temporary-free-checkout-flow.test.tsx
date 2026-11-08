@@ -18,6 +18,12 @@ const paidOffer: CreatorPlatformOffer = {
   includedApps: ["Telegram", "Discord"],
   pricingOptions: [{ id: "monthly", name: "Mensuel", price: 15000, billing: "par mois" }],
 };
+const freeOffer: CreatorPlatformOffer = {
+  ...paidOffer,
+  pricingType: "free",
+  priceAmount: 0,
+  priceDisplay: "0 XOF Gratuit",
+};
 
 describe("temporary free checkout", () => {
   it("converts an offer to zero cost for a non-manager, without mutating its source", () => {
@@ -64,6 +70,34 @@ describe("temporary free checkout", () => {
         hasPaidOffer: false,
         unlockedProductIds: ["offer-scalping"],
         purchasedOfferIds: ["offer-scalping"],
+        includedApps: expect.arrayContaining(["Telegram", "Discord"]),
+      }),
+    );
+  });
+
+  it("joins a genuinely free product and grants its associated applications", async () => {
+    const onPaymentSuccess = vi.fn();
+
+    render(
+      <OfferCheckoutModal
+        isOpen
+        onClose={() => {}}
+        offer={freeOffer}
+        user={{ uid: "test-customer", name: "Client test", email: "client@example.test" }}
+        onPaymentSuccess={onPaymentSuccess}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Rejoindre gratuitement" }));
+    expect(await screen.findByRole("heading", { name: "Bienvenue !" }, { timeout: 3000 })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Accéder à l'entreprise" }));
+
+    expect(onPaymentSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productId: freeOffer.id,
+        hasPaidOffer: false,
+        unlockedProductIds: [freeOffer.id],
+        purchasedOfferIds: [freeOffer.id],
         includedApps: expect.arrayContaining(["Telegram", "Discord"]),
       }),
     );

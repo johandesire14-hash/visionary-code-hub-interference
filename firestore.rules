@@ -68,8 +68,21 @@ service cloud.firestore {
     function hasVerifiedEntitlement(productId) {
       return signedIn()
         && exists(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId))
-        && get(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId)).data.get('status', '') == 'paid'
+        && get(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId)).data.get('memberUid', '') == request.auth.uid
+        && get(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId)).data.get('status', '') in ['paid', 'free']
         && get(/databases/$(database)/documents/memberEntitlements/$(request.auth.uid + '_' + productId)).data.get('productId', '') == productId;
+    }
+
+    function isActiveFreeProduct(productId, companyId) {
+      let productPath = /databases/$(database)/documents/products/$(productId);
+      return productId is string
+        && productId.size() > 0
+        && companyId is string
+        && companyId.size() > 0
+        && exists(productPath)
+        && get(productPath).data.get('status', '') == 'active'
+        && get(productPath).data.get('pricingAmount', -1) == 0
+        && get(productPath).data.get('companyId', '') == companyId;
     }
 
     function validStatusUpdate(allowedStatuses) {
@@ -195,7 +208,7 @@ service cloud.firestore {
     }
 
     // Le programme de cours et les ressources ne sont jamais inclus dans la fiche publique.
-    // Les membres ne peuvent les lire que si le backend a émis un entitlement actif.
+    // Un entitlement payé ou l'adhésion à un produit réellement gratuit autorise sa lecture.
     match /productPrivateContent/{productId} {
       allow get: if canReadPrivateProductContent(productId) || hasVerifiedEntitlement(productId);
       allow list: if false;
@@ -813,12 +826,27 @@ service cloud.firestore {
       allow list: if false;
       allow create: if signedIn()
         && request.resource.data.get('memberUid', '') == request.auth.uid
-        && request.resource.data.get('status', '') == 'paid'
-        && request.resource.data.get('productId', '') != ''
-        && request.resource.data.get('invoiceId', '') != ''
+        && request.resource.data.keys().hasAll([
+          'memberUid', 'productId', 'companyId', 'status', 'verifiedAt'
+        ])
         && request.resource.data.keys().hasOnly([
           'memberUid', 'productId', 'companyId', 'invoiceId', 'status', 'verifiedAt'
-        ]);
+        ])
+        && request.resource.data.get('productId', '') is string
+        && request.resource.data.get('productId', '').size() > 0
+        && request.resource.data.get('companyId', '') is string
+        && request.resource.data.get('verifiedAt', '') is string
+        && (
+          (request.resource.data.get('status', '') == 'paid'
+            && request.resource.data.get('invoiceId', '') is string
+            && request.resource.data.get('invoiceId', '').size() > 0)
+          || (request.resource.data.get('status', '') == 'free'
+            && !request.resource.data.keys().hasAny(['invoiceId'])
+            && isActiveFreeProduct(
+              request.resource.data.productId,
+              request.resource.data.companyId
+            ))
+        );
       allow update: if signedIn()
         && resource.data.get('memberUid', '') == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['verifiedAt']);

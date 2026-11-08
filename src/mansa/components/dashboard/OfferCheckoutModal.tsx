@@ -35,7 +35,11 @@ import {
 import { MobileMoneyPaymentForm } from "../payment/MobileMoneyPaymentForm";
 import { PhoneValidationResult } from "../../utils/phoneValidationRules";
 import { useModalDismiss } from "../../hooks/useModalDismiss";
-import { createRealTransaction, persistVerifiedMemberEntitlement } from "../../services/dbService";
+import {
+  createRealTransaction,
+  persistFreeMemberEntitlement,
+  persistVerifiedMemberEntitlement,
+} from "../../services/dbService";
 import { recordConfirmedSale } from "../../services/creatorPayoutLedger";
 import { CheckoutPreviewModal } from "./CheckoutPreviewModal";
 import { persistCustomerPurchase } from "./CustomerPurchasesView";
@@ -231,7 +235,7 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
 
       if (!user?.uid) {
         setIsProcessing(false);
-        setPaymentError("Connectez-vous à votre compte Mansa avant de payer.");
+        setPaymentError("Connectez-vous à votre compte Mansa avant de continuer.");
         return;
       }
 
@@ -327,6 +331,27 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
       }
     }
 
+    if (offer.pricingType === "free" && !isCompanyOwner) {
+      if (!user?.uid) {
+        setIsProcessing(false);
+        setPaymentError("Connectez-vous à votre compte Mansa avant de continuer.");
+        return;
+      }
+
+      try {
+        await persistFreeMemberEntitlement({
+          memberUid: user.uid,
+          productId: offer.id,
+          companyId: offer.companyId,
+        });
+      } catch (error) {
+        console.error("Free product entitlement could not be recorded:", error);
+        setIsProcessing(false);
+        setPaymentError("Une erreur est survenue. Réessayez.");
+        return;
+      }
+    }
+
     setTimeout(() => {
       // Determine what apps are unlocked with this purchase
       const baseApps = ["dashboard", "support"];
@@ -416,45 +441,6 @@ export const OfferCheckoutModal: React.FC<OfferCheckoutModalProps> = ({
         }).catch((err) => console.warn("Could not log sale transaction:", err));
       }
     }, 1200);
-  };
-
-  const handleJoinCompanyFree = () => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      // User joins company without paying for this offer:
-      // STRICT SCOPE: Only "dashboard" (accueil) & "support" (chat support).
-      // Offers, Telegram VIP, Discord VIP remain locked!
-      const freeSub: EnterpriseSubscription = {
-        id: `sub-${offer.companyId}-${Date.now()}`,
-        companyId: offer.companyId,
-        companyName: offer.companyName,
-        companyInitials: offer.companyInitials || offer.companyName.substring(0, 2).toUpperCase(),
-        companyLogo: offer.companyLogo,
-        companyGradient: offer.companyGradient || "from-[#0d2818] via-[#051f10] to-[#010a04]",
-        productName: "Adhésion Membre (Sans offre payante)",
-        productId: `free-member-${offer.companyId}`,
-        priceDisplay: "0 € Gratuit",
-        status: "active",
-        subscribedAt: "À l'instant",
-        onlineMembersCount: 142,
-        unreadCount: 0,
-        includedApps: ["dashboard", "support"], // STRICT: ONLY dashboard & support
-        unlockedProductIds: [], // NO paid offer unlocked
-        hasPaidOffer: false,
-        telegramChannels: [],
-        discordChannels: [],
-        discordServerName: `${offer.companyName} Discord HQ`,
-        discordInvite: "",
-        supportChannels: {
-          telegramSupport: "@SupportEquipeAfhub",
-          email: `support@${offer.companyId}.afhub.app`,
-        },
-      };
-
-      setCreatedSubscription(freeSub);
-      setIsProcessing(false);
-      setIsCompleted(true);
-    }, 600);
   };
 
   const handleFinalConfirm = () => {

@@ -512,6 +512,54 @@ export async function persistVerifiedMemberEntitlement(input: {
   );
 }
 
+export async function persistFreeMemberEntitlement(input: {
+  memberUid: string;
+  productId: string;
+  companyId: string;
+  verifiedAt?: string;
+}): Promise<void> {
+  if (!db || !input.memberUid || !input.productId || !input.companyId) return;
+  if (auth?.currentUser?.uid !== input.memberUid) {
+    throw new Error("The authenticated member does not match the free product entitlement.");
+  }
+
+  const entitlementRef = doc(
+    db,
+    "memberEntitlements",
+    `${input.memberUid}_${input.productId}`,
+  );
+  const existingEntitlement = await getDoc(entitlementRef);
+  if (existingEntitlement.exists()) {
+    const existing = existingEntitlement.data();
+    if (
+      existing.memberUid === input.memberUid &&
+      existing.productId === input.productId &&
+      (existing.status === "free" || existing.status === "paid")
+    ) {
+      return;
+    }
+  }
+
+  const productSnapshot = await getDoc(doc(db, "products", input.productId));
+  const product = productSnapshot.data();
+  if (
+    !productSnapshot.exists() ||
+    product?.status !== "active" ||
+    Number(product?.pricingAmount) !== 0 ||
+    product?.companyId !== input.companyId
+  ) {
+    throw new Error("Only an active zero-price product can receive a free entitlement.");
+  }
+
+  await setDoc(entitlementRef, {
+    memberUid: input.memberUid,
+    productId: input.productId,
+    companyId: input.companyId,
+    status: "free",
+    verifiedAt: input.verifiedAt || new Date().toISOString(),
+  });
+}
+
 export async function loadVerifiedMemberContent(
   memberUid: string,
   productId: string,
@@ -742,8 +790,8 @@ export async function getMemberProductsByIds(productIds: string[]): Promise<Busi
           privateSnap.data(),
         );
       } catch (error) {
-        // Security rules deny the read until a trusted payment backend has issued
-        // an active entitlement for this authenticated member.
+        // Security rules deny the read until this member has a valid paid or free
+        // entitlement for the active product.
         console.info(`Private content remains locked for product ${productId}:`, error);
         return null;
       }

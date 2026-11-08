@@ -57,7 +57,7 @@ describe("source unifiée des offres et droits aux ressources", () => {
     ).toBe(true);
   });
 
-  it("ouvre toutes les offres de l’entreprise en mode temporaire sans créer d’achat", () => {
+  it("ne débloque pas les offres sans achat lorsque le mode temporaire est désactivé", () => {
     saveOffers([
       { id: offerA, companyId, companyName: "Entreprise test", title: "Offre A" },
       { id: offerB, companyId, companyName: "Entreprise test", title: "Offre B" },
@@ -65,8 +65,7 @@ describe("source unifiée des offres et droits aux ressources", () => {
 
     const unlockedIds = normalizeUnlockedOfferIds({ companyId, purchasedOfferIds: [] });
 
-    expect(unlockedIds).toEqual(expect.arrayContaining([offerA, offerB]));
-    expect(unlockedIds).not.toContain("paid");
+    expect(unlockedIds).toEqual([]);
   });
 
   it("fusionne le cache produit et la source créateur en gardant le contenu du cours", () => {
